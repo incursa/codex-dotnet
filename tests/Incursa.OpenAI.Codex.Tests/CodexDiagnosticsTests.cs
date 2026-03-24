@@ -49,6 +49,8 @@ public sealed class CodexDiagnosticsTests
         await using CodexClient client = new(new CodexClientOptions
         {
             BackendSelection = CodexBackendSelection.Exec,
+            CodexPathOverride = "codex",
+            ProcessLauncher = new ScriptedCodexProcessLauncher(),
         });
 
         CodexCapabilityNotSupportedException exception = await Assert.ThrowsAsync<CodexCapabilityNotSupportedException>(

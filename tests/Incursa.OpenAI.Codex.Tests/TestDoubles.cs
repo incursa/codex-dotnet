@@ -91,6 +91,9 @@ internal sealed class QueueTextReader : TextReader
         SingleWriter = false,
         AllowSynchronousContinuations = false,
     });
+    private readonly TaskCompletionSource _readStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task ReadStarted => _readStarted.Task;
 
     public void Enqueue(string line)
         => _lines.Writer.TryWrite(line);
@@ -100,6 +103,7 @@ internal sealed class QueueTextReader : TextReader
 
     public override async Task<string?> ReadLineAsync()
     {
+        _readStarted.TrySetResult();
         try
         {
             return await _lines.Reader.ReadAsync().ConfigureAwait(false);

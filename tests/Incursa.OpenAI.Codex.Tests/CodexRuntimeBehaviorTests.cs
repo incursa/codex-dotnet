@@ -509,6 +509,7 @@ public sealed class CodexRuntimeBehaviorTests
             startCts.Token);
 
         await promptWritten.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await process.StdOut.ReadStarted.WaitAsync(TimeSpan.FromSeconds(5));
         startCts.Cancel();
 
         if (!responseQueued)
