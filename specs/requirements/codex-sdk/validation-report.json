@@ -1,0 +1,15 @@
+{
+  "root_path": "C:\\src\\incursa\\spec-trace",
+  "input_path": "C:\\src\\incursa\\codex\\specs",
+  "profile": "traceable",
+  "success": true,
+  "counts": {
+    "markdown_files": 17,
+    "artifacts": 12,
+    "specifications": 8,
+    "requirements": 152,
+    "warnings": 0,
+    "errors": 0
+  },
+  "findings": []
+}

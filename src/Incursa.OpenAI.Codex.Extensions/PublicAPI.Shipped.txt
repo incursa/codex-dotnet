@@ -1,0 +1,4 @@
+T:Incursa.OpenAI.Codex.Extensions.CodexServiceCollectionExtensions
+M:Incursa.OpenAI.Codex.Extensions.CodexServiceCollectionExtensions.AddCodex(Microsoft.Extensions.DependencyInjection.IServiceCollection services):Microsoft.Extensions.DependencyInjection.IServiceCollection
+M:Incursa.OpenAI.Codex.Extensions.CodexServiceCollectionExtensions.AddCodex(Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Extensions.Configuration.IConfiguration configuration):Microsoft.Extensions.DependencyInjection.IServiceCollection
+M:Incursa.OpenAI.Codex.Extensions.CodexServiceCollectionExtensions.AddCodex(Microsoft.Extensions.DependencyInjection.IServiceCollection services, System.Action<Incursa.OpenAI.Codex.CodexClientOptions> configure):Microsoft.Extensions.DependencyInjection.IServiceCollection
