@@ -10,19 +10,43 @@ This package provides `CodexServiceCollectionExtensions`:
 
 The core runtime remains usable without DI (`new CodexClient(...)`).
 
-## Package boundary
+## Minimal DI Setup
+
+```csharp
+using Incursa.OpenAI.Codex;
+using Incursa.OpenAI.Codex.Extensions;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCodex(options =>
+{
+    options.BackendSelection = CodexBackendSelection.AppServer;
+});
+
+var app = builder.Build();
+
+app.MapGet("/hello", async (CodexClient client) =>
+{
+    CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
+    {
+        SkipGitRepoCheck = true,
+    });
+
+    CodexRunResult result = await thread.RunAsync("Say hello from Codex in one sentence.");
+    return result.FinalResponse;
+});
+
+app.Run();
+```
+
+## Configuration Binding
+
+If your app already has a `CodexClientOptions` section, use `AddCodex(IConfiguration)` to bind it directly.
+
+## Package Boundary
 
 - `Incursa.OpenAI.Codex`: runtime behavior and transport interaction
-- `Incursa.OpenAI.Codex.Extensions`: registration/binding helpers only
-- Public API drift is governed by the snapshot baseline files in the package directories.
-
-## DI sample
-
-The runnable sample can create `CodexClient` through DI:
-
-```powershell
-dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode quickstart --use-di
-```
+- `Incursa.OpenAI.Codex.Extensions`: registration and binding helpers only
 
 ## License
 

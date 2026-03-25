@@ -1,53 +1,67 @@
 # Incursa.OpenAI.Codex
 
-`Incursa.OpenAI.Codex` is a .NET 10 Codex runtime client with:
+`Incursa.OpenAI.Codex` is an async-only .NET client for the Codex runtime.
 
-- an async-only core package (`Incursa.OpenAI.Codex`)
-- an optional DI package (`Incursa.OpenAI.Codex.Extensions`)
-- a runnable sample app that demonstrates the major runtime flows
+It gives you:
 
-## Repository layout
+- `CodexClient` for starting and managing Codex conversations
+- `CodexThread` and `CodexTurn` for stateful and turn-level control
+- typed inputs, events, results, options, and exceptions
+- an optional DI package, `Incursa.OpenAI.Codex.Extensions`, for `IServiceCollection` registration
 
-- `src/Incursa.OpenAI.Codex`: core runtime client, thread, turn, transport, and type models
-- `src/Incursa.OpenAI.Codex.Extensions`: `IServiceCollection` registration helpers
-- `samples/Incursa.OpenAI.Codex.Sample`: one console sample with mode-based scenarios
-- `tests/Incursa.OpenAI.Codex.Tests`: non-live and live-gated verification tests
-- `NOTICE.md`: third-party package notice inventory for the current solution
-- `LICENSE`: Apache 2.0 license text
-- `specs/requirements/codex-sdk`: requirements and traceability matrix
-- `specs/verification/codex-sdk`: verification artifacts
+## Start Here
 
-## Runtime prerequisites
+The smallest useful call is a thread plus a single prompt:
 
-- .NET SDK from `global.json` (`10.0.200`)
-- local `codex` executable on `PATH` or `CodexPathOverride`
-- `CODEX_API_KEY` in environment or `--api-key` in sample usage
+```csharp
+using Incursa.OpenAI.Codex;
 
-Runtime version pin:
+await using var client = new CodexClient();
 
-- The repository is currently validated against `codex-cli 0.116.0`.
-- Check with:
+CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
+{
+    SkipGitRepoCheck = true,
+});
 
-```powershell
-codex --version
+CodexRunResult result = await thread.RunAsync("Say hello from Codex in one sentence.");
+Console.WriteLine(result.FinalResponse);
 ```
 
-## Quickstart
+That example assumes the Codex runtime is available and can authenticate through the environment or `CodexClientOptions`.
 
-Build and run tests:
+If you prefer DI, install `Incursa.OpenAI.Codex.Extensions` and register `CodexClient` with `AddCodex(...)`.
 
-```powershell
-dotnet restore
-dotnet test Incursa.OpenAI.Codex.slnx -v minimal
-```
+## Which Backend Should I Use?
 
-Run the sample:
+`CodexClientOptions.BackendSelection` controls the runtime backend.
 
-```powershell
-dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode quickstart --prompt "Summarize this repository."
-```
+| Backend | Use it when | Good for | Not available |
+| --- | --- | --- | --- |
+| `AppServer` | you need the richer conversation surface | thread lifecycle, model listing, thread read/resume/fork/archive/unarchive, turn steering, turn interruption | N/A |
+| `Exec` | you only need the CLI-backed run/stream path | quick one-shot prompts and streaming responses | thread lifecycle management, model listing, turn steering, turn interruption |
 
-Sample modes:
+Current package behavior defaults to `AppServer`.
+
+Under the hood:
+
+- `AppServer` maps to `codex app-server --listen stdio://`
+- `Exec` maps to `codex exec --experimental-json`
+
+## What Is In The SDK?
+
+The major public surfaces are:
+
+- `CodexClient`: root entry point, async-only, `IAsyncDisposable`
+- `CodexThread`: stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync`
+- `CodexTurn`: single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
+- `CodexClientOptions`, `CodexThreadOptions`, `CodexTurnOptions`: runtime, thread, and turn configuration
+- `CodexInputItem` and derived types such as `CodexTextInput`, `CodexImageInput`, `CodexLocalImageInput`, `CodexSkillInput`, and `CodexMentionInput`
+- `CodexThreadEvent` and `CodexThreadItem` hierarchies for streamed runtime data
+- `CodexRunResult`, `CodexThreadSnapshot`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, and `CodexException` types for result handling and diagnostics
+
+## Samples
+
+The runnable sample in `samples/Incursa.OpenAI.Codex.Sample` demonstrates:
 
 - `quickstart`
 - `streaming`
@@ -56,43 +70,15 @@ Sample modes:
 - `error-handling`
 - `turn-controls`
 
-Example invocations:
+See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Codex.Sample/README.md) for the sample overview and [`docs/sample-modes.md`](docs/sample-modes.md) for the mode-by-mode commands.
 
-```powershell
-dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode streaming --prompt "List three files likely to contain option models."
-dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode structured-output --prompt "Return JSON with answer and confidence."
-dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode image-input --image C:\path\to\image.png --prompt "Describe the image."
-dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode turn-controls --prompt "Draft a short release note." --interrupt
-```
+## Deeper Docs
 
-The sample defaults to the `app-server` backend. Use `--backend exec` to exercise CLI-backed behavior. Add `--use-di` to build the client through `AddCodex(...)`.
-
-## Live tests
-
-- Default test runs skip the live Codex integration subset.
-- Enable with:
-
-```powershell
-$Env:CODEX_LIVE_TESTS = "1"
-dotnet test tests/Incursa.OpenAI.Codex.Tests/Incursa.OpenAI.Codex.Tests.csproj --filter FullyQualifiedName~CodexLiveIntegrationTests -v minimal
-```
-
-## Traceability and verification
-
-- `specs/requirements/codex-sdk/TRACEABILITY.md`
-- `specs/verification/codex-sdk/VER-CODEX-SDK-0001.md`
-- `specs/verification/codex-sdk/VER-CODEX-SDK-0002.md`
-- `specs/verification/codex-sdk/VER-CODEX-SDK-0003.md`
-
-The public API baseline files are part of the release gate:
-
-- `src/Incursa.OpenAI.Codex/PublicAPI.Shipped.txt`
-- `src/Incursa.OpenAI.Codex.Extensions/PublicAPI.Shipped.txt`
-
-## GitHub Actions
-
-- `CI` runs on pushes, pull requests, and manual dispatches. It restores, builds, tests, and packs both NuGet packages.
-- `Publish NuGet Packages` runs on version tags (`v*.*.*`) and manual dispatches. Manual dispatches require an explicit version input. The workflow packs the packages and pushes them to NuGet when `NUGET_API_KEY` is configured.
+- [`docs/usage-guide.md`](docs/usage-guide.md)
+- [`docs/sample-modes.md`](docs/sample-modes.md)
+- [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Codex.Sample/README.md)
+- [`src/Incursa.OpenAI.Codex/README.md`](src/Incursa.OpenAI.Codex/README.md)
+- [`src/Incursa.OpenAI.Codex.Extensions/README.md`](src/Incursa.OpenAI.Codex.Extensions/README.md)
 
 ## License
 
