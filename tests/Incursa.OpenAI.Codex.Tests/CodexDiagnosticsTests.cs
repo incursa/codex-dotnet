@@ -59,6 +59,40 @@ public sealed class CodexDiagnosticsTests
         Assert.Equal(nameof(CodexClient.ListThreadsAsync), exception.Operation);
         Assert.Equal(CodexBackendSelection.Exec, exception.BackendSelection);
     }
-}
 
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-STRUCTURE-0286")]
+    public async Task IsCodexAvailableAsync_ReturnsTrueWhenExecutablePathExists()
+    {
+        string executablePath = Path.GetTempFileName();
+
+        try
+        {
+            await using CodexClient client = new(new CodexClientOptions
+            {
+                CodexPathOverride = executablePath,
+            });
+
+            Assert.True(await client.IsCodexAvailableAsync());
+        }
+        finally
+        {
+            File.Delete(executablePath);
+        }
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-STRUCTURE-0286")]
+    public async Task IsCodexAvailableAsync_ReturnsFalseWhenExecutablePathIsMissing()
+    {
+        string executablePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "codex");
+
+        await using CodexClient client = new(new CodexClientOptions
+        {
+            CodexPathOverride = executablePath,
+        });
+
+        Assert.False(await client.IsCodexAvailableAsync());
+    }
+}
 

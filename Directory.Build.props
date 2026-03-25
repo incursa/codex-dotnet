@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>0.1.0</Version>
+    <Version>1.0.18</Version>
     <Authors>Samuel McAravey</Authors>
     <Company>Incursa</Company>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

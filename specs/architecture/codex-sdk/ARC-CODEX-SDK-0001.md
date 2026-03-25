@@ -138,6 +138,7 @@ satisfies:
   - REQ-CODEX-SDK-STRUCTURE-0283
   - REQ-CODEX-SDK-STRUCTURE-0284
   - REQ-CODEX-SDK-STRUCTURE-0285
+  - REQ-CODEX-SDK-STRUCTURE-0286
   - REQ-CODEX-SDK-TRANSPORT-0231
   - REQ-CODEX-SDK-TRANSPORT-0232
   - REQ-CODEX-SDK-TRANSPORT-0233
@@ -417,4 +418,3 @@ The app-server backend should be treated as a persistent JSON-RPC session with a
 ## Open Questions
 
 - None. The companion requirements now fix the namespace split, backend defaults, construction model, and protocol visibility rules.
-

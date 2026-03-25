@@ -1,14 +1,16 @@
 # Incursa.OpenAI.Codex.Extensions
 
-Optional `IServiceCollection` registration for `Incursa.OpenAI.Codex`.
+Optional `IServiceCollection` registration for `Incursa.OpenAI.Codex`. The runtime package still launches the local `codex` executable as a subprocess, so the machine running your app must already have Codex installed and authenticated.
 
-This package provides [`CodexServiceCollectionExtensions`](CodexServiceCollectionExtensions.cs):
+This package exposes [`CodexServiceCollectionExtensions`](CodexServiceCollectionExtensions.cs):
 
 - [`services.AddCodex()`](CodexServiceCollectionExtensions.cs)
 - [`services.AddCodex(Action<CodexClientOptions>)`](CodexServiceCollectionExtensions.cs)
 - [`services.AddCodex(IConfiguration)`](CodexServiceCollectionExtensions.cs)
 
-The core runtime remains usable without DI (`new CodexClient(...)`), via [`CodexClient`](../Incursa.OpenAI.Codex/CodexClient.cs).
+The core runtime still works without DI (`new CodexClient(...)`), via [`CodexClient`](../Incursa.OpenAI.Codex/CodexClient.cs).
+
+If you want a no-throw preflight for the local executable, call `await client.IsCodexAvailableAsync()` before `InitializeAsync()` or any turn operation.
 
 ## Minimal DI Setup
 
@@ -41,7 +43,7 @@ app.Run();
 
 ## Configuration Binding
 
-If your app already has a [`CodexClientOptions`](../Incursa.OpenAI.Codex/Options.cs) section, use [`AddCodex(IConfiguration)`](CodexServiceCollectionExtensions.cs) to bind it directly.
+If your app already has a [`CodexClientOptions`](../Incursa.OpenAI.Codex/Options.cs) configuration section, use [`AddCodex(IConfiguration)`](CodexServiceCollectionExtensions.cs) to bind it directly.
 
 ## Package Boundary
 

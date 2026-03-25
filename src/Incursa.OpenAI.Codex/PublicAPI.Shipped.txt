@@ -79,6 +79,7 @@ M:Incursa.OpenAI.Codex.CodexClient.ForkThreadAsync(System.String threadId, Incur
 M:Incursa.OpenAI.Codex.CodexClient.ResumeThreadAsync(System.String threadId, Incursa.OpenAI.Codex.CodexThreadOptions options = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexThread>
 M:Incursa.OpenAI.Codex.CodexClient.StartThreadAsync(Incursa.OpenAI.Codex.CodexThreadOptions options = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexThread>
 M:Incursa.OpenAI.Codex.CodexClient.UnarchiveThreadAsync(System.String threadId, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexThread>
+M:Incursa.OpenAI.Codex.CodexClient.IsCodexAvailableAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<System.Boolean>
 M:Incursa.OpenAI.Codex.CodexClient.DisposeAsync():System.Threading.Tasks.ValueTask
 T:Incursa.OpenAI.Codex.CodexClientOptions
 C:Incursa.OpenAI.Codex.CodexClientOptions()

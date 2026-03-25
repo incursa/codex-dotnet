@@ -230,3 +230,15 @@ Trace:
 - Source Refs:
   - C:/src/openai/codex/sdk/typescript/src/thread.ts
   - C:/src/openai/codex/sdk/python/src/codex_app_server/api.py
+
+## REQ-CODEX-SDK-STRUCTURE-0286 Expose a non-throwing Codex availability probe
+The SDK MUST expose a non-throwing availability probe so callers can check whether the local Codex executable can be resolved before starting initialization.
+
+Trace:
+- Satisfied By:
+  - ARC-CODEX-SDK-0001
+- Verified By:
+  - VER-CODEX-SDK-0002
+- Source Refs:
+  - C:/src/incursa/codex-dotnet/src/Incursa.OpenAI.Codex/CodexClient.cs
+  - C:/src/incursa/codex-dotnet/src/Incursa.OpenAI.Codex/ProcessAbstractions.cs

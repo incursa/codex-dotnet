@@ -63,6 +63,14 @@ public sealed class CodexClient : IAsyncDisposable
         }
     }
 
+    public Task<bool> IsCodexAvailableAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.FromResult(CodexExecutableResolver.IsAvailable(Options));
+    }
+
     public async Task<CodexThread> StartThreadAsync(
         CodexThreadOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -484,5 +492,4 @@ public sealed class CodexTurn
         await _session.InterruptAsync(cancellationToken).ConfigureAwait(false);
     }
 }
-
 

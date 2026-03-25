@@ -161,6 +161,18 @@ internal static class CodexExecutableResolver
 {
     private const string OriginatorMarker = "codex_sdk_dotnet";
 
+    public static bool IsAvailable(CodexClientOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!string.IsNullOrWhiteSpace(options.CodexPathOverride))
+        {
+            return TryResolveExecutable(options.CodexPathOverride!, out _);
+        }
+
+        return FindOnPath() is not null;
+    }
+
     public static string Resolve(CodexClientOptions options)
     {
         if (!string.IsNullOrWhiteSpace(options.CodexPathOverride))
@@ -196,6 +208,39 @@ internal static class CodexExecutableResolver
     }
 
     private static string? FindOnPath()
+        => FindOnPath("codex");
+
+    private static bool TryResolveExecutable(string executableNameOrPath, out string resolvedPath)
+    {
+        if (LooksLikePath(executableNameOrPath))
+        {
+            if (File.Exists(executableNameOrPath))
+            {
+                resolvedPath = executableNameOrPath;
+                return true;
+            }
+
+            resolvedPath = string.Empty;
+            return false;
+        }
+
+        string? fromPath = FindOnPath(executableNameOrPath);
+        if (fromPath is not null)
+        {
+            resolvedPath = fromPath;
+            return true;
+        }
+
+        resolvedPath = string.Empty;
+        return false;
+    }
+
+    private static bool LooksLikePath(string value)
+        => Path.IsPathRooted(value)
+            || value.Contains(Path.DirectorySeparatorChar)
+            || value.Contains(Path.AltDirectorySeparatorChar);
+
+    private static string? FindOnPath(string executableName)
     {
         string? path = Environment.GetEnvironmentVariable("PATH");
         if (string.IsNullOrWhiteSpace(path))
@@ -204,8 +249,10 @@ internal static class CodexExecutableResolver
         }
 
         string[] candidates = OperatingSystem.IsWindows()
-            ? ["codex.exe", "codex.cmd", "codex.bat", "codex"]
-            : ["codex"];
+            ? Path.HasExtension(executableName)
+                ? [executableName]
+                : [$"{executableName}.exe", $"{executableName}.cmd", $"{executableName}.bat", executableName]
+            : [executableName];
 
         foreach (string directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -229,5 +276,4 @@ internal static class CodexExecutableResolver
         public const string OriginatorMarker = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
     }
 }
-
 
