@@ -4,10 +4,10 @@ Core async-only Codex runtime for .NET.
 
 This package is DI-agnostic and exposes the runtime-facing API:
 
-- `CodexClient`
-- `CodexThread`
-- `CodexTurn`
-- typed options, event, item, result, and exception models
+- [`CodexClient`](CodexClient.cs)
+- [`CodexThread`](CodexClient.cs)
+- [`CodexTurn`](CodexClient.cs)
+- typed options, event, item, result, and exception models such as [`CodexClientOptions`](Options.cs), [`CodexThreadOptions`](Options.cs), [`CodexTurnOptions`](Options.cs), [`CodexInputItem`](ConversationTypes.cs), [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs)
 
 ## Hello World
 
@@ -27,28 +27,28 @@ CodexRunResult result = await thread.RunAsync("Say hello from Codex in one sente
 Console.WriteLine(result.FinalResponse);
 ```
 
-`CodexClient` is async-only. Dispose it with `await using`.
+[`CodexClient`](CodexClient.cs) is async-only. Dispose it with `await using`.
 
-If you want DI registration, use `Incursa.OpenAI.Codex.Extensions` and call `AddCodex(...)`.
+If you want DI registration, use [`Incursa.OpenAI.Codex.Extensions`](../Incursa.OpenAI.Codex.Extensions/README.md) and call [`AddCodex(...)`](../Incursa.OpenAI.Codex.Extensions/CodexServiceCollectionExtensions.cs).
 
 ## Backend Modes
 
 The API supports both backend modes:
 
-- `AppServer` (`codex app-server --listen stdio://`) for the full JSON-RPC surface, thread lifecycle operations, model listing, and turn steering or interruption
-- `Exec` (`codex exec --experimental-json`) for the CLI-backed run and stream flow
+- [`AppServer`](Enums.cs) (`codex app-server --listen stdio://`) for the full JSON-RPC surface, thread lifecycle operations, model listing, and turn steering or interruption
+- [`Exec`](Enums.cs) (`codex exec --experimental-json`) for the CLI-backed run and stream flow
 
-Use `AppServer` when you need long-lived conversations, `CodexThread` management, or turn control. Use `Exec` when you only need prompt-in, response-out behavior.
+Use [`AppServer`](Enums.cs) when you need long-lived conversations, [`CodexThread`](CodexClient.cs) management, or turn control. Use [`Exec`](Enums.cs) when you only need prompt-in, response-out behavior.
 
 ## Major API Surfaces
 
-- `CodexClient`: the root entry point for runtime startup, thread management, and model discovery
-- `CodexThread`: a stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync`
-- `CodexTurn`: a single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
-- `CodexClientOptions`: backend selection, executable path override, API key, configuration, environment, and approval handler
-- `CodexThreadOptions` and `CodexTurnOptions`: working directory, sandbox, approval, model, and output schema settings
-- `CodexInputItem` and the typed input union for text, remote image, local image, skill, and mention inputs
-- `CodexThreadEvent`, `CodexThreadItem`, `CodexRunResult`, `CodexThreadSnapshot`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, and `CodexException` for streamed data, results, and diagnostics
+- [`CodexClient`](CodexClient.cs): the root entry point for runtime startup, thread management, and model discovery
+- [`CodexThread`](CodexClient.cs): a stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync`
+- [`CodexTurn`](CodexClient.cs): a single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
+- [`CodexClientOptions`](Options.cs): backend selection, executable path override, API key, configuration, environment, and approval handler
+- [`CodexThreadOptions`](Options.cs) and [`CodexTurnOptions`](Options.cs): working directory, sandbox, approval, model, and output schema settings
+- [`CodexInputItem`](ConversationTypes.cs) and the typed input union for text, remote image, local image, skill, and mention inputs
+- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics
 
 ## Sample
 

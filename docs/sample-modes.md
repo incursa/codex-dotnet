@@ -10,7 +10,7 @@ The default mode shows the shortest end-to-end prompt call:
 dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode quickstart --prompt "Summarize this repository."
 ```
 
-Use this when you want the bare minimum from the SDK: create a client, start a thread, run one prompt, print the final response.
+Use this when you want the bare minimum from the SDK: create a client such as [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs), start a thread such as [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs), run one prompt, and print the final response.
 
 ## Streaming
 
@@ -20,11 +20,11 @@ Shows the event stream as it arrives:
 dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode streaming --prompt "List three files likely to contain option models."
 ```
 
-Use this when you want to build a UI or log pipeline around incremental Codex events.
+Use this when you want to build a UI or log pipeline around incremental [`CodexThreadEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) data.
 
 ## Structured Output
 
-Shows `CodexTurnOptions.OutputSchema` with a JSON schema:
+Shows the [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs).`OutputSchema` setting with a JSON schema:
 
 ```powershell
 dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode structured-output --prompt "Return JSON with answer and confidence."
@@ -40,7 +40,7 @@ Shows local and remote image inputs:
 dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode image-input --image C:\path\to\image.png --prompt "Describe the image."
 ```
 
-Use `--image-url` instead of `--image` if you want to provide a remote image.
+Use `--image-url` instead of `--image` if you want to provide a remote image input such as [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs).
 
 ## Error Handling
 
@@ -60,11 +60,11 @@ Shows explicit turn steering and interruption:
 dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode turn-controls --prompt "Draft a short release note." --interrupt
 ```
 
-This mode is the clearest demonstration of why `AppServer` exists: it gives you control after the turn has started.
+This mode is the clearest demonstration of why [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) exists: it gives you control after the turn has started with [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).
 
 ## DI Variant
 
-Add `--use-di` to build the client through `Incursa.OpenAI.Codex.Extensions`:
+Add `--use-di` to build the client through [`Incursa.OpenAI.Codex.Extensions`](../src/Incursa.OpenAI.Codex.Extensions/README.md):
 
 ```powershell
 dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj -- --mode quickstart --use-di
@@ -72,5 +72,5 @@ dotnet run --project samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sa
 
 ## Backend Reminder
 
-- `AppServer` is the default in the current package and supports the full thread and turn-control surface
-- `Exec` is the CLI-backed path for simpler run and stream flows
+- [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) is the default in the current package and supports the full thread and turn-control surface
+- [`Exec`](../src/Incursa.OpenAI.Codex/Enums.cs) is the CLI-backed path for simpler run and stream flows

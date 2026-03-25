@@ -4,10 +4,10 @@
 
 It gives you:
 
-- `CodexClient` for starting and managing Codex conversations
-- `CodexThread` and `CodexTurn` for stateful and turn-level control
-- typed inputs, events, results, options, and exceptions
-- an optional DI package, `Incursa.OpenAI.Codex.Extensions`, for `IServiceCollection` registration
+- [`CodexClient`](src/Incursa.OpenAI.Codex/CodexClient.cs) for starting and managing Codex conversations
+- [`CodexThread`](src/Incursa.OpenAI.Codex/CodexClient.cs) and [`CodexTurn`](src/Incursa.OpenAI.Codex/CodexClient.cs) for stateful and turn-level control
+- typed inputs, events, results, options, and exceptions such as [`CodexClientOptions`](src/Incursa.OpenAI.Codex/Options.cs), [`CodexThreadOptions`](src/Incursa.OpenAI.Codex/Options.cs), [`CodexTurnOptions`](src/Incursa.OpenAI.Codex/Options.cs), [`CodexInputItem`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexThreadEvent`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexThreadItem`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexRunResult`](src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadSnapshot`](src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeCapabilities`](src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeMetadata`](src/Incursa.OpenAI.Codex/CoreTypes.cs), and [`CodexException`](src/Incursa.OpenAI.Codex/Exceptions.cs)
+- an optional DI package, [`Incursa.OpenAI.Codex.Extensions`](src/Incursa.OpenAI.Codex.Extensions/README.md), for `IServiceCollection` registration
 
 ## Start Here
 
@@ -27,37 +27,37 @@ CodexRunResult result = await thread.RunAsync("Say hello from Codex in one sente
 Console.WriteLine(result.FinalResponse);
 ```
 
-That example assumes the Codex runtime is available and can authenticate through the environment or `CodexClientOptions`.
+That example assumes the Codex runtime is available and can authenticate through the environment or [`CodexClientOptions`](src/Incursa.OpenAI.Codex/Options.cs).
 
-If you prefer DI, install `Incursa.OpenAI.Codex.Extensions` and register `CodexClient` with `AddCodex(...)`.
+If you prefer DI, install [`Incursa.OpenAI.Codex.Extensions`](src/Incursa.OpenAI.Codex.Extensions/README.md) and register [`CodexClient`](src/Incursa.OpenAI.Codex/CodexClient.cs) with [`AddCodex(...)`](src/Incursa.OpenAI.Codex.Extensions/CodexServiceCollectionExtensions.cs).
 
 ## Which Backend Should I Use?
 
-`CodexClientOptions.BackendSelection` controls the runtime backend.
+The [`CodexClientOptions`](src/Incursa.OpenAI.Codex/Options.cs) type controls the runtime backend through its `BackendSelection` property.
 
 | Backend | Use it when | Good for | Not available |
 | --- | --- | --- | --- |
-| `AppServer` | you need the richer conversation surface | thread lifecycle, model listing, thread read/resume/fork/archive/unarchive, turn steering, turn interruption | N/A |
-| `Exec` | you only need the CLI-backed run/stream path | quick one-shot prompts and streaming responses | thread lifecycle management, model listing, turn steering, turn interruption |
+| [`AppServer`](src/Incursa.OpenAI.Codex/Enums.cs) | you need the richer conversation surface | thread lifecycle, model listing, thread read/resume/fork/archive/unarchive, turn steering, turn interruption | N/A |
+| [`Exec`](src/Incursa.OpenAI.Codex/Enums.cs) | you only need the CLI-backed run/stream path | quick one-shot prompts and streaming responses | thread lifecycle management, model listing, turn steering, turn interruption |
 
-Current package behavior defaults to `AppServer`.
+Current package behavior defaults to [`AppServer`](src/Incursa.OpenAI.Codex/Enums.cs).
 
 Under the hood:
 
-- `AppServer` maps to `codex app-server --listen stdio://`
-- `Exec` maps to `codex exec --experimental-json`
+- [`AppServer`](src/Incursa.OpenAI.Codex/Enums.cs) maps to `codex app-server --listen stdio://`
+- [`Exec`](src/Incursa.OpenAI.Codex/Enums.cs) maps to `codex exec --experimental-json`
 
 ## What Is In The SDK?
 
 The major public surfaces are:
 
-- `CodexClient`: root entry point, async-only, `IAsyncDisposable`
-- `CodexThread`: stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync`
-- `CodexTurn`: single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
-- `CodexClientOptions`, `CodexThreadOptions`, `CodexTurnOptions`: runtime, thread, and turn configuration
-- `CodexInputItem` and derived types such as `CodexTextInput`, `CodexImageInput`, `CodexLocalImageInput`, `CodexSkillInput`, and `CodexMentionInput`
-- `CodexThreadEvent` and `CodexThreadItem` hierarchies for streamed runtime data
-- `CodexRunResult`, `CodexThreadSnapshot`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, and `CodexException` types for result handling and diagnostics
+- [`CodexClient`](src/Incursa.OpenAI.Codex/CodexClient.cs): root entry point, async-only, `IAsyncDisposable`
+- [`CodexThread`](src/Incursa.OpenAI.Codex/CodexClient.cs): stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync`
+- [`CodexTurn`](src/Incursa.OpenAI.Codex/CodexClient.cs): single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
+- [`CodexClientOptions`](src/Incursa.OpenAI.Codex/Options.cs), [`CodexThreadOptions`](src/Incursa.OpenAI.Codex/Options.cs), [`CodexTurnOptions`](src/Incursa.OpenAI.Codex/Options.cs): runtime, thread, and turn configuration
+- [`CodexInputItem`](src/Incursa.OpenAI.Codex/ConversationTypes.cs) and derived types such as [`CodexTextInput`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexImageInput`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexLocalImageInput`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexSkillInput`](src/Incursa.OpenAI.Codex/ConversationTypes.cs), and [`CodexMentionInput`](src/Incursa.OpenAI.Codex/ConversationTypes.cs)
+- [`CodexThreadEvent`](src/Incursa.OpenAI.Codex/ConversationTypes.cs) and [`CodexThreadItem`](src/Incursa.OpenAI.Codex/ConversationTypes.cs) hierarchies for streamed runtime data
+- [`CodexRunResult`](src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadSnapshot`](src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeCapabilities`](src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeMetadata`](src/Incursa.OpenAI.Codex/CoreTypes.cs), and [`CodexException`](src/Incursa.OpenAI.Codex/Exceptions.cs) types for result handling and diagnostics
 
 ## Samples
 

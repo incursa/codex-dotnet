@@ -2,13 +2,13 @@
 
 Optional `IServiceCollection` registration for `Incursa.OpenAI.Codex`.
 
-This package provides `CodexServiceCollectionExtensions`:
+This package provides [`CodexServiceCollectionExtensions`](CodexServiceCollectionExtensions.cs):
 
-- `services.AddCodex()`
-- `services.AddCodex(Action<CodexClientOptions>)`
-- `services.AddCodex(IConfiguration)`
+- [`services.AddCodex()`](CodexServiceCollectionExtensions.cs)
+- [`services.AddCodex(Action<CodexClientOptions>)`](CodexServiceCollectionExtensions.cs)
+- [`services.AddCodex(IConfiguration)`](CodexServiceCollectionExtensions.cs)
 
-The core runtime remains usable without DI (`new CodexClient(...)`).
+The core runtime remains usable without DI (`new CodexClient(...)`), via [`CodexClient`](../Incursa.OpenAI.Codex/CodexClient.cs).
 
 ## Minimal DI Setup
 
@@ -41,12 +41,12 @@ app.Run();
 
 ## Configuration Binding
 
-If your app already has a `CodexClientOptions` section, use `AddCodex(IConfiguration)` to bind it directly.
+If your app already has a [`CodexClientOptions`](../Incursa.OpenAI.Codex/Options.cs) section, use [`AddCodex(IConfiguration)`](CodexServiceCollectionExtensions.cs) to bind it directly.
 
 ## Package Boundary
 
-- `Incursa.OpenAI.Codex`: runtime behavior and transport interaction
-- `Incursa.OpenAI.Codex.Extensions`: registration and binding helpers only
+- [`Incursa.OpenAI.Codex`](../Incursa.OpenAI.Codex/README.md): runtime behavior and transport interaction
+- [`Incursa.OpenAI.Codex.Extensions`](README.md): registration and binding helpers only
 
 ## License
 
