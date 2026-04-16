@@ -1,0 +1,68 @@
+version: 1
+domain: testing
+
+scope:
+  solutionPath: Incursa.OpenAI.Codex.slnx
+  includes:
+    - src/Incursa.OpenAI.Codex
+    - src/Incursa.OpenAI.Codex.Extensions
+    - tests/Incursa.OpenAI.Codex.Tests
+    - fuzz
+    - benchmarks
+
+expectations:
+  evidence:
+    - inventory
+    - results
+    - coverage
+  confidenceTarget: high
+
+coverage:
+  lineMin: 0.50
+  branchMin: 0.40
+  criticalFiles:
+    - src/Incursa.OpenAI.Codex/CodexProtocol.cs
+    - src/Incursa.OpenAI.Codex/CodexConfigSerialization.cs
+    - src/Incursa.OpenAI.Codex/JsonRpcConnection.cs
+    - src/Incursa.OpenAI.Codex/ExecTransport.cs
+    - src/Incursa.OpenAI.Codex/AppServerTransport.cs
+    - src/Incursa.OpenAI.Codex.Extensions/CodexServiceCollectionExtensions.cs
+
+  scenarios:
+    requiredTests:
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolTests.cs::BuildTurnStartParams_EmitsThreadIdInputAndTurnOptions
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolPropertyTests.cs::BuildInputPayload_TextInput_PreservesText
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolPropertyTests.cs::BuildInputPayload_SkillInput_PreservesNameAndPath
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolPropertyTests.cs::ConfigSerialization_StringValue_UsesJsonStringEncoding
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolPropertyTests.cs::ConfigSerialization_NumberValue_UsesInvariantCulture
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_FlattensNestedOverrides
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_RejectsNonFiniteNumbers
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_ReturnsEmptyResultsForNullConfig
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_QuotesKeysWithWhitespace
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureNegativeTests.cs::ConfigSerialization_RejectsBlankOverrideKeys
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureNegativeTests.cs::ConfigSerialization_RejectsNullJsonNodeValues
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolTests.cs::BuildTurnStartParams_DeepClonesOutputSchema
+      - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolTests.cs::ParseThreadEvent_UnwrapsParamsAndParsesFallbackBranches
+      - tests/Incursa.OpenAI.Codex.Tests/JsonRpcConnectionTests.cs::RequestAsync_MapsJsonRpcErrorResponses
+      - tests/Incursa.OpenAI.Codex.Tests/CodexAppServerTransportTests.cs::InitializeAsync_PerformsHandshakeAndNormalizesMetadata
+      - tests/Incursa.OpenAI.Codex.Tests/CodexAppServerTransportTests.cs::InitializeAsync_RejectsHandshakeWithoutServerIdentity
+      - tests/Incursa.OpenAI.Codex.Tests/CodexAppServerTransportTests.cs::StartThreadAsync_EmitsClientConfigAndGranularApprovalPolicy
+      - tests/Incursa.OpenAI.Codex.Tests/CodexServiceCollectionExtensionsTests.cs::AddCodex_BindsConfigurationIntoOptions
+      - tests/Incursa.OpenAI.Codex.Tests/CodexRuntimeBehaviorTests.cs::RunAsync_ReturnsCompletedResultAndTranslatesCliOptions
+
+intentionalGaps:
+  - subject: fuzz
+    rationale: The fuzz harness is a separate executable and is not counted as normalized unit-test evidence.
+  - subject: benchmarks
+    rationale: Permanent BenchmarkDotNet suites live under the `benchmarks/` project and are tracked separately from unit test evidence.
+
+related:
+  docs:
+    - tests/Incursa.OpenAI.Codex.Tests/README.md
+    - fuzz/README.md
+    - benchmarks/README.md
+    - README.md
+  files:
+    - src/Incursa.OpenAI.Codex/CodexProtocol.cs
+    - src/Incursa.OpenAI.Codex/CodexConfigSerialization.cs
+    - src/Incursa.OpenAI.Codex/JsonRpcConnection.cs

@@ -34,6 +34,7 @@ public sealed class CodexProtocolTests
 
     [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Positive)]
     public void BuildThreadStartParams_EmitsThreadOptionsAndPolicies()
     {
         JsonObject payload = CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
@@ -120,6 +121,7 @@ public sealed class CodexProtocolTests
 
     [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Positive)]
     public void BuildThreadMutationParams_EmitExpectedWireNames()
     {
         JsonObject resume = CodexProtocol.BuildThreadResumeParams("thread-1", new CodexThreadOptions
@@ -173,6 +175,7 @@ public sealed class CodexProtocolTests
 
     [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Positive)]
     public void BuildTurnStartParams_EmitsThreadIdInputAndTurnOptions()
     {
         JsonObject outputSchema = new()
@@ -234,6 +237,36 @@ public sealed class CodexProtocolTests
         Assert.Equal("mention", input[4]!["type"]!.GetValue<string>());
         Assert.Equal("mention", input[4]!["name"]!.GetValue<string>());
         Assert.Equal(@"C:\mentions\mention.md", input[4]!["path"]!.GetValue<string>());
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public void BuildTurnStartParams_DeepClonesOutputSchema()
+    {
+        JsonObject outputSchema = new()
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["summary"] = new JsonObject
+                {
+                    ["type"] = "string",
+                },
+            },
+        };
+
+        JsonObject payload = CodexProtocol.BuildTurnStartParams(
+            "thread-1",
+            [new CodexTextInput { Text = "hello" }],
+            new CodexTurnOptions
+            {
+                OutputSchema = outputSchema,
+            });
+
+        outputSchema["properties"]!["summary"]!["type"] = "number";
+
+        Assert.Equal("string", payload["outputSchema"]!["properties"]!["summary"]!["type"]!.GetValue<string>());
     }
 
     [Fact]
@@ -327,6 +360,45 @@ public sealed class CodexProtocolTests
         Assert.IsType<CodexUnknownThreadEvent>(unknown);
         Assert.Equal("custom.runtime-event", ((CodexUnknownThreadEvent)unknown).UnknownType);
         Assert.Equal("mystery", ((CodexUnknownThreadEvent)unknown).RawPayload!["note"]!.GetValue<string>());
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public void ParseThreadEvent_UnwrapsParamsAndParsesFallbackBranches()
+    {
+        CodexThreadEvent evt = CodexProtocol.ParseThreadEvent(new JsonObject
+        {
+            ["method"] = "turn.failed",
+            ["params"] = new JsonObject
+            {
+                ["turn"] = new JsonObject
+                {
+                    ["id"] = "turn-2",
+                    ["status"] = "unexpected",
+                    ["items"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["type"] = "agentMessage",
+                            ["id"] = "msg-2",
+                            ["phase"] = "final_answer",
+                            ["text"] = "done",
+                        },
+                    },
+                },
+            },
+        });
+
+        CodexTurnFailedEvent failed = Assert.IsType<CodexTurnFailedEvent>(evt);
+        Assert.Equal("turn-2", failed.Turn.Id);
+        Assert.Equal(CodexTurnStatus.InProgress, failed.Turn.Status);
+
+        CodexAgentMessageItem message = Assert.IsType<CodexAgentMessageItem>(failed.Turn.Items.Single());
+        Assert.Equal("msg-2", message.Id);
+        Assert.Equal(CodexMessagePhase.FinalAnswer, message.Phase);
+        Assert.Equal("done", message.Text);
     }
 
     [Fact]
@@ -465,6 +537,83 @@ public sealed class CodexProtocolTests
     }
 
     [Fact]
+    public void ParseModelListResult_ParsesDataAndCursor()
+    {
+        CodexModelListResult result = CodexProtocol.ParseModelListResult(new JsonObject
+        {
+            ["nextCursor"] = "cursor-3",
+            ["data"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["id"] = "model-2",
+                    ["model"] = "gpt-5-mini",
+                    ["displayName"] = "GPT-5 Mini",
+                    ["description"] = "Trace model",
+                    ["hidden"] = true,
+                    ["isDefault"] = false,
+                    ["defaultReasoningEffort"] = "unexpected",
+                },
+            },
+        });
+
+        Assert.Equal("cursor-3", result.NextCursor);
+        Assert.Single(result.Models);
+        Assert.Equal("model-2", result.Models[0].Id);
+        Assert.Equal(CodexReasoningEffort.Medium, result.Models[0].DefaultReasoningEffort);
+    }
+
+    [Fact]
+    public void ParseThreadListResult_ParsesThreadsAndCursor()
+    {
+        CodexThreadListResult result = CodexProtocol.ParseThreadListResult(new JsonObject
+        {
+            ["nextCursor"] = "thread-cursor",
+            ["threads"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["id"] = "thread-1",
+                    ["preview"] = "Preview",
+                    ["status"] = new JsonObject { ["type"] = "unexpected" },
+                    ["modelProvider"] = "openai",
+                    ["createdAt"] = 1,
+                    ["updatedAt"] = 2,
+                    ["ephemeral"] = false,
+                    ["cliVersion"] = "1.2.3",
+                },
+            },
+        });
+
+        Assert.Equal("thread-cursor", result.NextCursor);
+        Assert.Single(result.Threads);
+        Assert.Equal("thread-1", result.Threads[0].Id);
+        Assert.IsType<CodexNotLoadedThreadStatus>(result.Threads[0].Status);
+    }
+
+    [Fact]
+    public void ParseThreadHandleState_UsesPayloadWhenThreadObjectMissing()
+    {
+        CodexThreadHandleState handle = CodexProtocol.ParseThreadHandleState(new JsonObject
+        {
+            ["id"] = "thread-2",
+            ["name"] = "fallback thread",
+            ["preview"] = "Preview",
+            ["status"] = new JsonObject { ["type"] = "unexpected" },
+            ["modelProvider"] = "openai",
+            ["createdAt"] = 1,
+            ["updatedAt"] = 2,
+            ["ephemeral"] = false,
+            ["cliVersion"] = "1.2.3",
+        }, defaults: null);
+
+        Assert.Equal("thread-2", handle.Snapshot.Id);
+        Assert.Equal("fallback thread", handle.Snapshot.Name);
+        Assert.IsType<CodexNotLoadedThreadStatus>(handle.Snapshot.Status);
+        Assert.Null(handle.Defaults);
+    }
+
+    [Fact]
     public void NormalizeMetadata_InfersServerIdentityFromUserAgent()
     {
         CodexRuntimeMetadata normalized = CodexProtocol.NormalizeMetadata(new CodexRuntimeMetadata
@@ -478,5 +627,3 @@ public sealed class CodexProtocolTests
         Assert.Equal("1.2.3", normalized.ServerInfo.Version);
     }
 }
-
-

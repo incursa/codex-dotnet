@@ -24,6 +24,66 @@ public sealed class CodexRuntimeBehaviorTests
     }
 
     [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0314")]
+    public async Task InitializeAsync_UsesProvidedExecClientIdentity()
+    {
+        await using CodexClient client = new(new CodexClientOptions
+        {
+            BackendSelection = CodexBackendSelection.Exec,
+            CodexPathOverride = "codex",
+            ClientName = "TraceClient",
+            ClientVersion = "9.9.9",
+        });
+
+        CodexRuntimeMetadata metadata = await client.InitializeAsync();
+
+        Assert.Equal("TraceClient/9.9.9", metadata.UserAgent);
+        Assert.Equal("codex-exec", metadata.ServerInfo!.Name);
+        Assert.Equal("9.9.9", metadata.ServerInfo.Version);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0238")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0239")]
+    public async Task InitializeAsync_IsIdempotentAndStartsAppServerOnce()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        int initializeRequests = 0;
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["method"]?.GetValue<string>() != "initialize")
+            {
+                return;
+            }
+
+            initializeRequests++;
+            process.EnqueueStdout(TestJson.Response(
+                request["id"]!.GetValue<string>(),
+                new JsonObject
+                {
+                    ["userAgent"] = "codex-app-server/1.2.3",
+                    ["platformFamily"] = "Unix",
+                    ["platformOs"] = "Linux",
+                }));
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+
+        CodexRuntimeMetadata[] metadata = await Task.WhenAll(client.InitializeAsync(), client.InitializeAsync());
+
+        Assert.Single(launcher.StartInfos);
+        Assert.Equal(1, initializeRequests);
+        Assert.Same(metadata[0], metadata[1]);
+        Assert.Equal("codex-app-server", client.Metadata!.ServerInfo!.Name);
+        Assert.True(client.Capabilities!.SupportsStartThread);
+    }
+
+    [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0233")]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0235")]
     [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0303")]
@@ -120,6 +180,19 @@ public sealed class CodexRuntimeBehaviorTests
         {
             BackendSelection = CodexBackendSelection.Exec,
             CodexPathOverride = "codex",
+            Config = new CodexConfigObject
+            {
+                Values = new Dictionary<string, CodexConfigValue>(StringComparer.Ordinal)
+                {
+                    ["client"] = new CodexConfigObject
+                    {
+                        Values = new Dictionary<string, CodexConfigValue>(StringComparer.Ordinal)
+                        {
+                            ["feature"] = new CodexConfigStringValue("enabled"),
+                        },
+                    },
+                },
+            },
             ProcessLauncher = launcher,
         };
 
@@ -131,6 +204,19 @@ public sealed class CodexRuntimeBehaviorTests
         {
             CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
             {
+                Config = new CodexConfigObject
+                {
+                    Values = new Dictionary<string, CodexConfigValue>(StringComparer.Ordinal)
+                    {
+                        ["thread"] = new CodexConfigObject
+                        {
+                            Values = new Dictionary<string, CodexConfigValue>(StringComparer.Ordinal)
+                            {
+                                ["feature"] = new CodexConfigStringValue("override"),
+                            },
+                        },
+                    },
+                },
                 WorkingDirectory = workDir,
                 Model = "gpt-5",
                 Sandbox = new CodexDangerFullAccessSandboxPolicy(),
@@ -154,6 +240,8 @@ public sealed class CodexRuntimeBehaviorTests
             Assert.Contains("--add-dir", launcher.StartInfos.Single().Arguments);
             Assert.Contains(@"C:\extra-one", launcher.StartInfos.Single().Arguments);
             Assert.Contains(@"C:\extra-two", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("client.feature=\"enabled\"", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("thread.feature=\"override\"", launcher.StartInfos.Single().Arguments);
 
             Assert.Equal("Echo: hello codex", result.FinalResponse);
             Assert.NotNull(result.Usage);
@@ -248,6 +336,7 @@ public sealed class CodexRuntimeBehaviorTests
             Sandbox = new CodexReadOnlySandboxPolicy(),
             ModelReasoningEffort = CodexReasoningEffort.Low,
             ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnFailure),
+            WebSearchEnabled = true,
         });
 
         CodexRunResult result = await thread.RunAsync(
@@ -270,8 +359,262 @@ public sealed class CodexRuntimeBehaviorTests
         Assert.Contains("--cd", args);
         Assert.Contains("/turn-override", args);
         Assert.Contains("model_reasoning_effort=\"high\"", args);
+        Assert.Contains(@"web_search=""live""", args);
         Assert.Contains("approval_policy=\"on-request\"", args);
         Assert.Equal("Echo: override input", result.FinalResponse);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0233")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0235")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0317")]
+    public async Task RunAsync_FallsBackWhenCliEnumValuesAreOutOfRange()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        bool responseQueued = false;
+        process.StdIn.TextWritten = text =>
+        {
+            if (responseQueued || !text.Contains("fallback input", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            responseQueued = true;
+            process.EnqueueStdout(TestJson.Notification(
+                "turn.started",
+                new JsonObject
+                {
+                    ["turn"] = new JsonObject
+                    {
+                        ["id"] = "turn-fallback",
+                        ["status"] = "inProgress",
+                    },
+                }));
+            process.EnqueueStdout(TestJson.Notification(
+                "turn.completed",
+                new JsonObject
+                {
+                    ["turn"] = new JsonObject
+                    {
+                        ["id"] = "turn-fallback",
+                        ["status"] = "completed",
+                        ["items"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["type"] = "agentMessage",
+                                ["id"] = "message-fallback",
+                                ["phase"] = "finalAnswer",
+                                ["text"] = "Echo: fallback input",
+                            },
+                        },
+                        ["usage"] = new JsonObject
+                        {
+                            ["last"] = new JsonObject
+                            {
+                                ["totalTokens"] = 1,
+                            },
+                            ["total"] = new JsonObject
+                            {
+                                ["totalTokens"] = 1,
+                            },
+                        },
+                    },
+                }));
+            process.Complete();
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = new(new CodexClientOptions
+        {
+            BackendSelection = CodexBackendSelection.Exec,
+            CodexPathOverride = "codex",
+            BaseUrl = "https://example.com/api",
+            ProcessLauncher = launcher,
+        });
+
+        CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
+        {
+            WebSearchMode = (CodexWebSearchMode)123,
+            ModelReasoningEffort = CodexReasoningEffort.Low,
+            ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnFailure),
+        });
+
+        CodexRunResult result = await thread.RunAsync(
+            "fallback input",
+            new CodexTurnOptions
+            {
+                Effort = (CodexReasoningEffort)123,
+                ApprovalPolicy = new CodexApprovalModePolicy((CodexApprovalMode)123),
+            });
+
+        List<string> args = launcher.StartInfos.Single().Arguments.ToList();
+        Assert.Contains(@"openai_base_url=""https://example.com/api""", args);
+        Assert.Contains(@"model_reasoning_effort=""medium""", args);
+        Assert.Contains(@"web_search=""disabled""", args);
+        Assert.Contains(@"approval_policy=""on-request""", args);
+        Assert.Equal("Echo: fallback input", result.FinalResponse);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0233")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0235")]
+    [CoverageType(RequirementCoverageType.Negative)]
+    public async Task RunAsync_RejectsGranularApprovalPolicyOnExecBackend()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        await using CodexClient client = new(new CodexClientOptions
+        {
+            BackendSelection = CodexBackendSelection.Exec,
+            CodexPathOverride = "codex",
+            ProcessLauncher = launcher,
+        });
+
+        CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
+        {
+            ApprovalPolicy = new CodexGranularApprovalPolicy(new CodexGranularApprovalRules
+            {
+                McpElicitations = true,
+                RequestPermissions = true,
+                Rules = true,
+                SandboxApproval = true,
+                SkillApproval = true,
+            }),
+        });
+
+        CodexCapabilityNotSupportedException exception = await Assert.ThrowsAsync<CodexCapabilityNotSupportedException>(() => thread.RunAsync("granular approval"));
+
+        Assert.Equal(CodexBackendSelection.Exec, exception.BackendSelection);
+        Assert.Equal("granular approval policies", exception.Operation);
+        Assert.Contains("does not support 'granular approval policies'", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(launcher.StartInfos);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0233")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0235")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0317")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0319")]
+    public async Task RunAsync_ResumesThreadAndNormalizesTypedInputs()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        TaskCompletionSource<string> promptSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool responseQueued = false;
+
+        process.StdIn.TextWritten = text =>
+        {
+            if (!text.Contains("primary", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            promptSeen.TrySetResult(text);
+            if (responseQueued)
+            {
+                return;
+            }
+
+            responseQueued = true;
+            process.EnqueueStdout(TestJson.Notification(
+                "turn.started",
+                new JsonObject
+                {
+                    ["turn"] = new JsonObject
+                    {
+                        ["id"] = "turn-resume",
+                        ["status"] = "inProgress",
+                    },
+                }));
+            process.EnqueueStdout(TestJson.Notification(
+                "turn.completed",
+                new JsonObject
+                {
+                    ["turn"] = new JsonObject
+                    {
+                        ["id"] = "turn-resume",
+                        ["status"] = "completed",
+                        ["items"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["type"] = "agentMessage",
+                                ["id"] = "message-resume",
+                                ["phase"] = "finalAnswer",
+                                ["text"] = "Echo: primary",
+                            },
+                        },
+                        ["usage"] = new JsonObject
+                        {
+                            ["last"] = new JsonObject
+                            {
+                                ["totalTokens"] = 1,
+                            },
+                            ["total"] = new JsonObject
+                            {
+                                ["totalTokens"] = 1,
+                            },
+                        },
+                    },
+                }));
+            process.Complete();
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = new(new CodexClientOptions
+        {
+            BackendSelection = CodexBackendSelection.Exec,
+            CodexPathOverride = "codex",
+            ProcessLauncher = launcher,
+        });
+
+        CodexThread thread = await client.ResumeThreadAsync("thread-resume", new CodexThreadOptions
+        {
+            Model = "thread-model",
+            NetworkAccessEnabled = false,
+            WebSearchEnabled = false,
+            WorkingDirectory = "/thread-dir",
+        });
+
+        CodexRunResult result = await thread.RunAsync(
+            new CodexInputItem[]
+            {
+                new CodexTextInput { Text = "primary" },
+                new CodexTextInput { Text = " " },
+                new CodexSkillInput { Name = "skill", Path = "/skills/trace" },
+                new CodexMentionInput { Name = "mention", Path = "/mentions/trace" },
+                new CodexImageInput { Url = "https://example.com/image.png" },
+                new CodexImageInput { Url = " " },
+                new CodexLocalImageInput { Path = @"C:\images\trace.png" },
+                new CodexLocalImageInput { Path = " " },
+            },
+            new CodexTurnOptions
+            {
+                Model = " ",
+                WorkingDirectory = "/turn-dir",
+            });
+
+        string prompt = await promptSeen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        List<string> args = launcher.StartInfos.Single().Arguments.ToList();
+
+        Assert.Equal("/turn-dir", launcher.StartInfos.Single().WorkingDirectory);
+        Assert.Contains("resume", args);
+        Assert.Contains("thread-resume", args);
+        Assert.Contains("--model", args);
+        Assert.Contains("thread-model", args);
+        Assert.Contains(@"sandbox_workspace_write.network_access=false", args);
+        Assert.Contains(@"web_search=""disabled""", args);
+        Assert.Contains("--image", args);
+        Assert.Contains("https://example.com/image.png", args);
+        Assert.Contains(@"C:\images\trace.png", args);
+        Assert.DoesNotContain(" ", args);
+        Assert.Equal(
+            string.Join(Environment.NewLine + Environment.NewLine, ["primary", "[skill] /skills/trace", "[mention] /mentions/trace"]),
+            prompt);
+        Assert.Equal("Echo: primary", result.FinalResponse);
     }
 
     [Fact]
@@ -425,6 +768,7 @@ public sealed class CodexRuntimeBehaviorTests
 
         CodexTurnFailedEvent failed = Assert.IsType<CodexTurnFailedEvent>(events.Last());
         Assert.Equal(CodexTurnStatus.Failed, failed.Turn.Status);
+        Assert.Equal("Codex exec exited unexpectedly with code 7.", failed.Turn.Error!.Message);
         Assert.Contains("stderr-two", failed.Turn.Error!.AdditionalDetails ?? string.Empty, StringComparison.Ordinal);
         Assert.Contains("stderr-one", failed.Turn.Error.AdditionalDetails ?? string.Empty, StringComparison.Ordinal);
     }
@@ -470,6 +814,45 @@ public sealed class CodexRuntimeBehaviorTests
         CodexProcessStartInfo startInfo = Assert.Single(launcher.StartInfos);
         string schemaPath = GetArgumentValue(startInfo.Arguments, "--output-schema");
         Assert.False(Directory.Exists(Path.GetDirectoryName(schemaPath)!));
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0238")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0239")]
+    public async Task DisposeAsync_IsIdempotentAndPreventsFurtherUse()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["method"]?.GetValue<string>() != "initialize")
+            {
+                return;
+            }
+
+            process.EnqueueStdout(TestJson.Response(
+                request["id"]!.GetValue<string>(),
+                new JsonObject
+                {
+                    ["userAgent"] = "codex-app-server/1.2.3",
+                    ["platformFamily"] = "Unix",
+                    ["platformOs"] = "Linux",
+                }));
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        await client.InitializeAsync();
+
+        await client.DisposeAsync();
+        await client.DisposeAsync();
+
+        Assert.True(process.HasExited);
+
+        await Assert.ThrowsAsync<CodexTransportClosedException>(async () => await client.StartThreadAsync());
     }
 
     [Fact]
@@ -577,6 +960,18 @@ public sealed class CodexRuntimeBehaviorTests
         return new CodexClient(options);
     }
 
+    private static CodexClient CreateAppServerClient(ScriptedCodexProcessLauncher launcher)
+    {
+        CodexClientOptions options = new()
+        {
+            BackendSelection = CodexBackendSelection.AppServer,
+            CodexPathOverride = "codex",
+            ProcessLauncher = launcher,
+        };
+
+        return new CodexClient(options);
+    }
+
     private static string GetArgumentValue(IReadOnlyList<string> arguments, string name)
     {
         for (int index = 0; index < arguments.Count - 1; index++)
@@ -601,5 +996,3 @@ public sealed class CodexRuntimeBehaviorTests
         }
     }
 }
-
-

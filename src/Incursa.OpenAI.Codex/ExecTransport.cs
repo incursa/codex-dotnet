@@ -355,10 +355,13 @@ internal sealed class CodexExecTransport : ICodexTransport
             args.Add($"openai_base_url={JsonSerializer.Serialize(_options.BaseUrl)}");
         }
 
-        if (!string.IsNullOrWhiteSpace(effectiveTurnOptions.Model) || !string.IsNullOrWhiteSpace(threadOptions?.Model))
+        string? effectiveModel = !string.IsNullOrWhiteSpace(effectiveTurnOptions.Model)
+            ? effectiveTurnOptions.Model
+            : threadOptions?.Model;
+        if (!string.IsNullOrWhiteSpace(effectiveModel))
         {
             args.Add("--model");
-            args.Add(effectiveTurnOptions.Model ?? threadOptions?.Model!);
+            args.Add(effectiveModel!);
         }
 
         if (effectiveTurnOptions.SandboxPolicy is not null || threadOptions?.Sandbox is not null)
@@ -536,5 +539,4 @@ internal sealed class CodexExecTransport : ICodexTransport
     private static string CreateTurnId()
         => $"turn-{Guid.NewGuid():N}";
 }
-
 

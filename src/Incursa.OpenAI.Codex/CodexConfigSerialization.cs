@@ -23,7 +23,7 @@ internal static class CodexConfigSerialization
         {
             JsonValue jsonValue when jsonValue.TryGetValue<string>(out string? stringValue) => ToTomlLiteral(stringValue, path),
             JsonValue jsonValue when jsonValue.TryGetValue<bool>(out bool boolValue) => boolValue ? "true" : "false",
-            JsonValue jsonValue when jsonValue.TryGetValue<double>(out double numberValue) => ToTomlLiteral(numberValue, path),
+            JsonValue jsonValue when jsonValue.GetValueKind() == JsonValueKind.Number => jsonValue.ToJsonString(),
             JsonObject jsonObject => ToTomlLiteral(jsonObject, path),
             JsonArray jsonArray => $"[{string.Join(", ", jsonArray.Select((item, index) => ToTomlLiteral(item, $"{path}[{index}]")))}]",
             null => throw new InvalidOperationException($"Codex config override at {path} cannot be null"),
@@ -55,6 +55,27 @@ internal static class CodexConfigSerialization
         }
 
         return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string ToTomlLiteral(JsonObject value, string path)
+    {
+        if (value.Count == 0)
+        {
+            return "{}";
+        }
+
+        List<string> parts = new(value.Count);
+        foreach (KeyValuePair<string, JsonNode?> pair in value)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key))
+            {
+                throw new InvalidOperationException("Codex config override keys must be non-empty strings.");
+            }
+
+            parts.Add($"{FormatTomlKey(pair.Key)} = {ToTomlLiteral(pair.Value, $"{path}.{pair.Key}")}");
+        }
+
+        return $"{{{string.Join(", ", parts)}}}";
     }
 
     private static string ToTomlLiteral(IReadOnlyDictionary<string, CodexConfigValue> value, string path)

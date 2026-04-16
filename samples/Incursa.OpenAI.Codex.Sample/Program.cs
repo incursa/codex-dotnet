@@ -8,8 +8,11 @@ Environment.ExitCode = exitCode;
 
 internal static class ProgramEntry
 {
-    public static async Task<int> RunAsync(string[] args)
+    public static async Task<int> RunAsync(string[] args, TextWriter? output = null, TextWriter? error = null)
     {
+        TextWriter stdout = output ?? Console.Out;
+        TextWriter stderr = error ?? Console.Error;
+
         SampleOptions options;
         try
         {
@@ -17,14 +20,14 @@ internal static class ProgramEntry
         }
         catch (ArgumentException ex)
         {
-            Console.Error.WriteLine(ex.Message);
-            PrintUsage();
+            stderr.WriteLine(ex.Message);
+            PrintUsage(stdout);
             return 2;
         }
 
         if (options.ShowHelp)
         {
-            PrintUsage();
+            PrintUsage(stdout);
             return 0;
         }
 
@@ -36,22 +39,22 @@ internal static class ProgramEntry
             switch (options.Mode)
             {
                 case SampleMode.Quickstart:
-                    await RunQuickstartAsync(client, options).ConfigureAwait(false);
+                    await RunQuickstartAsync(client, options, stdout).ConfigureAwait(false);
                     break;
                 case SampleMode.Streaming:
-                    await RunStreamingAsync(client, options).ConfigureAwait(false);
+                    await RunStreamingAsync(client, options, stdout).ConfigureAwait(false);
                     break;
                 case SampleMode.StructuredOutput:
-                    await RunStructuredOutputAsync(client, options).ConfigureAwait(false);
+                    await RunStructuredOutputAsync(client, options, stdout).ConfigureAwait(false);
                     break;
                 case SampleMode.ImageInput:
-                    await RunImageInputAsync(client, options).ConfigureAwait(false);
+                    await RunImageInputAsync(client, options, stdout).ConfigureAwait(false);
                     break;
                 case SampleMode.ErrorHandling:
-                    await RunErrorHandlingAsync(client, options).ConfigureAwait(false);
+                    await RunErrorHandlingAsync(client, options, stdout).ConfigureAwait(false);
                     break;
                 case SampleMode.TurnControls:
-                    await RunTurnControlsAsync(client, options).ConfigureAwait(false);
+                    await RunTurnControlsAsync(client, options, stdout).ConfigureAwait(false);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -59,12 +62,12 @@ internal static class ProgramEntry
         }
         catch (CodexException ex)
         {
-            PrintCodexException(ex);
+            PrintCodexException(stderr, ex);
             return 1;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Unhandled error: {ex.GetType().Name}: {ex.Message}");
+            stderr.WriteLine($"Unhandled error: {ex.GetType().Name}: {ex.Message}");
             return 1;
         }
 
@@ -102,7 +105,7 @@ internal static class ProgramEntry
         target.ApiKey = options.ApiKey;
     }
 
-    private static async Task RunQuickstartAsync(CodexClient client, SampleOptions options)
+    private static async Task RunQuickstartAsync(CodexClient client, SampleOptions options, TextWriter output)
     {
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
@@ -111,11 +114,11 @@ internal static class ProgramEntry
         }).ConfigureAwait(false);
 
         CodexRunResult result = await thread.RunAsync(options.Prompt).ConfigureAwait(false);
-        Console.WriteLine("Final response:");
-        Console.WriteLine(result.FinalResponse ?? "(no final response)");
+        output.WriteLine("Final response:");
+        output.WriteLine(result.FinalResponse ?? "(no final response)");
     }
 
-    private static async Task RunStreamingAsync(CodexClient client, SampleOptions options)
+    private static async Task RunStreamingAsync(CodexClient client, SampleOptions options, TextWriter output)
     {
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
@@ -125,11 +128,11 @@ internal static class ProgramEntry
 
         await foreach (CodexThreadEvent evt in thread.RunStreamedAsync(options.Prompt).ConfigureAwait(false))
         {
-            Console.WriteLine(FormatEvent(evt));
+            output.WriteLine(FormatEvent(evt));
         }
     }
 
-    private static async Task RunStructuredOutputAsync(CodexClient client, SampleOptions options)
+    private static async Task RunStructuredOutputAsync(CodexClient client, SampleOptions options, TextWriter output)
     {
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
@@ -156,11 +159,11 @@ internal static class ProgramEntry
                 OutputSchema = schema,
             }).ConfigureAwait(false);
 
-        Console.WriteLine("Structured output response:");
-        Console.WriteLine(result.FinalResponse ?? "(no final response)");
+        output.WriteLine("Structured output response:");
+        output.WriteLine(result.FinalResponse ?? "(no final response)");
     }
 
-    private static async Task RunImageInputAsync(CodexClient client, SampleOptions options)
+    private static async Task RunImageInputAsync(CodexClient client, SampleOptions options, TextWriter output)
     {
         if (string.IsNullOrWhiteSpace(options.LocalImagePath) && string.IsNullOrWhiteSpace(options.RemoteImageUrl))
         {
@@ -195,11 +198,11 @@ internal static class ProgramEntry
         }).ConfigureAwait(false);
 
         CodexRunResult result = await thread.RunAsync(input).ConfigureAwait(false);
-        Console.WriteLine("Image flow response:");
-        Console.WriteLine(result.FinalResponse ?? "(no final response)");
+        output.WriteLine("Image flow response:");
+        output.WriteLine(result.FinalResponse ?? "(no final response)");
     }
 
-    private static async Task RunErrorHandlingAsync(CodexClient client, SampleOptions options)
+    private static async Task RunErrorHandlingAsync(CodexClient client, SampleOptions options, TextWriter output)
     {
         try
         {
@@ -207,12 +210,12 @@ internal static class ProgramEntry
             {
                 Limit = 5,
             }).ConfigureAwait(false);
-            Console.WriteLine("ListThreadsAsync succeeded.");
+            output.WriteLine("ListThreadsAsync succeeded.");
             return;
         }
         catch (CodexCapabilityNotSupportedException ex) when (client.Options.BackendSelection == CodexBackendSelection.Exec)
         {
-            Console.WriteLine($"Capability gating worked as expected for exec backend: {ex.Message}");
+            output.WriteLine($"Capability gating worked as expected for exec backend: {ex.Message}");
         }
 
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
@@ -224,16 +227,16 @@ internal static class ProgramEntry
         try
         {
             _ = await thread.RunAsync(options.Prompt).ConfigureAwait(false);
-            Console.WriteLine("Request completed without runtime exception.");
+            output.WriteLine("Request completed without runtime exception.");
         }
         catch (CodexException ex)
         {
-            PrintCodexException(ex);
+            PrintCodexException(Console.Error, ex);
             throw;
         }
     }
 
-    private static async Task RunTurnControlsAsync(CodexClient client, SampleOptions options)
+    private static async Task RunTurnControlsAsync(CodexClient client, SampleOptions options, TextWriter output)
     {
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
@@ -247,18 +250,50 @@ internal static class ProgramEntry
         {
             await foreach (CodexThreadEvent evt in turn.StreamAsync().ConfigureAwait(false))
             {
-                Console.WriteLine(FormatEvent(evt));
+                output.WriteLine(FormatEvent(evt));
             }
         });
 
-        await turn.SteerAsync("Also include a concise bullet summary.").ConfigureAwait(false);
+        _ = await TryInvokeTurnControlAsync(
+            () => turn.SteerAsync("Also include a concise bullet summary."),
+            output,
+            "steer").ConfigureAwait(false);
 
         if (options.InterruptTurn)
         {
-            await turn.InterruptAsync().ConfigureAwait(false);
+            _ = await TryInvokeTurnControlAsync(
+                () => turn.InterruptAsync(),
+                output,
+                "interrupt").ConfigureAwait(false);
         }
 
         await streamTask.ConfigureAwait(false);
+    }
+
+    private static async Task<bool> TryInvokeTurnControlAsync(Func<Task> action, TextWriter output, string operationName)
+    {
+        try
+        {
+            await action().ConfigureAwait(false);
+            return true;
+        }
+        catch (CodexInvalidRequestException ex) when (IsInactiveTurnMessage(ex.Message))
+        {
+            output.WriteLine($"turn.controls.note {operationName} skipped: {ex.Message}");
+            return false;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("no longer active", StringComparison.Ordinal))
+        {
+            output.WriteLine($"turn.controls.note {operationName} skipped: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool IsInactiveTurnMessage(string? message)
+    {
+        return !string.IsNullOrWhiteSpace(message)
+            && (message.Contains("no active turn", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no longer active", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string FormatEvent(CodexThreadEvent evt)
@@ -275,21 +310,21 @@ internal static class ProgramEntry
         };
     }
 
-    private static void PrintCodexException(CodexException ex)
+    private static void PrintCodexException(TextWriter error, CodexException ex)
     {
-        Console.Error.WriteLine($"Codex error: {ex.GetType().Name}");
-        Console.Error.WriteLine(ex.Message);
+        error.WriteLine($"Codex error: {ex.GetType().Name}");
+        error.WriteLine(ex.Message);
 
         if (ex is CodexJsonRpcException rpcException && rpcException.ErrorData is not null)
         {
-            Console.Error.WriteLine("Error data:");
-            Console.Error.WriteLine(rpcException.ErrorData.ToJsonString());
+            error.WriteLine("Error data:");
+            error.WriteLine(rpcException.ErrorData.ToJsonString());
         }
     }
 
-    private static void PrintUsage()
+    private static void PrintUsage(TextWriter output)
     {
-        Console.WriteLine("""
+        output.WriteLine("""
 Codex .NET sample
 
 Usage:

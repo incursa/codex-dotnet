@@ -38,12 +38,21 @@ internal static class LiveCodexIntegration
         };
     }
 
+    public static CodexClientOptions CreateAppServerClientOptions()
+    {
+        return new CodexClientOptions
+        {
+            BackendSelection = CodexBackendSelection.AppServer,
+            CodexPathOverride = CodexExecutableResolver.Resolve(new CodexClientOptions()),
+            ProcessLauncher = new BypassSandboxCodexProcessLauncher(),
+        };
+    }
+
     public static CodexThreadOptions CreateThreadOptions(string workingDirectory)
     {
         return new CodexThreadOptions
         {
             WorkingDirectory = workingDirectory,
-            Sandbox = new CodexDangerFullAccessSandboxPolicy(),
             SkipGitRepoCheck = true,
         };
     }

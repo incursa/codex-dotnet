@@ -4,6 +4,7 @@ namespace Incursa.OpenAI.Codex.Tests;
 
 // Traceability: REQ-CODEX-SDK-TRANSPORT-0233, REQ-CODEX-SDK-LIFECYCLE-0294, REQ-CODEX-SDK-LIFECYCLE-0295.
 
+[Collection("Live Codex")]
 public sealed class CodexLiveIntegrationTests
 {
     [LiveCodexFact]
@@ -76,6 +77,46 @@ public sealed class CodexLiveIntegrationTests
             CodexRunResult result = await turn.RunAsync();
 
             Assert.Equal("VALUE=beta", result.FinalResponse);
+        }
+        finally
+        {
+            DeleteDirectory(workDir);
+        }
+    }
+
+    [LiveCodexFact]
+    [Trait("Category", "Integration")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0233")]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0302")]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0303")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0295")]
+    public async Task CodexAppServerClient_RunAsync_ReadsTheTempFileAndSupportsReadResume()
+    {
+        string workDir = await CreateWorkspaceAsync();
+        try
+        {
+            await using CodexClient client = new(LiveCodexIntegration.CreateAppServerClientOptions());
+            CodexRuntimeMetadata metadata = await client.InitializeAsync();
+
+            Assert.Equal(CodexBackendSelection.AppServer, client.Capabilities!.BackendSelection);
+            Assert.True(client.Capabilities.SupportsReadThread);
+            Assert.True(client.Capabilities.SupportsResumeThread);
+            Assert.True(client.Capabilities.SupportsTurnSteering);
+            Assert.NotNull(metadata.ServerInfo);
+
+            CodexThread thread = await client.StartThreadAsync(LiveCodexIntegration.CreateThreadOptions(workDir));
+            CodexRunResult result = await thread.RunAsync(
+                "Read sample.txt in the current directory and reply with exactly VALUE=<token> for the token on line 1.");
+
+            Assert.Equal("VALUE=alpha", result.FinalResponse);
+
+            CodexThreadSnapshot snapshot = await thread.ReadAsync(includeTurns: true);
+            Assert.Equal(thread.Id, snapshot.Id);
+            Assert.NotEmpty(snapshot.Turns);
+
+            CodexThread resumedThread = await client.ResumeThreadAsync(thread.Id!);
+            CodexThreadSnapshot resumedSnapshot = await resumedThread.ReadAsync(includeTurns: true);
+            Assert.Equal(thread.Id, resumedSnapshot.Id);
         }
         finally
         {

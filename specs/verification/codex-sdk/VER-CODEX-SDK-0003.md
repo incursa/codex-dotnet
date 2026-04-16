@@ -226,9 +226,13 @@ The checked-in repository state, sample app, package baselines, runtime pin, and
 - `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/CodexServiceCollectionExtensionsTests.cs`
 - `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/CodexTurnSessionTests.cs`
 - `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/CodexLiveIntegrationTests.cs`
+- `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/CodexSampleFlowLiveTests.cs`
+- `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/SampleProgramTests.cs`
 - `C:/src/incursa/codex/samples/Incursa.OpenAI.Codex.Sample/Program.cs`
 - `C:/src/incursa/codex/samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj`
+- `C:/src/incursa/codex/samples/Incursa.OpenAI.Codex.Sample/README.md`
 - `C:/src/incursa/codex/README.md`
+- `C:/src/incursa/codex/docs/sample-modes.md`
 - `C:/src/incursa/codex/src/Incursa.OpenAI.Codex/README.md`
 - `C:/src/incursa/codex/src/Incursa.OpenAI.Codex.Extensions/README.md`
 - `C:/src/incursa/codex/src/Incursa.OpenAI.Codex/PublicAPI.Shipped.txt`
