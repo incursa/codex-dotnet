@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Collections;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Incursa.OpenAI.Codex;
 
@@ -38,6 +39,8 @@ internal interface ICodexProcess : IAsyncDisposable
 
 internal sealed class ProcessCodexProcessLauncher : ICodexProcessLauncher
 {
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+
     public async Task<ICodexProcess> StartAsync(CodexProcessStartInfo startInfo, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(startInfo);
@@ -50,6 +53,9 @@ internal sealed class ProcessCodexProcessLauncher : ICodexProcessLauncher
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
+            StandardInputEncoding = Utf8NoBom,
+            StandardOutputEncoding = Utf8NoBom,
+            StandardErrorEncoding = Utf8NoBom,
         };
 
         foreach (string argument in startInfo.Arguments)
@@ -276,4 +282,3 @@ internal static class CodexExecutableResolver
         public const string OriginatorMarker = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
     }
 }
-

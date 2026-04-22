@@ -30,6 +30,8 @@ CodexRunResult result = await thread.RunAsync("Say hello from Codex in one sente
 Console.WriteLine(result.FinalResponse);
 ```
 
+`CodexRunResult.FinalResponse` can be `null` when the turn completes without a final-answer or phase-less assistant message item.
+
 If you want the thread to run in a specific location, set `CodexThreadOptions.WorkingDirectory`.
 
 If you want a no-throw preflight for the local executable, call `await client.IsCodexAvailableAsync()` before `InitializeAsync()` or any turn operation.
@@ -71,7 +73,7 @@ At the transport level:
 - [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs): per-turn model, sandbox, approval, service tier, reasoning, and output schema settings
 - [`CodexInputItem`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) and derived types: [`CodexTextInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexLocalImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexSkillInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), and [`CodexMentionInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs)
 - [`CodexThreadEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) and [`CodexThreadItem`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) hierarchies for streamed runtime data
-- [`CodexRunResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadSnapshot`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeCapabilities`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeMetadata`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), and [`CodexModelListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs) for result handling and discovery
+- [`CodexRunResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadSnapshot`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeCapabilities`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeMetadata`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), and [`CodexModelListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs) for result handling and discovery. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
 - [`CodexException`](../src/Incursa.OpenAI.Codex/Exceptions.cs) and related exception types for runtime, transport, capability, and retry failures
 
 ## DI Example

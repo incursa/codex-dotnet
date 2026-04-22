@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace Incursa.OpenAI.Codex.Tests;
@@ -476,6 +478,58 @@ public sealed class CodexInfrastructureTests
 
         Assert.Equal(currentDirectory, output?.Trim());
         await process.DisposeAsync();
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0238")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public async Task ProcessLauncher_StartAsync_PinsRedirectedTextPipesToUtf8()
+    {
+        ProcessCodexProcessLauncher launcher = new();
+        string tempDirectory = Path.Combine(Path.GetTempPath(), "codex-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        string fileName;
+        IReadOnlyList<string> arguments;
+        if (OperatingSystem.IsWindows())
+        {
+            fileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+            arguments = ["/c", "echo hello"];
+        }
+        else
+        {
+            fileName = "/bin/sh";
+            arguments = ["-c", "printf 'hello\\n'"];
+        }
+
+        try
+        {
+            await using ICodexProcess process = await launcher.StartAsync(
+                new CodexProcessStartInfo(
+                    fileName,
+                    arguments,
+                    tempDirectory,
+                    new Dictionary<string, string>(StringComparer.Ordinal)),
+                CancellationToken.None);
+
+            _ = await process.StandardOutput.ReadLineAsync();
+            await process.WaitForExitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
+
+            StreamReader stdout = Assert.IsType<StreamReader>(process.StandardOutput);
+            StreamReader stderr = Assert.IsType<StreamReader>(process.StandardError);
+            StreamWriter stdin = Assert.IsType<StreamWriter>(process.StandardInput);
+
+            Assert.Equal(Encoding.UTF8.CodePage, stdout.CurrentEncoding.CodePage);
+            Assert.Equal(Encoding.UTF8.CodePage, stderr.CurrentEncoding.CodePage);
+            Assert.Equal(Encoding.UTF8.CodePage, stdin.Encoding.CodePage);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                DeleteDirectoryWithRetry(tempDirectory);
+            }
+        }
     }
 
     [Fact]

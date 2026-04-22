@@ -37,6 +37,8 @@ CodexRunResult result = await thread.RunAsync("Say hello from Codex in one sente
 Console.WriteLine(result.FinalResponse);
 ```
 
+`CodexRunResult.FinalResponse` can be `null` when a turn completes with commentary only and never produces a final-answer or phase-less assistant message.
+
 [`CodexClient`](CodexClient.cs) is async-only. Dispose it with `await using`.
 
 If you need DI registration, use [`Incursa.OpenAI.Codex.Extensions`](../Incursa.OpenAI.Codex.Extensions/README.md) and call [`AddCodex(...)`](../Incursa.OpenAI.Codex.Extensions/CodexServiceCollectionExtensions.cs).
@@ -58,7 +60,7 @@ Use [`AppServer`](Enums.cs) when you need long-lived conversations, [`CodexThrea
 - [`CodexClientOptions`](Options.cs): backend selection, executable path override, API key, configuration, environment, and approval handler
 - [`CodexThreadOptions`](Options.cs) and [`CodexTurnOptions`](Options.cs): working directory, sandbox, approval, model, and output schema settings
 - [`CodexInputItem`](ConversationTypes.cs) and the typed input union for text, remote image, local image, skill, and mention inputs
-- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics
+- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
 
 ## Sample
 

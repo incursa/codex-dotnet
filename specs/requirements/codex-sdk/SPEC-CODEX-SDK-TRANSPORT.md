@@ -140,7 +140,7 @@ Trace:
 ## App-Server Transport
 
 ## REQ-CODEX-SDK-TRANSPORT-0238 Launch the app-server backend with the upstream stdio shape
-The app-server transport MUST launch `codex app-server --listen stdio://` and communicate over JSON-RPC v2 on stdio.
+The app-server transport MUST launch `codex app-server --listen stdio://`, communicate over JSON-RPC v2 on stdio, and pin redirected subprocess text I/O to UTF-8 so Windows locale settings do not corrupt runtime output.
 
 Trace:
 - Satisfied By:

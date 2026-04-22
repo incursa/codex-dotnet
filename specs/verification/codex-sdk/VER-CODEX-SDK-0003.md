@@ -208,8 +208,9 @@ Mixed static and runtime verification:
 2. Review the runnable sample app and README instructions for the major flows.
 3. Review the public API baseline files, the snapshot test that maintains them, and the release script that consumes them to select the semver bump.
 4. Confirm the runtime pin and target framework baseline are recorded in the repository.
-5. Run the repository test suite.
-6. Run the live smoke subset only when `CODEX_LIVE_TESTS=1` is explicitly enabled.
+5. Review `quality/upstream-parity.json` to confirm the last reviewed Python and TypeScript upstream commits are recorded for parity follow-up work.
+6. Run the repository test suite.
+7. Run the live smoke subset only when `CODEX_LIVE_TESTS=1` is explicitly enabled.
 
 ## Expected Result
 
@@ -229,6 +230,7 @@ The checked-in repository state, sample app, package baselines, runtime pin, and
 - `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/CodexSampleFlowLiveTests.cs`
 - `C:/src/incursa/codex/tests/Incursa.OpenAI.Codex.Tests/SampleProgramTests.cs`
 - `C:/src/incursa/codex/scripts/release.ps1`
+- `C:/src/incursa/codex-dotnet/quality/upstream-parity.json`
 - `C:/src/incursa/codex/AGENTS.md`
 - `C:/src/incursa/codex/samples/Incursa.OpenAI.Codex.Sample/Program.cs`
 - `C:/src/incursa/codex/samples/Incursa.OpenAI.Codex.Sample/Incursa.OpenAI.Codex.Sample.csproj`

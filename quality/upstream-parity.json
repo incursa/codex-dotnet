@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-04-22",
+  "reviewMode": "bootstrap",
+  "bootstrapReason": "No prior parity state existed and no safe prior sync commit could be inferred from local repo history.",
+  "upstreams": {
+    "python": {
+      "repoPath": "C:/src/openai/codex/sdk/python",
+      "monorepoPath": "C:/src/openai/codex",
+      "trackedPath": "sdk/python",
+      "lastReviewedCommit": "bd61737e8afb2b52f8a03893172db1523f59e357"
+    },
+    "typescript": {
+      "repoPath": "C:/src/openai/codex/sdk/typescript",
+      "monorepoPath": "C:/src/openai/codex",
+      "trackedPath": "sdk/typescript",
+      "lastReviewedCommit": "bd61737e8afb2b52f8a03893172db1523f59e357"
+    }
+  }
+}
