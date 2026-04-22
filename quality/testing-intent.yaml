@@ -38,7 +38,7 @@ coverage:
       - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_FlattensNestedOverrides
       - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_RejectsNonFiniteNumbers
       - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_ReturnsEmptyResultsForNullConfig
-      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_QuotesKeysWithWhitespace
+      - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureTests.cs::ConfigSerialization_PreservesWhitespaceKeysInJsonPayload
       - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureNegativeTests.cs::ConfigSerialization_RejectsBlankOverrideKeys
       - tests/Incursa.OpenAI.Codex.Tests/CodexInfrastructureNegativeTests.cs::ConfigSerialization_RejectsNullJsonNodeValues
       - tests/Incursa.OpenAI.Codex.Tests/CodexProtocolTests.cs::BuildTurnStartParams_DeepClonesOutputSchema
