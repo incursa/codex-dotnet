@@ -14,6 +14,7 @@ public sealed class CodexClientLifecycleTests
         yield return [nameof(CodexClient.ArchiveThreadAsync), new Func<CodexClient, Task>(async client => await client.ArchiveThreadAsync("thread-1"))];
         yield return [nameof(CodexClient.UnarchiveThreadAsync), new Func<CodexClient, Task>(async client => await client.UnarchiveThreadAsync("thread-1"))];
         yield return [nameof(CodexClient.ListModelsAsync), new Func<CodexClient, Task>(async client => await client.ListModelsAsync())];
+        yield return [nameof(CodexClient.GetAccountRateLimitsAsync), new Func<CodexClient, Task>(async client => await client.GetAccountRateLimitsAsync())];
     }
 
     [Theory]

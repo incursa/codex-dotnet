@@ -233,6 +233,18 @@ public sealed class CodexClient : IAsyncDisposable
     }
 
     /// <summary>
+    /// Reads the current Codex account rate-limit snapshot from the app-server backend.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the rate-limit request.</param>
+    /// <returns>The current account-level rate-limit buckets and reset windows.</returns>
+    public async Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountRateLimits == true, nameof(GetAccountRateLimitsAsync));
+        return await _transport.GetAccountRateLimitsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Releases resources held by the selected Codex transport.
     /// </summary>
     /// <returns>A task-like value that completes when disposal has finished.</returns>

@@ -18,6 +18,7 @@ internal sealed class CodexExecTransport : ICodexTransport
         SupportsTurnSteering = false,
         SupportsTurnInterruption = false,
         SupportsListModels = false,
+        SupportsAccountRateLimits = false,
         SupportsListThreads = false,
         SupportsReadThread = false,
         SupportsForkThread = false,
@@ -109,6 +110,9 @@ internal sealed class CodexExecTransport : ICodexTransport
 
     public Task<CodexModelListResult> ListModelsAsync(CodexModelListOptions? options, CancellationToken cancellationToken)
         => Task.FromException<CodexModelListResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.ListModelsAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken)
+        => Task.FromException<CodexAccountRateLimitsResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.GetAccountRateLimitsAsync), CodexBackendSelection.Exec));
 
     public Task<CodexThreadSnapshot> SetThreadNameAsync(string threadId, string name, CancellationToken cancellationToken)
         => Task.FromException<CodexThreadSnapshot>(new CodexCapabilityNotSupportedException(nameof(CodexThread.SetNameAsync), CodexBackendSelection.Exec));
@@ -539,4 +543,3 @@ internal sealed class CodexExecTransport : ICodexTransport
     private static string CreateTurnId()
         => $"turn-{Guid.NewGuid():N}";
 }
-

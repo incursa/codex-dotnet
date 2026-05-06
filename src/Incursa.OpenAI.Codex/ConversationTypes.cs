@@ -401,6 +401,17 @@ public sealed record CodexThreadErrorEvent() : CodexThreadEvent("error")
 }
 
 /// <summary>
+/// Represents an app-server notification that the current account rate-limit snapshot changed.
+/// </summary>
+public sealed record CodexAccountRateLimitsUpdatedEvent() : CodexThreadEvent("account.rateLimits.updated")
+{
+    /// <summary>
+    /// Gets the rate-limit snapshot reported by Codex.
+    /// </summary>
+    public CodexRateLimitSnapshot RateLimits { get; init; } = new();
+}
+
+/// <summary>
 /// Fallback event for an unrecognized thread event type.
 /// </summary>
 /// <param name="UnknownType">Original event type string.</param>

@@ -24,6 +24,8 @@ internal interface ICodexTransport : IAsyncDisposable
 
     Task<CodexModelListResult> ListModelsAsync(CodexModelListOptions? options, CancellationToken cancellationToken);
 
+    Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken);
+
     Task<CodexThreadSnapshot> SetThreadNameAsync(string threadId, string name, CancellationToken cancellationToken);
 
     Task CompactThreadAsync(string threadId, CancellationToken cancellationToken);
@@ -63,5 +65,4 @@ internal static class CodexResultHelpers
             ? new CodexInvalidRequestException($"Turn '{turn.Id}' failed without a populated error object.")
             : new CodexInvalidRequestException(turn.Error.Message);
 }
-
 

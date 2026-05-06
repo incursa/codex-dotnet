@@ -289,7 +289,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/docs/api-reference.md
 
 ## REQ-CODEX-SDK-0020 Expose typed runtime request methods
-The SDK MUST expose typed request methods for thread start, thread resume, thread list, thread read, thread fork, thread archive, thread unarchive, thread rename, thread compact, turn start, turn steer, turn interrupt, and model list when the underlying runtime supports those operations.
+The SDK MUST expose typed request methods for thread start, thread resume, thread list, thread read, thread fork, thread archive, thread unarchive, thread rename, thread compact, turn start, turn steer, turn interrupt, model list, and account rate-limit read when the underlying runtime supports those operations.
 
 Trace:
 - Satisfied By:
@@ -444,6 +444,7 @@ Trace:
 
 ## REQ-CODEX-SDK-0038 Expose turn events in runtime order
 The SDK MUST expose turn events in runtime order and carry through thread-start, turn-start, item-completed, usage-update, turn-completed, and turn-failed events.
+The SDK MUST expose app-server account rate-limit update notifications as typed events when Codex sends `account/rateLimits/updated` during an active event stream.
 
 Trace:
 - Satisfied By:
@@ -725,5 +726,3 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/README.md
   - C:/src/openai/codex/sdk/python/docs/api-reference.md
   - C:/src/openai/codex/sdk/python/docs/faq.md
-
-

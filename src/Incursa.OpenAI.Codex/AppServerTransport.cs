@@ -16,6 +16,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         SupportsTurnSteering = true,
         SupportsTurnInterruption = true,
         SupportsListModels = true,
+        SupportsAccountRateLimits = true,
         SupportsListThreads = true,
         SupportsReadThread = true,
         SupportsForkThread = true,
@@ -150,6 +151,13 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         JsonNode? payload = await RequestAsync("model/list", CodexProtocol.BuildModelListParams(options), cancellationToken).ConfigureAwait(false);
         return CodexProtocol.ParseModelListResult(payload);
+    }
+
+    public async Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("account/rateLimits/read", new JsonObject(), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseAccountRateLimitsResult(payload);
     }
 
     public async Task<CodexThreadSnapshot> SetThreadNameAsync(string threadId, string name, CancellationToken cancellationToken)
@@ -572,5 +580,4 @@ internal sealed class CodexAppServerTransport : ICodexTransport
 
     private sealed record PendingNotification(CodexThreadEvent Event, string? TurnId, string? ThreadId);
 }
-
 
