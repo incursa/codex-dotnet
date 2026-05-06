@@ -4,7 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
     <Description>Optional dependency-injection and host integration extensions for Incursa.OpenAI.Codex, including IServiceCollection registration and configuration binding.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>

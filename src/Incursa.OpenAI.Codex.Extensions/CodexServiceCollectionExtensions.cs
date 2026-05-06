@@ -7,11 +7,25 @@ namespace Incursa.OpenAI.Codex.Extensions;
 
 // Traceability: REQ-CODEX-SDK-CATALOG-0309.
 
+/// <summary>
+/// Provides dependency-injection registration helpers for the Codex SDK.
+/// </summary>
 public static class CodexServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers <see cref="CodexClient"/> with default options.
+    /// </summary>
+    /// <param name="services">The service collection to update.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddCodex(this IServiceCollection services)
         => AddCodex(services, configure: null);
 
+    /// <summary>
+    /// Registers <see cref="CodexClient"/> and applies programmatic option configuration.
+    /// </summary>
+    /// <param name="services">The service collection to update.</param>
+    /// <param name="configure">The callback used to configure <see cref="CodexClientOptions"/>.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddCodex(
         this IServiceCollection services,
         Action<CodexClientOptions>? configure)
@@ -28,6 +42,12 @@ public static class CodexServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers <see cref="CodexClient"/> and binds options from configuration.
+    /// </summary>
+    /// <param name="services">The service collection to update.</param>
+    /// <param name="configuration">The configuration section to bind to <see cref="CodexClientOptions"/>.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddCodex(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -40,5 +60,4 @@ public static class CodexServiceCollectionExtensions
         return services;
     }
 }
-
 
