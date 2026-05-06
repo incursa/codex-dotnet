@@ -1,0 +1,59 @@
+name: Maintainer Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  maintainer-review:
+    name: Maintainer Review
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check maintainer review policy
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const maintainer = 'SamuelMcAravey';
+            const selfReviewAllowedAuthors = new Set(['SamuelMcAravey']);
+            const pullRequest = context.payload.pull_request;
+
+            if (!pullRequest) {
+              core.setFailed('Maintainer Review requires a pull_request payload.');
+              return;
+            }
+
+            const author = pullRequest.user?.login ?? '';
+            if (selfReviewAllowedAuthors.has(author)) {
+              core.notice(`PR author ${author} is trusted; separate maintainer approval is not required.`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner,
+              repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+
+            const latestMaintainerReview = reviews
+              .filter((review) =>
+                review.user?.login === maintainer &&
+                review.commit_id === pullRequest.head.sha &&
+                review.submitted_at)
+              .sort((left, right) => Date.parse(left.submitted_at) - Date.parse(right.submitted_at))
+              .at(-1);
+
+            if (latestMaintainerReview?.state === 'APPROVED') {
+              core.notice(`PR #${pullRequest.number} is approved by ${maintainer} at ${pullRequest.head.sha}.`);
+              return;
+            }
+
+            core.setFailed(
+              `PRs authored by ${author || 'unknown'} require ${maintainer}'s approval on the current head commit (${pullRequest.head.sha}).`);
