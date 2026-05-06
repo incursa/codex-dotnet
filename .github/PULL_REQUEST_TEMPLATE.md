@@ -2,14 +2,13 @@
 
 Describe the focused change and the user-facing or maintainer-facing impact.
 
-## Validation
+## Reviewer Notes
 
-List the commands you ran and the result.
+Call out anything reviewers should pay attention to:
 
-```text
-dotnet build Incursa.OpenAI.Codex.slnx -c Release
-dotnet test Incursa.OpenAI.Codex.slnx -c Release --no-build
-```
+- Public API, wire-protocol, package, security, or compatibility impact.
+- Local or manual checks that CI cannot prove.
+- Known limitations, follow-up work, or intentionally skipped checks.
 
 ## Checklist
 
@@ -18,4 +17,4 @@ dotnet test Incursa.OpenAI.Codex.slnx -c Release --no-build
 - [ ] I agree that my contribution is submitted under `CONTRIBUTOR-AGREEMENT.md`.
 - [ ] I have not included credentials, private transcripts, private repository paths, or local Codex auth state.
 - [ ] I updated documentation, samples, requirements, or public API baselines when the public surface changed.
-- [ ] I ran the smallest relevant validation and listed the exact commands above.
+- [ ] I listed reviewer notes where they are relevant.
