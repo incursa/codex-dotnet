@@ -5,6 +5,9 @@ namespace Incursa.OpenAI.Codex;
 // Traceability: REQ-CODEX-SDK-CATALOG-0301, REQ-CODEX-SDK-CATALOG-0302, REQ-CODEX-SDK-CATALOG-0303, REQ-CODEX-SDK-CATALOG-0304,
 // REQ-CODEX-SDK-CATALOG-0307, REQ-CODEX-SDK-CATALOG-0308, REQ-CODEX-SDK-CATALOG-0309, REQ-CODEX-SDK-CATALOG-0311, REQ-CODEX-SDK-CATALOG-0312.
 
+/// <summary>
+/// Provides the high-level entry point for communicating with a Codex runtime.
+/// </summary>
 public sealed class CodexClient : IAsyncDisposable
 {
     private readonly SemaphoreSlim _initializationGate = new(1, 1);
@@ -13,11 +16,18 @@ public sealed class CodexClient : IAsyncDisposable
     private bool _disposed;
     private bool _initialized;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CodexClient"/> class with default options.
+    /// </summary>
     public CodexClient()
         : this(new CodexClientOptions())
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CodexClient"/> class.
+    /// </summary>
+    /// <param name="options">The client options to use, or <see langword="null"/> to use defaults.</param>
     public CodexClient(CodexClientOptions? options)
     {
         Options = options ?? new CodexClientOptions();
@@ -29,12 +39,26 @@ public sealed class CodexClient : IAsyncDisposable
         };
     }
 
+    /// <summary>
+    /// Gets the options used by this client.
+    /// </summary>
     public CodexClientOptions Options { get; }
 
+    /// <summary>
+    /// Gets runtime metadata after the client has been initialized.
+    /// </summary>
     public CodexRuntimeMetadata? Metadata { get; private set; }
 
+    /// <summary>
+    /// Gets runtime capabilities after the client has been initialized.
+    /// </summary>
     public CodexRuntimeCapabilities? Capabilities { get; private set; }
 
+    /// <summary>
+    /// Initializes the selected Codex backend and reads runtime metadata.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the initialization request.</param>
+    /// <returns>The metadata returned by the Codex runtime.</returns>
     public async Task<CodexRuntimeMetadata> InitializeAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -63,6 +87,11 @@ public sealed class CodexClient : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Checks whether the configured Codex executable is available.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the availability check.</param>
+    /// <returns><see langword="true"/> when Codex can be resolved; otherwise, <see langword="false"/>.</returns>
     public Task<bool> IsCodexAvailableAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -71,6 +100,12 @@ public sealed class CodexClient : IAsyncDisposable
         return Task.FromResult(CodexExecutableResolver.IsAvailable(Options));
     }
 
+    /// <summary>
+    /// Starts a new Codex thread.
+    /// </summary>
+    /// <param name="options">Thread defaults to apply when creating the thread.</param>
+    /// <param name="cancellationToken">A token that cancels the start request.</param>
+    /// <returns>A handle for the new Codex thread.</returns>
     public async Task<CodexThread> StartThreadAsync(
         CodexThreadOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -87,6 +122,13 @@ public sealed class CodexClient : IAsyncDisposable
         return new CodexThread(this, handle.Defaults ?? options, handle.Snapshot.Id, started: true);
     }
 
+    /// <summary>
+    /// Resumes an existing Codex thread.
+    /// </summary>
+    /// <param name="threadId">The identifier of the thread to resume.</param>
+    /// <param name="options">Thread defaults to apply after resuming the thread.</param>
+    /// <param name="cancellationToken">A token that cancels the resume request.</param>
+    /// <returns>A handle for the resumed Codex thread.</returns>
     public async Task<CodexThread> ResumeThreadAsync(
         string threadId,
         CodexThreadOptions? options = null,
@@ -104,6 +146,13 @@ public sealed class CodexClient : IAsyncDisposable
         return new CodexThread(this, handle.Defaults ?? options, handle.Snapshot.Id, started: true);
     }
 
+    /// <summary>
+    /// Forks an existing Codex thread.
+    /// </summary>
+    /// <param name="threadId">The identifier of the thread to fork.</param>
+    /// <param name="options">Fork options to apply to the new thread.</param>
+    /// <param name="cancellationToken">A token that cancels the fork request.</param>
+    /// <returns>A handle for the forked Codex thread.</returns>
     public async Task<CodexThread> ForkThreadAsync(
         string threadId,
         CodexThreadForkOptions? options = null,
@@ -113,6 +162,12 @@ public sealed class CodexClient : IAsyncDisposable
         return new CodexThread(this, handle.Defaults ?? options, handle.Snapshot.Id, started: true);
     }
 
+    /// <summary>
+    /// Lists Codex threads visible to the selected backend.
+    /// </summary>
+    /// <param name="options">Filters and paging options for the list request.</param>
+    /// <param name="cancellationToken">A token that cancels the list request.</param>
+    /// <returns>The page of matching Codex threads.</returns>
     public async Task<CodexThreadListResult> ListThreadsAsync(
         CodexThreadListOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -122,6 +177,13 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.ListThreadsAsync(options, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Reads a Codex thread snapshot.
+    /// </summary>
+    /// <param name="threadId">The identifier of the thread to read.</param>
+    /// <param name="options">Options that control how much thread data is returned.</param>
+    /// <param name="cancellationToken">A token that cancels the read request.</param>
+    /// <returns>The requested thread snapshot.</returns>
     public async Task<CodexThreadSnapshot> ReadThreadAsync(
         string threadId,
         CodexThreadReadOptions? options = null,
@@ -130,6 +192,12 @@ public sealed class CodexClient : IAsyncDisposable
         return await ReadThreadSnapshotAsync(threadId, options, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Archives a Codex thread.
+    /// </summary>
+    /// <param name="threadId">The identifier of the thread to archive.</param>
+    /// <param name="cancellationToken">A token that cancels the archive request.</param>
+    /// <returns>A task that completes when the archive request has finished.</returns>
     public async Task ArchiveThreadAsync(string threadId, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
@@ -137,12 +205,24 @@ public sealed class CodexClient : IAsyncDisposable
         await _transport.ArchiveThreadAsync(threadId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Restores an archived Codex thread.
+    /// </summary>
+    /// <param name="threadId">The identifier of the thread to unarchive.</param>
+    /// <param name="cancellationToken">A token that cancels the unarchive request.</param>
+    /// <returns>A handle for the unarchived Codex thread.</returns>
     public async Task<CodexThread> UnarchiveThreadAsync(string threadId, CancellationToken cancellationToken = default)
     {
         CodexThreadHandleState handle = await UnarchiveThreadHandleAsync(threadId, cancellationToken).ConfigureAwait(false);
         return new CodexThread(this, handle.Defaults, handle.Snapshot.Id, started: true);
     }
 
+    /// <summary>
+    /// Lists models available to the selected Codex backend.
+    /// </summary>
+    /// <param name="options">Options that control the model list request.</param>
+    /// <param name="cancellationToken">A token that cancels the list request.</param>
+    /// <returns>The page of available models.</returns>
     public async Task<CodexModelListResult> ListModelsAsync(
         CodexModelListOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -152,6 +232,11 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.ListModelsAsync(options, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Reads the current Codex account rate-limit snapshot from the app-server backend.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the rate-limit request.</param>
+    /// <returns>The current account-level rate-limit buckets and reset windows.</returns>
     public async Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
@@ -159,6 +244,10 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.GetAccountRateLimitsAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Releases resources held by the selected Codex transport.
+    /// </summary>
+    /// <returns>A task-like value that completes when disposal has finished.</returns>
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -279,6 +368,9 @@ public sealed class CodexClient : IAsyncDisposable
     }
 }
 
+/// <summary>
+/// Represents a Codex conversation thread that can run turns and read thread state.
+/// </summary>
 public sealed class CodexThread
 {
     private readonly CodexClient _client;
@@ -295,14 +387,31 @@ public sealed class CodexThread
         _started = started || _id is not null;
     }
 
+    /// <summary>
+    /// Gets the thread identifier when it is known.
+    /// </summary>
     public string? Id => _id;
 
+    /// <summary>
+    /// Runs a turn with a single text input and waits for completion.
+    /// </summary>
+    /// <param name="input">The text input to send to Codex.</param>
+    /// <param name="options">Options that apply to this turn.</param>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>The completed turn result.</returns>
     public async Task<CodexRunResult> RunAsync(
         string input,
         CodexTurnOptions? options = null,
         CancellationToken cancellationToken = default)
         => await RunAsync(NormalizeInput(input), options, cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Runs a turn with structured input items and waits for completion.
+    /// </summary>
+    /// <param name="input">The input items to send to Codex.</param>
+    /// <param name="options">Options that apply to this turn.</param>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>The completed turn result.</returns>
     public async Task<CodexRunResult> RunAsync(
         IReadOnlyList<CodexInputItem> input,
         CodexTurnOptions? options = null,
@@ -312,6 +421,13 @@ public sealed class CodexThread
         return await turn.RunAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Runs a turn with a single text input and streams runtime events.
+    /// </summary>
+    /// <param name="input">The text input to send to Codex.</param>
+    /// <param name="options">Options that apply to this turn.</param>
+    /// <param name="cancellationToken">A token that cancels the stream.</param>
+    /// <returns>An asynchronous stream of thread events emitted by the turn.</returns>
     public async IAsyncEnumerable<CodexThreadEvent> RunStreamedAsync(
         string input,
         CodexTurnOptions? options = null,
@@ -323,6 +439,13 @@ public sealed class CodexThread
         }
     }
 
+    /// <summary>
+    /// Runs a turn with structured input items and streams runtime events.
+    /// </summary>
+    /// <param name="input">The input items to send to Codex.</param>
+    /// <param name="options">Options that apply to this turn.</param>
+    /// <param name="cancellationToken">A token that cancels the stream.</param>
+    /// <returns>An asynchronous stream of thread events emitted by the turn.</returns>
     public async IAsyncEnumerable<CodexThreadEvent> RunStreamedAsync(
         IReadOnlyList<CodexInputItem> input,
         CodexTurnOptions? options = null,
@@ -335,12 +458,26 @@ public sealed class CodexThread
         }
     }
 
+    /// <summary>
+    /// Starts a turn with a single text input without waiting for completion.
+    /// </summary>
+    /// <param name="input">The text input to send to Codex.</param>
+    /// <param name="options">Options that apply to this turn.</param>
+    /// <param name="cancellationToken">A token that cancels the start request.</param>
+    /// <returns>A handle for the started Codex turn.</returns>
     public async Task<CodexTurn> StartTurnAsync(
         string input,
         CodexTurnOptions? options = null,
         CancellationToken cancellationToken = default)
         => await StartTurnAsync(NormalizeInput(input), options, cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Starts a turn with structured input items without waiting for completion.
+    /// </summary>
+    /// <param name="input">The input items to send to Codex.</param>
+    /// <param name="options">Options that apply to this turn.</param>
+    /// <param name="cancellationToken">A token that cancels the start request.</param>
+    /// <returns>A handle for the started Codex turn.</returns>
     public async Task<CodexTurn> StartTurnAsync(
         IReadOnlyList<CodexInputItem> input,
         CodexTurnOptions? options = null,
@@ -361,6 +498,12 @@ public sealed class CodexThread
         return new CodexTurn(_client, session);
     }
 
+    /// <summary>
+    /// Reads the latest snapshot for this thread.
+    /// </summary>
+    /// <param name="includeTurns">Whether to include turn records in the snapshot.</param>
+    /// <param name="cancellationToken">A token that cancels the read request.</param>
+    /// <returns>The requested thread snapshot.</returns>
     public async Task<CodexThreadSnapshot> ReadAsync(
         bool includeTurns = false,
         CancellationToken cancellationToken = default)
@@ -369,12 +512,23 @@ public sealed class CodexThread
         return await _client.ReadThreadSnapshotAsync(threadId, new CodexThreadReadOptions { IncludeTurns = includeTurns }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Sets the display name for this thread.
+    /// </summary>
+    /// <param name="name">The display name to assign.</param>
+    /// <param name="cancellationToken">A token that cancels the rename request.</param>
+    /// <returns>The updated thread snapshot.</returns>
     public async Task<CodexThreadSnapshot> SetNameAsync(string name, CancellationToken cancellationToken = default)
     {
         string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
         return await _client.SetThreadNameAsync(threadId, name, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Requests server-side compaction for this thread.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the compaction request.</param>
+    /// <returns>A task that completes when the compaction request has finished.</returns>
     public async Task CompactAsync(CancellationToken cancellationToken = default)
     {
         string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
@@ -434,6 +588,9 @@ public sealed class CodexThread
     }
 }
 
+/// <summary>
+/// Represents an active Codex turn and exposes streaming, steering, and interruption operations.
+/// </summary>
 public sealed class CodexTurn
 {
     private readonly CodexTurnSession _session;
@@ -446,12 +603,26 @@ public sealed class CodexTurn
         Id = session.Id;
     }
 
+    /// <summary>
+    /// Gets the client that owns this turn.
+    /// </summary>
     public CodexClient Client { get; }
 
+    /// <summary>
+    /// Gets the identifier of the thread that owns this turn.
+    /// </summary>
     public string ThreadId { get; }
 
+    /// <summary>
+    /// Gets the identifier of this turn.
+    /// </summary>
     public string Id { get; }
 
+    /// <summary>
+    /// Streams events emitted while this turn runs.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the event stream.</param>
+    /// <returns>An asynchronous stream of thread events.</returns>
     public async IAsyncEnumerable<CodexThreadEvent> StreamAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -461,6 +632,11 @@ public sealed class CodexTurn
         }
     }
 
+    /// <summary>
+    /// Runs this turn to completion and returns the final result.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>The completed turn result.</returns>
     public async Task<CodexRunResult> RunAsync(CancellationToken cancellationToken = default)
     {
         CodexRunResult? completedResult = null;
@@ -486,14 +662,31 @@ public sealed class CodexTurn
             ?? throw new CodexInvalidRequestException($"Turn '{Id}' on thread '{ThreadId}' did not complete successfully.");
     }
 
+    /// <summary>
+    /// Sends additional text input to a running turn.
+    /// </summary>
+    /// <param name="input">The text input used to steer the turn.</param>
+    /// <param name="cancellationToken">A token that cancels the steer request.</param>
+    /// <returns>A task that completes when the steer request has been sent.</returns>
     public async Task SteerAsync(string input, CancellationToken cancellationToken = default)
         => await SteerAsync([new CodexTextInput { Text = input }], cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Sends additional structured input to a running turn.
+    /// </summary>
+    /// <param name="input">The input items used to steer the turn.</param>
+    /// <param name="cancellationToken">A token that cancels the steer request.</param>
+    /// <returns>A task that completes when the steer request has been sent.</returns>
     public async Task SteerAsync(IReadOnlyList<CodexInputItem> input, CancellationToken cancellationToken = default)
     {
         await _session.SteerAsync(input, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Requests interruption of a running turn.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the interrupt request.</param>
+    /// <returns>A task that completes when the interrupt request has been sent.</returns>
     public async Task InterruptAsync(CancellationToken cancellationToken = default)
     {
         await _session.InterruptAsync(cancellationToken).ConfigureAwait(false);
