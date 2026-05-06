@@ -56,6 +56,7 @@ public sealed class CodexAppServerTransportTests
         Assert.True(client.Capabilities!.SupportsStartThread);
         Assert.True(client.Capabilities.SupportsTurnSteering);
         Assert.True(client.Capabilities.SupportsListModels);
+        Assert.True(client.Capabilities.SupportsAccountRateLimits);
 
         Assert.Contains(process.StdIn.Lines, line => line.Contains("\"method\":\"initialized\"", StringComparison.Ordinal));
     }
@@ -373,6 +374,33 @@ public sealed class CodexAppServerTransportTests
                             ["nextCursor"] = "model-cursor",
                         }));
                     break;
+                case "account/rateLimits/read":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["rateLimitsByLimitId"] = new JsonObject
+                            {
+                                ["codex"] = new JsonObject
+                                {
+                                    ["limitName"] = "Codex",
+                                    ["planType"] = "plus",
+                                    ["primary"] = new JsonObject
+                                    {
+                                        ["usedPercent"] = 7,
+                                        ["resetsAt"] = 1778076000L,
+                                        ["windowDurationMins"] = 300,
+                                    },
+                                    ["secondary"] = new JsonObject
+                                    {
+                                        ["usedPercent"] = 42,
+                                        ["resetsAt"] = 1778421600L,
+                                        ["windowDurationMins"] = 10080,
+                                    },
+                                },
+                            },
+                        }));
+                    break;
             }
         };
 
@@ -436,6 +464,17 @@ public sealed class CodexAppServerTransportTests
         Assert.Single(models.Models);
         Assert.Equal("model-1", models.Models[0].Id);
         Assert.Equal(CodexReasoningEffort.Medium, models.Models[0].DefaultReasoningEffort);
+
+        CodexAccountRateLimitsResult rateLimits = await client.GetAccountRateLimitsAsync();
+
+        CodexRateLimitSnapshot rateLimit = Assert.Single(rateLimits.RateLimits);
+        Assert.Equal("codex", rateLimit.LimitId);
+        Assert.Equal("plus", rateLimit.PlanType);
+        Assert.Equal(7, rateLimit.Primary!.UsedPercent);
+        Assert.Equal(300, rateLimit.Primary.WindowDurationMinutes);
+        Assert.Equal(42, rateLimit.Secondary!.UsedPercent);
+        Assert.Equal(10080, rateLimit.Secondary.WindowDurationMinutes);
+        Assert.Same(rateLimit, rateLimits.RateLimitsByLimitId["codex"]);
     }
 
     [Fact]
@@ -708,6 +747,22 @@ public sealed class CodexAppServerTransportTests
                             ["note"] = "mystery",
                         }));
                     process.EnqueueStdout(TestJson.Notification(
+                        "account/rateLimits/updated",
+                        new JsonObject
+                        {
+                            ["rateLimits"] = new JsonObject
+                            {
+                                ["limitId"] = "codex",
+                                ["planType"] = "plus",
+                                ["primary"] = new JsonObject
+                                {
+                                    ["usedPercent"] = 25,
+                                    ["resetsAt"] = 1778076000L,
+                                    ["windowDurationMins"] = 300,
+                                },
+                            },
+                        }));
+                    process.EnqueueStdout(TestJson.Notification(
                         "turn.completed",
                         new JsonObject
                         {
@@ -761,6 +816,11 @@ public sealed class CodexAppServerTransportTests
 
         Assert.Contains(events, evt => evt is CodexTurnStartedEvent);
         Assert.Contains(events, evt => evt is CodexUnknownThreadEvent unknown && unknown.UnknownType == "custom.runtime-event");
+        CodexAccountRateLimitsUpdatedEvent rateLimits = Assert.IsType<CodexAccountRateLimitsUpdatedEvent>(
+            events.Single(evt => evt is CodexAccountRateLimitsUpdatedEvent));
+        Assert.Equal("codex", rateLimits.RateLimits.LimitId);
+        Assert.Equal(25, rateLimits.RateLimits.Primary!.UsedPercent);
+        Assert.Equal(300, rateLimits.RateLimits.Primary.WindowDurationMinutes);
         CodexTurnCompletedEvent completed = Assert.IsType<CodexTurnCompletedEvent>(events.Last(evt => evt is CodexTurnCompletedEvent));
         Assert.Equal("Done", ((CodexAgentMessageItem)completed.Turn.Items.Single()).Text);
         Assert.Contains(process.StdIn.Lines, line => line.Contains("\"decision\":\"accept\"", StringComparison.Ordinal));

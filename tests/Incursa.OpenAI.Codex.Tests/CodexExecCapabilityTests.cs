@@ -16,6 +16,9 @@ public sealed class CodexExecCapabilityTests
             nameof(CodexClient.ListModelsAsync),
             new Func<CodexClient, Task>(async client => await client.ListModelsAsync())];
         yield return [
+            nameof(CodexClient.GetAccountRateLimitsAsync),
+            new Func<CodexClient, Task>(async client => await client.GetAccountRateLimitsAsync())];
+        yield return [
             nameof(CodexClient.ListThreadsAsync),
             new Func<CodexClient, Task>(async client => await client.ListThreadsAsync())];
         yield return [

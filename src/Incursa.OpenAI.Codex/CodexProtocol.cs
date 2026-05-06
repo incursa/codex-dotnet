@@ -224,6 +224,12 @@ internal static class CodexProtocol
                 WillRetry = GetBool(payload, "willRetry") ?? false,
                 Error = ParseTurnError(GetObject(payload, "error") ?? payload),
             },
+            "account.rateLimits.updated" => new CodexAccountRateLimitsUpdatedEvent
+            {
+                RateLimits = ParseRateLimitSnapshot(
+                    GetObjectAny(payload, "rateLimits", "rate_limits") ?? payload,
+                    fallbackLimitId: null),
+            },
             _ => new CodexUnknownThreadEvent(normalizedType) { RawPayload = payload },
         };
     }
@@ -312,6 +318,66 @@ internal static class CodexProtocol
         {
             Models = models,
             NextCursor = GetString(payload, "nextCursor"),
+        };
+    }
+
+    public static CodexAccountRateLimitsResult ParseAccountRateLimitsResult(JsonNode? node)
+    {
+        if (node is not JsonObject payload)
+        {
+            return new CodexAccountRateLimitsResult();
+        }
+
+        List<CodexRateLimitSnapshot> rateLimits = [];
+        Dictionary<string, CodexRateLimitSnapshot> byLimitId = new(StringComparer.Ordinal);
+
+        void AddSnapshot(CodexRateLimitSnapshot snapshot, string? limitIdKey)
+        {
+            string? limitId = string.IsNullOrWhiteSpace(snapshot.LimitId) ? limitIdKey : snapshot.LimitId;
+            string? dictionaryKey = string.IsNullOrWhiteSpace(limitIdKey) ? limitId : limitIdKey;
+            if (string.IsNullOrWhiteSpace(dictionaryKey))
+            {
+                rateLimits.Add(snapshot);
+                return;
+            }
+
+            CodexRateLimitSnapshot normalized = string.Equals(limitId, snapshot.LimitId, StringComparison.Ordinal)
+                ? snapshot
+                : snapshot with { LimitId = limitId };
+            if (byLimitId.TryAdd(dictionaryKey, normalized))
+            {
+                rateLimits.Add(normalized);
+            }
+        }
+
+        if (GetObjectAny(payload, "rateLimitsByLimitId", "rate_limits_by_limit_id") is { Count: > 0 } rateLimitsById)
+        {
+            foreach (KeyValuePair<string, JsonNode?> pair in rateLimitsById)
+            {
+                if (pair.Value is JsonObject snapshot)
+                {
+                    AddSnapshot(ParseRateLimitSnapshot(snapshot, pair.Key), pair.Key);
+                }
+            }
+        }
+
+        JsonNode? rateLimitsNode = GetNodeAny(payload, "rateLimits", "rate_limits");
+        if (rateLimitsNode is JsonObject singleLimit)
+        {
+            AddSnapshot(ParseRateLimitSnapshot(singleLimit, fallbackLimitId: null), limitIdKey: null);
+        }
+        else if (rateLimitsNode is JsonArray rateLimitsArray)
+        {
+            foreach (JsonObject snapshot in rateLimitsArray.OfType<JsonObject>())
+            {
+                AddSnapshot(ParseRateLimitSnapshot(snapshot, fallbackLimitId: null), limitIdKey: null);
+            }
+        }
+
+        return new CodexAccountRateLimitsResult
+        {
+            RateLimits = rateLimits,
+            RateLimitsByLimitId = byLimitId,
         };
     }
 
@@ -426,6 +492,54 @@ internal static class CodexProtocol
             IsDefault = GetBool(payload, "isDefault") ?? false,
             DefaultReasoningEffort = ParseReasoningEffort(GetString(payload, "defaultReasoningEffort")),
             SupportedReasoningEfforts = [],
+        };
+    }
+
+    private static CodexRateLimitSnapshot ParseRateLimitSnapshot(JsonObject payload, string? fallbackLimitId)
+        => new()
+        {
+            Credits = ParseCreditsSnapshot(GetObjectAny(payload, "credits")),
+            LimitId = GetStringAny(payload, "limitId", "limit_id") ?? fallbackLimitId,
+            LimitName = GetStringAny(payload, "limitName", "limit_name"),
+            PlanType = GetStringAny(payload, "planType", "plan_type"),
+            Primary = ParseRateLimitWindow(GetObjectAny(payload, "primary")),
+            Secondary = ParseRateLimitWindow(GetObjectAny(payload, "secondary")),
+            RateLimitReachedType = GetStringAny(payload, "rateLimitReachedType", "rate_limit_reached_type"),
+        };
+
+    private static CodexRateLimitWindow? ParseRateLimitWindow(JsonObject? payload)
+    {
+        if (payload is null)
+        {
+            return null;
+        }
+
+        return new CodexRateLimitWindow
+        {
+            UsedPercent = Math.Clamp(GetIntAny(payload, "usedPercent", "used_percent") ?? 0, 0, 100),
+            ResetsAt = ParseNullableDateTimeOffset(payload, "resetsAt", "resets_at"),
+            WindowDurationMinutes = GetLongAny(
+                payload,
+                "windowDurationMins",
+                "windowDurationMinutes",
+                "window_duration_mins",
+                "window_duration_minutes",
+                "window_minutes"),
+        };
+    }
+
+    private static CodexCreditsSnapshot? ParseCreditsSnapshot(JsonObject? payload)
+    {
+        if (payload is null)
+        {
+            return null;
+        }
+
+        return new CodexCreditsSnapshot
+        {
+            Balance = GetDoubleAny(payload, "balance"),
+            HasCredits = GetBoolAny(payload, "hasCredits", "has_credits"),
+            Unlimited = GetBoolAny(payload, "unlimited"),
         };
     }
 
@@ -755,15 +869,57 @@ internal static class CodexProtocol
     private static JsonObject? GetObject(JsonObject? payload, string name)
         => GetNode(payload, name) as JsonObject;
 
+    private static JsonObject? GetObjectAny(JsonObject? payload, params string[] names)
+        => GetNodeAny(payload, names) as JsonObject;
+
     private static JsonNode? GetNode(JsonObject? payload, string name)
         => payload is not null && payload.TryGetPropertyValue(name, out JsonNode? node) ? node : null;
+
+    private static JsonNode? GetNodeAny(JsonObject? payload, params string[] names)
+    {
+        if (payload is null)
+        {
+            return null;
+        }
+
+        foreach (string name in names)
+        {
+            if (payload.TryGetPropertyValue(name, out JsonNode? node))
+            {
+                return node;
+            }
+        }
+
+        return null;
+    }
 
     private static string? GetString(JsonObject? payload, string name)
         => GetNode(payload, name)?.GetValue<string>();
 
+    private static string? GetStringAny(JsonObject? payload, params string[] names)
+    {
+        if (GetNodeAny(payload, names) is JsonValue value && value.TryGetValue<string>(out string? result))
+        {
+            return result;
+        }
+
+        return null;
+    }
+
     private static bool? GetBool(JsonObject? payload, string name)
     {
         JsonNode? node = GetNode(payload, name);
+        if (node is JsonValue value && value.TryGetValue<bool>(out bool result))
+        {
+            return result;
+        }
+
+        return null;
+    }
+
+    private static bool? GetBoolAny(JsonObject? payload, params string[] names)
+    {
+        JsonNode? node = GetNodeAny(payload, names);
         if (node is JsonValue value && value.TryGetValue<bool>(out bool result))
         {
             return result;
@@ -790,6 +946,112 @@ internal static class CodexProtocol
 
         return null;
     }
+
+    private static int? GetIntAny(JsonObject? payload, params string[] names)
+    {
+        long? value = GetLongAny(payload, names);
+        if (value.HasValue)
+        {
+            return checked((int)value.Value);
+        }
+
+        return null;
+    }
+
+    private static long? GetLongAny(JsonObject? payload, params string[] names)
+    {
+        JsonNode? node = GetNodeAny(payload, names);
+        if (node is JsonValue value)
+        {
+            if (value.TryGetValue<long>(out long result))
+            {
+                return result;
+            }
+
+            if (value.TryGetValue<int>(out int intResult))
+            {
+                return intResult;
+            }
+
+            if (value.TryGetValue<double>(out double doubleResult))
+            {
+                return checked((long)doubleResult);
+            }
+
+            if (value.TryGetValue<string>(out string? text) && long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static double? GetDoubleAny(JsonObject? payload, params string[] names)
+    {
+        JsonNode? node = GetNodeAny(payload, names);
+        if (node is JsonValue value)
+        {
+            if (value.TryGetValue<double>(out double result))
+            {
+                return result;
+            }
+
+            if (value.TryGetValue<long>(out long longResult))
+            {
+                return longResult;
+            }
+
+            if (value.TryGetValue<int>(out int intResult))
+            {
+                return intResult;
+            }
+
+            if (value.TryGetValue<string>(out string? text) && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static DateTimeOffset? ParseNullableDateTimeOffset(JsonObject? payload, params string[] names)
+    {
+        JsonNode? node = GetNodeAny(payload, names);
+        if (node is not JsonValue value)
+        {
+            return null;
+        }
+
+        if (value.TryGetValue<long>(out long seconds))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(seconds);
+        }
+
+        if (value.TryGetValue<int>(out int intSeconds))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(intSeconds);
+        }
+
+        if (value.TryGetValue<double>(out double doubleSeconds))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(checked((long)doubleSeconds));
+        }
+
+        if (value.TryGetValue<string>(out string? text))
+        {
+            if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsedSeconds))
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(parsedSeconds);
+            }
+
+            if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTimeOffset parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
 }
-
-

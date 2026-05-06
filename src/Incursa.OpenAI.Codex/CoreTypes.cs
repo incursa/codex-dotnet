@@ -191,6 +191,106 @@ public sealed record CodexUsage
     public CodexTokenUsageBreakdown Total { get; init; } = new();
 }
 
+/// <summary>
+/// Represents account-level Codex rate-limit information reported by the app-server backend.
+/// </summary>
+public sealed record CodexAccountRateLimitsResult
+{
+    /// <summary>
+    /// Gets the reported rate-limit buckets in stable display order.
+    /// </summary>
+    public IReadOnlyList<CodexRateLimitSnapshot> RateLimits { get; init; } = [];
+
+    /// <summary>
+    /// Gets the reported rate-limit buckets keyed by Codex limit identifier.
+    /// </summary>
+    public IReadOnlyDictionary<string, CodexRateLimitSnapshot> RateLimitsByLimitId { get; init; } =
+        new Dictionary<string, CodexRateLimitSnapshot>(StringComparer.Ordinal);
+}
+
+/// <summary>
+/// Represents the current state of one Codex rate-limit bucket.
+/// </summary>
+public sealed record CodexRateLimitSnapshot
+{
+    /// <summary>
+    /// Gets the optional account credit state associated with this limit.
+    /// </summary>
+    public CodexCreditsSnapshot? Credits { get; init; }
+
+    /// <summary>
+    /// Gets the stable Codex limit identifier, such as <c>codex</c>.
+    /// </summary>
+    public string? LimitId { get; init; }
+
+    /// <summary>
+    /// Gets the human-readable limit name reported by Codex.
+    /// </summary>
+    public string? LimitName { get; init; }
+
+    /// <summary>
+    /// Gets the Codex plan type reported by the runtime.
+    /// </summary>
+    public string? PlanType { get; init; }
+
+    /// <summary>
+    /// Gets the primary window, typically the shorter rolling window.
+    /// </summary>
+    public CodexRateLimitWindow? Primary { get; init; }
+
+    /// <summary>
+    /// Gets the secondary window, typically the longer rolling window.
+    /// </summary>
+    public CodexRateLimitWindow? Secondary { get; init; }
+
+    /// <summary>
+    /// Gets the Codex rate-limit reached reason, when one is currently active.
+    /// </summary>
+    public string? RateLimitReachedType { get; init; }
+}
+
+/// <summary>
+/// Represents usage and reset timing for a Codex rate-limit window.
+/// </summary>
+public sealed record CodexRateLimitWindow
+{
+    /// <summary>
+    /// Gets the reported percentage of the window currently used.
+    /// </summary>
+    public int UsedPercent { get; init; }
+
+    /// <summary>
+    /// Gets the UTC reset time for the window, when Codex reports one.
+    /// </summary>
+    public DateTimeOffset? ResetsAt { get; init; }
+
+    /// <summary>
+    /// Gets the duration of the window in minutes, when Codex reports one.
+    /// </summary>
+    public long? WindowDurationMinutes { get; init; }
+}
+
+/// <summary>
+/// Represents optional credit information associated with a Codex account limit.
+/// </summary>
+public sealed record CodexCreditsSnapshot
+{
+    /// <summary>
+    /// Gets the reported credit balance, when Codex reports one.
+    /// </summary>
+    public double? Balance { get; init; }
+
+    /// <summary>
+    /// Gets whether the account currently has credits available, when reported.
+    /// </summary>
+    public bool? HasCredits { get; init; }
+
+    /// <summary>
+    /// Gets whether the account is reported as having unlimited credits.
+    /// </summary>
+    public bool? Unlimited { get; init; }
+}
+
 public sealed record CodexRunResult
 {
     public IReadOnlyList<CodexThreadItem> Items { get; init; } = [];
@@ -316,6 +416,8 @@ public sealed record CodexRuntimeCapabilities
 
     public bool ExperimentalApi { get; init; }
 
+    public bool SupportsAccountRateLimits { get; init; }
+
     public bool SupportsArchiveThread { get; init; }
 
     public bool SupportsCompactThread { get; init; }
@@ -344,5 +446,4 @@ public sealed record CodexRuntimeCapabilities
 
     public IReadOnlyList<string> OptOutNotificationMethods { get; init; } = [];
 }
-
 

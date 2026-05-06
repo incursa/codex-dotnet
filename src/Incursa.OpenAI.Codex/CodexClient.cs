@@ -152,6 +152,13 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.ListModelsAsync(options, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountRateLimits == true, nameof(GetAccountRateLimitsAsync));
+        return await _transport.GetAccountRateLimitsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -492,4 +499,3 @@ public sealed class CodexTurn
         await _session.InterruptAsync(cancellationToken).ConfigureAwait(false);
     }
 }
-

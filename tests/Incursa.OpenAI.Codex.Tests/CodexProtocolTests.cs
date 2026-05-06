@@ -363,6 +363,35 @@ public sealed class CodexProtocolTests
     }
 
     [Fact]
+    public void ParseThreadEvent_MapsAccountRateLimitsUpdatedNotification()
+    {
+        CodexThreadEvent evt = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "account/rateLimits/updated",
+            new JsonObject
+            {
+                ["rateLimits"] = new JsonObject
+                {
+                    ["limitId"] = "codex",
+                    ["planType"] = "plus",
+                    ["primary"] = new JsonObject
+                    {
+                        ["usedPercent"] = 25,
+                        ["windowDurationMins"] = 300,
+                        ["resetsAt"] = 1778076000L,
+                    },
+                },
+            }));
+
+        CodexAccountRateLimitsUpdatedEvent updated = Assert.IsType<CodexAccountRateLimitsUpdatedEvent>(evt);
+        Assert.Equal("account.rateLimits.updated", updated.Type);
+        Assert.Equal("codex", updated.RateLimits.LimitId);
+        Assert.Equal("plus", updated.RateLimits.PlanType);
+        Assert.Equal(25, updated.RateLimits.Primary!.UsedPercent);
+        Assert.Equal(300, updated.RateLimits.Primary.WindowDurationMinutes);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778076000L), updated.RateLimits.Primary.ResetsAt);
+    }
+
+    [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
     [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
     [CoverageType(RequirementCoverageType.Positive)]
@@ -506,6 +535,85 @@ public sealed class CodexProtocolTests
         Assert.Equal("tail", turn.Error.AdditionalDetails);
         Assert.Equal(128, turn.Usage!.ModelContextWindow);
         Assert.Equal(24, turn.Usage.Total.TotalTokens);
+    }
+
+    [Fact]
+    public void ParseAccountRateLimitsResult_ParsesRateLimitsByLimitId()
+    {
+        CodexAccountRateLimitsResult result = CodexProtocol.ParseAccountRateLimitsResult(new JsonObject
+        {
+            ["rateLimitsByLimitId"] = new JsonObject
+            {
+                ["codex"] = new JsonObject
+                {
+                    ["limitName"] = "Codex",
+                    ["planType"] = "plus",
+                    ["credits"] = new JsonObject
+                    {
+                        ["balance"] = 12.5,
+                        ["hasCredits"] = true,
+                        ["unlimited"] = false,
+                    },
+                    ["primary"] = new JsonObject
+                    {
+                        ["usedPercent"] = 10,
+                        ["resetsAt"] = 1778076000L,
+                        ["windowDurationMins"] = 300,
+                    },
+                    ["secondary"] = new JsonObject
+                    {
+                        ["usedPercent"] = 61,
+                        ["resetsAt"] = 1778421600L,
+                        ["windowDurationMins"] = 10080,
+                    },
+                },
+            },
+        });
+
+        CodexRateLimitSnapshot bucket = Assert.Single(result.RateLimits);
+        Assert.Equal("codex", bucket.LimitId);
+        Assert.Equal("Codex", bucket.LimitName);
+        Assert.Equal("plus", bucket.PlanType);
+        Assert.Equal(12.5, bucket.Credits!.Balance);
+        Assert.True(bucket.Credits.HasCredits);
+        Assert.False(bucket.Credits.Unlimited);
+        Assert.Equal(10, bucket.Primary!.UsedPercent);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778076000L), bucket.Primary.ResetsAt);
+        Assert.Equal(300, bucket.Primary.WindowDurationMinutes);
+        Assert.Equal(61, bucket.Secondary!.UsedPercent);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778421600L), bucket.Secondary.ResetsAt);
+        Assert.Equal(10080, bucket.Secondary.WindowDurationMinutes);
+        Assert.Same(bucket, result.RateLimitsByLimitId["codex"]);
+    }
+
+    [Fact]
+    public void ParseAccountRateLimitsResult_ParsesLegacySnakeCasePayload()
+    {
+        CodexAccountRateLimitsResult result = CodexProtocol.ParseAccountRateLimitsResult(new JsonObject
+        {
+            ["rate_limits"] = new JsonObject
+            {
+                ["limit_id"] = "codex",
+                ["limit_name"] = "Codex",
+                ["plan_type"] = "pro",
+                ["rate_limit_reached_type"] = "rate_limit_reached",
+                ["primary"] = new JsonObject
+                {
+                    ["used_percent"] = 101,
+                    ["resets_at"] = "1778076000",
+                    ["window_duration_mins"] = "300",
+                },
+            },
+        });
+
+        CodexRateLimitSnapshot bucket = Assert.Single(result.RateLimits);
+        Assert.Equal("codex", bucket.LimitId);
+        Assert.Equal("pro", bucket.PlanType);
+        Assert.Equal("rate_limit_reached", bucket.RateLimitReachedType);
+        Assert.Equal(100, bucket.Primary!.UsedPercent);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778076000L), bucket.Primary.ResetsAt);
+        Assert.Equal(300, bucket.Primary.WindowDurationMinutes);
+        Assert.Same(bucket, result.RateLimitsByLimitId["codex"]);
     }
 
     [Fact]

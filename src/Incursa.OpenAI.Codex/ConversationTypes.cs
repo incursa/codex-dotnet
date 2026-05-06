@@ -176,6 +176,17 @@ public sealed record CodexThreadErrorEvent() : CodexThreadEvent("error")
     public CodexTurnError Error { get; init; } = new();
 }
 
+/// <summary>
+/// Represents an app-server notification that the current account rate-limit snapshot changed.
+/// </summary>
+public sealed record CodexAccountRateLimitsUpdatedEvent() : CodexThreadEvent("account.rateLimits.updated")
+{
+    /// <summary>
+    /// Gets the rate-limit snapshot reported by Codex.
+    /// </summary>
+    public CodexRateLimitSnapshot RateLimits { get; init; } = new();
+}
+
 public sealed record CodexUnknownThreadEvent(string UnknownType) : CodexThreadEvent(UnknownType)
 {
     public JsonObject? RawPayload { get; init; }
@@ -335,5 +346,4 @@ public sealed record CodexUnknownThreadItem(string UnknownType) : CodexThreadIte
 {
     public JsonObject? RawPayload { get; init; }
 }
-
 

@@ -121,6 +121,7 @@ public sealed class CodexContractTypeTests
         {
             BackendSelection = CodexBackendSelection.AppServer,
             ExperimentalApi = true,
+            SupportsAccountRateLimits = true,
             SupportsArchiveThread = true,
             SupportsCompactThread = true,
             SupportsForkThread = true,
@@ -138,6 +139,7 @@ public sealed class CodexContractTypeTests
         };
         Assert.NotSame(capabilities, capabilities with { });
         Assert.Equal(capabilities, capabilities with { });
+        Assert.True(capabilities.SupportsAccountRateLimits);
         Assert.True(capabilities.SupportsTurnSteering);
         Assert.Contains("turn.completed", capabilities.OptOutNotificationMethods);
 
@@ -180,6 +182,44 @@ public sealed class CodexContractTypeTests
         };
         Assert.Equal(4096, usage.ModelContextWindow);
         Assert.Equal(20, usage.Total.TotalTokens);
+
+        CodexRateLimitWindow rateLimitWindow = new()
+        {
+            UsedPercent = 42,
+            ResetsAt = DateTimeOffset.UnixEpoch.AddHours(5),
+            WindowDurationMinutes = 300,
+        };
+        CodexRateLimitSnapshot rateLimitSnapshot = new()
+        {
+            Credits = new CodexCreditsSnapshot
+            {
+                Balance = 12.5,
+                HasCredits = true,
+                Unlimited = false,
+            },
+            LimitId = "codex",
+            LimitName = "Codex",
+            PlanType = "plus",
+            Primary = rateLimitWindow,
+            Secondary = rateLimitWindow with
+            {
+                UsedPercent = 60,
+                WindowDurationMinutes = 10080,
+            },
+            RateLimitReachedType = "rate_limit_reached",
+        };
+        CodexAccountRateLimitsResult accountRateLimits = new()
+        {
+            RateLimits = [rateLimitSnapshot],
+            RateLimitsByLimitId = new Dictionary<string, CodexRateLimitSnapshot>(StringComparer.Ordinal)
+            {
+                ["codex"] = rateLimitSnapshot,
+            },
+        };
+        Assert.Equal("codex", accountRateLimits.RateLimits[0].LimitId);
+        Assert.Equal(42, accountRateLimits.RateLimitsByLimitId["codex"].Primary!.UsedPercent);
+        Assert.Equal(10080, accountRateLimits.RateLimitsByLimitId["codex"].Secondary!.WindowDurationMinutes);
+        Assert.True(accountRateLimits.RateLimitsByLimitId["codex"].Credits!.HasCredits);
 
         CodexModelAvailabilityNux nux = new()
         {
@@ -360,6 +400,7 @@ public sealed class CodexContractTypeTests
         CodexRuntimeCapabilities capabilities = new();
         Assert.Equal(CodexBackendSelection.Exec, capabilities.BackendSelection);
         Assert.False(capabilities.ExperimentalApi);
+        Assert.False(capabilities.SupportsAccountRateLimits);
         Assert.False(capabilities.SupportsArchiveThread);
         Assert.False(capabilities.SupportsCompactThread);
         Assert.False(capabilities.SupportsForkThread);
@@ -387,6 +428,29 @@ public sealed class CodexContractTypeTests
         Assert.Null(gitInfo.Branch);
         Assert.Null(gitInfo.OriginUrl);
         Assert.Null(gitInfo.Sha);
+
+        CodexAccountRateLimitsResult accountRateLimits = new();
+        Assert.Empty(accountRateLimits.RateLimits);
+        Assert.Empty(accountRateLimits.RateLimitsByLimitId);
+
+        CodexRateLimitSnapshot rateLimitSnapshot = new();
+        Assert.Null(rateLimitSnapshot.Credits);
+        Assert.Null(rateLimitSnapshot.LimitId);
+        Assert.Null(rateLimitSnapshot.LimitName);
+        Assert.Null(rateLimitSnapshot.PlanType);
+        Assert.Null(rateLimitSnapshot.Primary);
+        Assert.Null(rateLimitSnapshot.Secondary);
+        Assert.Null(rateLimitSnapshot.RateLimitReachedType);
+
+        CodexRateLimitWindow rateLimitWindow = new();
+        Assert.Equal(0, rateLimitWindow.UsedPercent);
+        Assert.Null(rateLimitWindow.ResetsAt);
+        Assert.Null(rateLimitWindow.WindowDurationMinutes);
+
+        CodexCreditsSnapshot credits = new();
+        Assert.Null(credits.Balance);
+        Assert.Null(credits.HasCredits);
+        Assert.Null(credits.Unlimited);
 
         CodexReasoningEffortOption effortOption = new();
         Assert.Equal(string.Empty, effortOption.Description);
@@ -808,6 +872,19 @@ public sealed class CodexContractTypeTests
             },
         };
 
+        CodexAccountRateLimitsUpdatedEvent rateLimitsUpdated = new()
+        {
+            RateLimits = new CodexRateLimitSnapshot
+            {
+                LimitId = "codex",
+                Primary = new CodexRateLimitWindow
+                {
+                    UsedPercent = 25,
+                    WindowDurationMinutes = 300,
+                },
+            },
+        };
+
         CodexUnknownThreadEvent unknownEvent = new("custom/runtime-event")
         {
             RawPayload = new JsonObject
@@ -824,6 +901,8 @@ public sealed class CodexContractTypeTests
         Assert.Equal("item.updated", itemUpdated.Type);
         Assert.Equal("item.completed", itemCompleted.Type);
         Assert.Equal("error", threadError.Type);
+        Assert.Equal("account.rateLimits.updated", rateLimitsUpdated.Type);
+        Assert.Equal("codex", rateLimitsUpdated.RateLimits.LimitId);
         Assert.Equal("custom/runtime-event", unknownEvent.UnknownType);
         Assert.Equal("mystery", unknownEvent.RawPayload!["note"]!.GetValue<string>());
 
@@ -835,6 +914,7 @@ public sealed class CodexContractTypeTests
         Assert.Equal(itemUpdated, itemUpdated with { });
         Assert.Equal(itemCompleted, itemCompleted with { });
         Assert.Equal(threadError, threadError with { });
+        Assert.Equal(rateLimitsUpdated, rateLimitsUpdated with { });
         Assert.Equal(unknownEvent, unknownEvent with { });
     }
 
@@ -958,6 +1038,11 @@ public sealed class CodexContractTypeTests
         Assert.Null(threadError.TurnId);
         Assert.False(threadError.WillRetry);
         Assert.Equal(string.Empty, threadError.Error.Message);
+
+        CodexAccountRateLimitsUpdatedEvent rateLimitsUpdated = new();
+        Assert.Equal("account.rateLimits.updated", rateLimitsUpdated.Type);
+        Assert.Null(rateLimitsUpdated.RateLimits.LimitId);
+        Assert.Null(rateLimitsUpdated.RateLimits.Primary);
 
         CodexUserMessageItem userMessage = new();
         Assert.Equal("userMessage", userMessage.Type);

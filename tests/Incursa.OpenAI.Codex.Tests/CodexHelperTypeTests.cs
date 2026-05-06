@@ -182,6 +182,7 @@ public sealed class CodexHelperTypeTests
         {
             BackendSelection = CodexBackendSelection.AppServer,
             ExperimentalApi = true,
+            SupportsAccountRateLimits = true,
             SupportsArchiveThread = true,
             SupportsCompactThread = true,
             SupportsForkThread = true,
@@ -196,7 +197,26 @@ public sealed class CodexHelperTypeTests
             SupportsTurnSteering = true,
             SupportsUnarchiveThread = true,
         };
+        Assert.True(capabilities.SupportsAccountRateLimits);
         Assert.True(capabilities.SupportsTurnSteering);
+
+        CodexAccountRateLimitsResult rateLimits = new()
+        {
+            RateLimits =
+            [
+                new CodexRateLimitSnapshot
+                {
+                    LimitId = "codex",
+                    PlanType = "plus",
+                    Primary = new CodexRateLimitWindow
+                    {
+                        UsedPercent = 30,
+                        WindowDurationMinutes = 300,
+                    },
+                },
+            ],
+        };
+        Assert.Equal("codex", rateLimits.RateLimits[0].LimitId);
     }
 
     [Fact]
@@ -283,5 +303,4 @@ public sealed class CodexHelperTypeTests
         Assert.Equal("trace", result.StructuredContent!["kind"]!.GetValue<string>());
     }
 }
-
 

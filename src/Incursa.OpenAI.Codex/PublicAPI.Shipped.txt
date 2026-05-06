@@ -1,3 +1,25 @@
+T:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult
+C:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult()
+P:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.RateLimits:System.Collections.Generic.IReadOnlyList<Incursa.OpenAI.Codex.CodexRateLimitSnapshot> get; set;
+P:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.RateLimitsByLimitId:System.Collections.Generic.IReadOnlyDictionary<System.String, Incursa.OpenAI.Codex.CodexRateLimitSnapshot> get; set;
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.Equals(Incursa.OpenAI.Codex.CodexAccountRateLimitsResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.op_Equality(Incursa.OpenAI.Codex.CodexAccountRateLimitsResult left, Incursa.OpenAI.Codex.CodexAccountRateLimitsResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.op_Inequality(Incursa.OpenAI.Codex.CodexAccountRateLimitsResult left, Incursa.OpenAI.Codex.CodexAccountRateLimitsResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.<Clone>$():Incursa.OpenAI.Codex.CodexAccountRateLimitsResult
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsResult.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent
+C:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent()
+P:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.RateLimits:Incursa.OpenAI.Codex.CodexRateLimitSnapshot get; set;
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.Equals(Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.Equals(Incursa.OpenAI.Codex.CodexThreadEvent other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.op_Equality(Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent left, Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.op_Inequality(Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent left, Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.<Clone>$():Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexActiveThreadStatus
 C:Incursa.OpenAI.Codex.CodexActiveThreadStatus()
 P:Incursa.OpenAI.Codex.CodexActiveThreadStatus.ActiveFlags:System.Collections.Generic.IReadOnlyList<Incursa.OpenAI.Codex.CodexThreadActiveFlag> get; set;
@@ -71,6 +93,7 @@ P:Incursa.OpenAI.Codex.CodexClient.Capabilities:Incursa.OpenAI.Codex.CodexRuntim
 P:Incursa.OpenAI.Codex.CodexClient.Metadata:Incursa.OpenAI.Codex.CodexRuntimeMetadata get;
 P:Incursa.OpenAI.Codex.CodexClient.Options:Incursa.OpenAI.Codex.CodexClientOptions get;
 M:Incursa.OpenAI.Codex.CodexClient.ArchiveThreadAsync(System.String threadId, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task
+M:Incursa.OpenAI.Codex.CodexClient.GetAccountRateLimitsAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexAccountRateLimitsResult>
 M:Incursa.OpenAI.Codex.CodexClient.ListModelsAsync(Incursa.OpenAI.Codex.CodexModelListOptions options = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexModelListResult>
 M:Incursa.OpenAI.Codex.CodexClient.InitializeAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexRuntimeMetadata>
 M:Incursa.OpenAI.Codex.CodexClient.ListThreadsAsync(Incursa.OpenAI.Codex.CodexThreadListOptions options = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexThreadListResult>
@@ -253,6 +276,18 @@ M:Incursa.OpenAI.Codex.CodexContextCompactionItem.op_Inequality(Incursa.OpenAI.C
 M:Incursa.OpenAI.Codex.CodexContextCompactionItem.<Clone>$():Incursa.OpenAI.Codex.CodexContextCompactionItem
 M:Incursa.OpenAI.Codex.CodexContextCompactionItem.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexContextCompactionItem.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexCreditsSnapshot
+C:Incursa.OpenAI.Codex.CodexCreditsSnapshot()
+P:Incursa.OpenAI.Codex.CodexCreditsSnapshot.Balance:System.Nullable<System.Double> get; set;
+P:Incursa.OpenAI.Codex.CodexCreditsSnapshot.HasCredits:System.Nullable<System.Boolean> get; set;
+P:Incursa.OpenAI.Codex.CodexCreditsSnapshot.Unlimited:System.Nullable<System.Boolean> get; set;
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.Equals(Incursa.OpenAI.Codex.CodexCreditsSnapshot other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.op_Equality(Incursa.OpenAI.Codex.CodexCreditsSnapshot left, Incursa.OpenAI.Codex.CodexCreditsSnapshot right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.op_Inequality(Incursa.OpenAI.Codex.CodexCreditsSnapshot left, Incursa.OpenAI.Codex.CodexCreditsSnapshot right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.<Clone>$():Incursa.OpenAI.Codex.CodexCreditsSnapshot
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexCreditsSnapshot.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexDangerFullAccessSandboxPolicy
 C:Incursa.OpenAI.Codex.CodexDangerFullAccessSandboxPolicy()
 M:Incursa.OpenAI.Codex.CodexDangerFullAccessSandboxPolicy.Equals(Incursa.OpenAI.Codex.CodexDangerFullAccessSandboxPolicy other):System.Boolean
@@ -778,6 +813,34 @@ M:Incursa.OpenAI.Codex.CodexPlanItem.op_Inequality(Incursa.OpenAI.Codex.CodexPla
 M:Incursa.OpenAI.Codex.CodexPlanItem.<Clone>$():Incursa.OpenAI.Codex.CodexPlanItem
 M:Incursa.OpenAI.Codex.CodexPlanItem.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexPlanItem.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexRateLimitSnapshot
+C:Incursa.OpenAI.Codex.CodexRateLimitSnapshot()
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.Credits:Incursa.OpenAI.Codex.CodexCreditsSnapshot get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.LimitId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.LimitName:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.PlanType:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.Primary:Incursa.OpenAI.Codex.CodexRateLimitWindow get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.RateLimitReachedType:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.Secondary:Incursa.OpenAI.Codex.CodexRateLimitWindow get; set;
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.Equals(Incursa.OpenAI.Codex.CodexRateLimitSnapshot other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.op_Equality(Incursa.OpenAI.Codex.CodexRateLimitSnapshot left, Incursa.OpenAI.Codex.CodexRateLimitSnapshot right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.op_Inequality(Incursa.OpenAI.Codex.CodexRateLimitSnapshot left, Incursa.OpenAI.Codex.CodexRateLimitSnapshot right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.<Clone>$():Incursa.OpenAI.Codex.CodexRateLimitSnapshot
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexRateLimitSnapshot.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexRateLimitWindow
+C:Incursa.OpenAI.Codex.CodexRateLimitWindow()
+P:Incursa.OpenAI.Codex.CodexRateLimitWindow.ResetsAt:System.Nullable<System.DateTimeOffset> get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitWindow.UsedPercent:System.Int32 get; set;
+P:Incursa.OpenAI.Codex.CodexRateLimitWindow.WindowDurationMinutes:System.Nullable<System.Int64> get; set;
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.Equals(Incursa.OpenAI.Codex.CodexRateLimitWindow other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.op_Equality(Incursa.OpenAI.Codex.CodexRateLimitWindow left, Incursa.OpenAI.Codex.CodexRateLimitWindow right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.op_Inequality(Incursa.OpenAI.Codex.CodexRateLimitWindow left, Incursa.OpenAI.Codex.CodexRateLimitWindow right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.<Clone>$():Incursa.OpenAI.Codex.CodexRateLimitWindow
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexRateLimitWindow.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexReadCommandAction
 C:Incursa.OpenAI.Codex.CodexReadCommandAction()
 P:Incursa.OpenAI.Codex.CodexReadCommandAction.Command:System.String get; set;
@@ -881,6 +944,7 @@ C:Incursa.OpenAI.Codex.CodexRuntimeCapabilities()
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.BackendSelection:Incursa.OpenAI.Codex.CodexBackendSelection get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.ExperimentalApi:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.OptOutNotificationMethods:System.Collections.Generic.IReadOnlyList<System.String> get; set;
+P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsAccountRateLimits:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsArchiveThread:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsCompactThread:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsForkThread:System.Boolean get; set;
