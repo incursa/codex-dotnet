@@ -2,6 +2,8 @@
 
 `Incursa.OpenAI.Codex` is an async-only .NET client for the local Codex runtime. It launches the `codex` executable as a subprocess, so the machine running your app must already have Codex installed and authenticated.
 
+The public package is young, but the code comes from day-to-day Incursa Codex automation work rather than a throwaway wrapper. Incursa has processed more than 10,000 Codex messages while hardening local subprocess orchestration, streamed events, typed results, and failure handling around this SDK family.
+
 It provides:
 
 - [`CodexClient`](src/Incursa.OpenAI.Codex/CodexClient.cs) for starting and managing Codex conversations
@@ -95,6 +97,13 @@ See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Cod
 - [`fuzz/README.md`](fuzz/README.md)
 - [`benchmarks/README.md`](benchmarks/README.md)
 - [`quality/testing-intent.yaml`](quality/testing-intent.yaml)
+
+## Contributing And Security
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+- Contributions are accepted under [CONTRIBUTOR-AGREEMENT.md](CONTRIBUTOR-AGREEMENT.md).
+- Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) in project spaces.
+- Report vulnerabilities through [SECURITY.md](SECURITY.md), not public issues.
 
 ## License
 
