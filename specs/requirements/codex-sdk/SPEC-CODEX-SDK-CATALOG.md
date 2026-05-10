@@ -77,7 +77,7 @@ Trace:
 ## CodexThread
 
 ## REQ-CODEX-SDK-CATALOG-0303 Expose `CodexThread` with its async conversation methods
-The SDK MUST expose `CodexThread` with `Id`, `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync`.
+The SDK MUST expose `CodexThread` with `Id`, `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, `CompactAsync`, `GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, and `ClearGoalAsync`.
 
 Trace:
 - Satisfied By:
@@ -88,6 +88,7 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/src/thread.ts
   - C:/src/openai/codex/sdk/python/src/codex_app_server/api.py
   - C:/src/openai/codex/sdk/python/docs/api-reference.md
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## CodexTurn
 
@@ -141,7 +142,7 @@ Trace:
 ## Results, Metadata, and Capability
 
 ## REQ-CODEX-SDK-CATALOG-0307 Expose the async result, metadata, capability, and token-usage records
-The SDK MUST expose `CodexRunResult`, `CodexTurnRecord`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModelListResult`, `CodexModel`, `CodexUsage`, `CodexTokenUsageBreakdown`, `CodexThreadError`, `CodexServerInfo`, `CodexRuntimeMetadata`, and `CodexRuntimeCapabilities`.
+The SDK MUST expose `CodexRunResult`, `CodexTurnRecord`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModelListResult`, `CodexModel`, `CodexUsage`, `CodexTokenUsageBreakdown`, `CodexThreadError`, `CodexServerInfo`, `CodexRuntimeMetadata`, and `CodexRuntimeCapabilities`.
 
 Trace:
 - Satisfied By:
@@ -152,6 +153,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/_run.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/models.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/generated/v2_all.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## Errors and DI
 
@@ -182,7 +184,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/client.py
 
 ## REQ-CODEX-SDK-CATALOG-0310 Expose supporting enum and value-object types
-The SDK MUST expose supporting enum and value-object types for backend selection, thread status, session source, git metadata, model availability metadata, model upgrade metadata, input modality, reasoning effort options, and thread sort and source filters.
+The SDK MUST expose supporting enum and value-object types for backend selection, thread status, thread goal status, session source, git metadata, model availability metadata, model upgrade metadata, input modality, reasoning effort options, and thread sort and source filters.
 
 Trace:
 - Satisfied By:

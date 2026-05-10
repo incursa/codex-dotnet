@@ -57,6 +57,7 @@ public sealed class CodexAppServerTransportTests
         Assert.True(client.Capabilities.SupportsTurnSteering);
         Assert.True(client.Capabilities.SupportsListModels);
         Assert.True(client.Capabilities.SupportsAccountRateLimits);
+        Assert.True(client.Capabilities.SupportsThreadGoals);
 
         Assert.Contains(process.StdIn.Lines, line => line.Contains("\"method\":\"initialized\"", StringComparison.Ordinal));
     }
@@ -362,6 +363,45 @@ public sealed class CodexAppServerTransportTests
                 case "thread/compact/start":
                     process.EnqueueStdout(TestJson.Response(id, new JsonObject()));
                     break;
+                case "thread/goal/get":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject()));
+                    break;
+                case "thread/goal/set":
+                    {
+                        JsonObject payload = request["params"]!.AsObject();
+                        if (payload.ContainsKey("objective"))
+                        {
+                            Assert.Equal("Ship goal mode", payload["objective"]!.GetValue<string>());
+                            Assert.Equal("active", payload["status"]!.GetValue<string>());
+                            Assert.Equal(1200L, payload["tokenBudget"]!.GetValue<long>());
+                            process.EnqueueStdout(TestJson.Response(
+                                id,
+                                new JsonObject
+                                {
+                                    ["goal"] = CreateThreadGoal("thread-1", "Ship goal mode"),
+                                }));
+                        }
+                        else
+                        {
+                            Assert.Equal("paused", payload["status"]!.GetValue<string>());
+                            process.EnqueueStdout(TestJson.Response(
+                                id,
+                                new JsonObject
+                                {
+                                    ["goal"] = CreateThreadGoal("thread-1", "Ship goal mode", "paused"),
+                                }));
+                        }
+
+                        break;
+                    }
+                case "thread/goal/clear":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["cleared"] = true,
+                        }));
+                    break;
                 case "model/list":
                     process.EnqueueStdout(TestJson.Response(
                         id,
@@ -427,6 +467,20 @@ public sealed class CodexAppServerTransportTests
         Assert.Equal("Renamed thread", renamedSnapshot.Name);
 
         await thread.CompactAsync();
+
+        CodexThreadGoal? missingGoal = await thread.GetGoalAsync();
+        Assert.Null(missingGoal);
+
+        CodexThreadGoal goal = await thread.SetGoalAsync("Ship goal mode", tokenBudget: 1200);
+        Assert.Equal("thread-1", goal.ThreadId);
+        Assert.Equal("Ship goal mode", goal.Objective);
+        Assert.Equal(CodexThreadGoalStatus.Active, goal.Status);
+        Assert.Equal(1200, goal.TokenBudget);
+
+        CodexThreadGoal pausedGoal = await thread.SetGoalStatusAsync(CodexThreadGoalStatus.Paused);
+        Assert.Equal(CodexThreadGoalStatus.Paused, pausedGoal.Status);
+
+        Assert.True(await thread.ClearGoalAsync());
 
         await client.ArchiveThreadAsync(thread.Id!);
 
@@ -2319,5 +2373,18 @@ public sealed class CodexAppServerTransportTests
             ["hidden"] = false,
             ["isDefault"] = true,
             ["defaultReasoningEffort"] = "medium",
+        };
+
+    private static JsonObject CreateThreadGoal(string threadId, string objective, string status = "active")
+        => new()
+        {
+            ["threadId"] = threadId,
+            ["objective"] = objective,
+            ["status"] = status,
+            ["tokenBudget"] = 1200L,
+            ["tokensUsed"] = 42L,
+            ["timeUsedSeconds"] = 60L,
+            ["createdAt"] = 1778076000L,
+            ["updatedAt"] = 1778076060L,
         };
 }

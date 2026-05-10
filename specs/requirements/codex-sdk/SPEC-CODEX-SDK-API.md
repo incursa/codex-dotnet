@@ -137,7 +137,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/tests/test_public_api_runtime_behavior.py
 
 ## REQ-CODEX-SDK-API-0208 Expose thread execution methods
-`CodexThread` MUST expose `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, and `CompactAsync` methods that match the upstream conversation semantics.
+`CodexThread` MUST expose `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, `CompactAsync`, `GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, and `ClearGoalAsync` methods that match the upstream conversation semantics.
 
 Trace:
 - Satisfied By:
@@ -147,6 +147,7 @@ Trace:
 - Source Refs:
   - C:/src/openai/codex/sdk/typescript/src/thread.ts
   - C:/src/openai/codex/sdk/python/src/codex_app_server/api.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## REQ-CODEX-SDK-API-0209 Define run-result selection rules
 `CodexRunResult` MUST expose `FinalResponse`, `Items`, and `Usage`, and the final-response selection logic prefers the last completed assistant message with a `final_answer` phase before falling back to the last phase-less assistant message.
@@ -220,7 +221,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/docs/api-reference.md
 
 ## REQ-CODEX-SDK-API-0214 Preserve the thread item and event hierarchies
-The SDK MUST expose `CodexThreadEvent` and `CodexThreadItem` as polymorphic hierarchies that preserve the upstream discriminators and unknown fallback payloads.
+The SDK MUST expose `CodexThreadEvent` and `CodexThreadItem` as polymorphic hierarchies that preserve the upstream discriminators and unknown fallback payloads, including app-server thread goal notifications.
 
 Trace:
 - Satisfied By:
@@ -231,11 +232,12 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/src/events.ts
   - C:/src/openai/codex/sdk/typescript/src/items.ts
   - C:/src/openai/codex/sdk/python/src/codex_app_server/models.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## Result and Metadata Shapes
 
 ## REQ-CODEX-SDK-API-0215 Expose the supporting result and metadata records
-The SDK MUST expose `CodexThreadError`, `CodexTokenUsageBreakdown`, `CodexUsage`, `CodexServerInfo`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModel`, and `CodexModelListResult` as immutable data shapes.
+The SDK MUST expose `CodexThreadError`, `CodexTokenUsageBreakdown`, `CodexUsage`, `CodexServerInfo`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModel`, and `CodexModelListResult` as immutable data shapes.
 
 Trace:
 - Satisfied By:
@@ -246,6 +248,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/models.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/_run.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/generated/v2_all.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## Errors and Serialization
 

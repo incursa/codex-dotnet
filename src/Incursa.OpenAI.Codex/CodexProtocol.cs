@@ -113,6 +113,38 @@ internal static class CodexProtocol
     public static JsonObject BuildThreadCompactParams(string threadId)
         => new() { ["threadId"] = threadId };
 
+    public static JsonObject BuildThreadGoalGetParams(string threadId)
+        => new() { ["threadId"] = threadId };
+
+    public static JsonObject BuildThreadGoalSetParams(
+        string threadId,
+        string? objective,
+        CodexThreadGoalStatus? status,
+        long? tokenBudget,
+        bool tokenBudgetSpecified)
+    {
+        JsonObject payload = new() { ["threadId"] = threadId };
+        if (objective is not null)
+        {
+            payload["objective"] = objective;
+        }
+
+        if (status.HasValue)
+        {
+            payload["status"] = MapThreadGoalStatus(status.Value);
+        }
+
+        if (tokenBudgetSpecified)
+        {
+            payload["tokenBudget"] = tokenBudget.HasValue ? JsonValue.Create(tokenBudget.Value) : null;
+        }
+
+        return payload;
+    }
+
+    public static JsonObject BuildThreadGoalClearParams(string threadId)
+        => new() { ["threadId"] = threadId };
+
     public static JsonObject BuildModelListParams(CodexModelListOptions? options)
         => new() { ["includeHidden"] = options?.IncludeHidden ?? false };
 
@@ -229,6 +261,16 @@ internal static class CodexProtocol
                 RateLimits = ParseRateLimitSnapshot(
                     GetObjectAny(payload, "rateLimits", "rate_limits") ?? payload,
                     fallbackLimitId: null),
+            },
+            "thread.goal.updated" => new CodexThreadGoalUpdatedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                TurnId = GetString(payload, "turnId"),
+                Goal = ParseThreadGoal(GetObject(payload, "goal") ?? payload),
+            },
+            "thread.goal.cleared" => new CodexThreadGoalClearedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
             },
             _ => new CodexUnknownThreadEvent(normalizedType) { RawPayload = payload },
         };
@@ -380,6 +422,19 @@ internal static class CodexProtocol
             RateLimitsByLimitId = byLimitId,
         };
     }
+
+    public static CodexThreadGoal ParseThreadGoal(JsonObject payload)
+        => new()
+        {
+            ThreadId = GetString(payload, "threadId") ?? string.Empty,
+            Objective = GetString(payload, "objective") ?? string.Empty,
+            Status = ParseThreadGoalStatus(GetString(payload, "status")),
+            TokenBudget = GetLongAny(payload, "tokenBudget"),
+            TokensUsed = GetLongAny(payload, "tokensUsed") ?? 0,
+            TimeUsedSeconds = GetLongAny(payload, "timeUsedSeconds") ?? 0,
+            CreatedAt = ParseNullableDateTimeOffset(payload, "createdAt") ?? DateTimeOffset.UnixEpoch,
+            UpdatedAt = ParseNullableDateTimeOffset(payload, "updatedAt") ?? DateTimeOffset.UnixEpoch,
+        };
 
     public static CodexTurnRecord ParseTurnRecord(JsonObject payload)
     {
@@ -804,6 +859,24 @@ internal static class CodexProtocol
             CodexThreadSourceKind.SubAgentThreadSpawn => "subAgentThreadSpawn",
             CodexThreadSourceKind.SubAgentOther => "subAgentOther",
             _ => "unknown",
+        };
+
+    private static string MapThreadGoalStatus(CodexThreadGoalStatus status)
+        => status switch
+        {
+            CodexThreadGoalStatus.Paused => "paused",
+            CodexThreadGoalStatus.BudgetLimited => "budgetLimited",
+            CodexThreadGoalStatus.Complete => "complete",
+            _ => "active",
+        };
+
+    private static CodexThreadGoalStatus ParseThreadGoalStatus(string? status)
+        => status switch
+        {
+            "paused" => CodexThreadGoalStatus.Paused,
+            "budgetLimited" or "budget_limited" => CodexThreadGoalStatus.BudgetLimited,
+            "complete" => CodexThreadGoalStatus.Complete,
+            _ => CodexThreadGoalStatus.Active,
         };
 
     private static DateTimeOffset ParseDateTimeOffset(JsonObject payload, string name)

@@ -42,8 +42,8 @@ The [`CodexClientOptions`](../src/Incursa.OpenAI.Codex/Options.cs) type controls
 
 | Backend | Best for | Supports | Does not support |
 | --- | --- | --- | --- |
-| [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) | agents, UIs, and any workflow that needs persistent thread state | thread lifecycle, model listing, account rate-limit reads, read/resume/fork/archive/unarchive, turn steering, turn interruption | N/A |
-| [`Exec`](../src/Incursa.OpenAI.Codex/Enums.cs) | the smallest possible prompt-in, response-out integration | `RunAsync` and `RunStreamedAsync` style flows | thread management, model listing, account rate-limit reads, turn steering, turn interruption |
+| [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) | agents, UIs, and any workflow that needs persistent thread state | thread lifecycle, thread goals, model listing, account rate-limit reads, read/resume/fork/archive/unarchive, turn steering, turn interruption | N/A |
+| [`Exec`](../src/Incursa.OpenAI.Codex/Enums.cs) | the smallest possible prompt-in, response-out integration | `RunAsync` and `RunStreamedAsync` style flows | thread management, thread goals, model listing, account rate-limit reads, turn steering, turn interruption |
 
 The package currently defaults to [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs).
 
@@ -62,6 +62,7 @@ At the transport level:
 - Multimodal prompts: add [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) or [`CodexLocalImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs)
 - Account rate-limit display: call [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`GetAccountRateLimitsAsync()` on the [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) backend
 - Account rate-limit updates: handle [`CodexAccountRateLimitsUpdatedEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) from an active [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when Codex pushes `account/rateLimits/updated`
+- Thread goals: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, or `ClearGoalAsync` on the [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) backend
 - Long-lived agent sessions: use [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) plus [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ReadAsync`, `SetNameAsync`, `CompactAsync`, [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`SteerAsync`, and [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`InterruptAsync`
 - Hosted apps: register the client through [`Incursa.OpenAI.Codex.Extensions`](../src/Incursa.OpenAI.Codex.Extensions/README.md)
 
@@ -75,7 +76,7 @@ At the transport level:
 - [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs): per-turn model, sandbox, approval, service tier, reasoning, and output schema settings
 - [`CodexInputItem`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) and derived types: [`CodexTextInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexLocalImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexSkillInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), and [`CodexMentionInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs)
 - [`CodexThreadEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) and [`CodexThreadItem`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) hierarchies for streamed runtime data, including [`CodexAccountRateLimitsUpdatedEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) for pushed rate-limit changes
-- [`CodexRunResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadSnapshot`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexAccountRateLimitsResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeCapabilities`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeMetadata`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), and [`CodexModelListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs) for result handling and discovery. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
+- [`CodexRunResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadGoal`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadSnapshot`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexAccountRateLimitsResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeCapabilities`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexRuntimeMetadata`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), [`CodexThreadListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs), and [`CodexModelListResult`](../src/Incursa.OpenAI.Codex/CoreTypes.cs) for result handling and discovery. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
 - [`CodexException`](../src/Incursa.OpenAI.Codex/Exceptions.cs) and related exception types for runtime, transport, capability, and retry failures
 
 ## DI Example

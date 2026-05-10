@@ -35,7 +35,7 @@ This document is the top-level umbrella. The class-by-class public API requireme
 
 ## Scope
 
-This specification covers the public SDK surface, transport launch and shutdown, configuration translation, thread and turn lifecycle, streaming, turn controls, multimodal input normalization, output schema handling, error mapping, retry behavior, generated model fidelity, and package-level governance.
+This specification covers the public SDK surface, transport launch and shutdown, configuration translation, thread and turn lifecycle, thread goal state, streaming, turn controls, multimodal input normalization, output schema handling, error mapping, retry behavior, generated model fidelity, and package-level governance.
 
 It does not define the Codex runtime itself, model behavior, or the upstream protocol schemas.
 
@@ -289,7 +289,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/docs/api-reference.md
 
 ## REQ-CODEX-SDK-0020 Expose typed runtime request methods
-The SDK MUST expose typed request methods for thread start, thread resume, thread list, thread read, thread fork, thread archive, thread unarchive, thread rename, thread compact, turn start, turn steer, turn interrupt, model list, and account rate-limit read when the underlying runtime supports those operations.
+The SDK MUST expose typed request methods for thread start, thread resume, thread list, thread read, thread fork, thread archive, thread unarchive, thread rename, thread compact, thread goal get, thread goal set, thread goal clear, turn start, turn steer, turn interrupt, model list, and account rate-limit read when the underlying runtime supports those operations.
 
 Trace:
 - Satisfied By:
@@ -300,6 +300,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/client.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/async_client.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/api.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## REQ-CODEX-SDK-0021 Handle runtime-initiated requests
 The SDK MUST allow the host application to answer runtime-initiated requests through a configurable approval handler.
@@ -445,6 +446,7 @@ Trace:
 ## REQ-CODEX-SDK-0038 Expose turn events in runtime order
 The SDK MUST expose turn events in runtime order and carry through thread-start, turn-start, item-completed, usage-update, turn-completed, and turn-failed events.
 The SDK MUST expose app-server account rate-limit update notifications as typed events when Codex sends `account/rateLimits/updated` during an active event stream.
+The SDK MUST expose app-server thread goal update and clear notifications as typed events when Codex sends `thread/goal/updated` or `thread/goal/cleared`.
 
 Trace:
 - Satisfied By:
@@ -455,6 +457,7 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/src/events.ts
   - C:/src/openai/codex/sdk/typescript/tests/runStreamed.test.ts
   - C:/src/openai/codex/sdk/python/src/codex_app_server/models.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## REQ-CODEX-SDK-0039 Complete only on the matching turn
 The SDK MUST treat a turn as complete only when the runtime reports completion for the matching turn identifier.

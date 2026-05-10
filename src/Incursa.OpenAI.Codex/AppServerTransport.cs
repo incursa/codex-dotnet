@@ -24,6 +24,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         SupportsUnarchiveThread = true,
         SupportsSetThreadName = true,
         SupportsCompactThread = true,
+        SupportsThreadGoals = true,
         ExperimentalApi = true,
     };
 
@@ -173,6 +174,42 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         await RequestAsync("thread/compact/start", CodexProtocol.BuildThreadCompactParams(threadId), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<CodexThreadGoal?> GetThreadGoalAsync(string threadId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("thread/goal/get", CodexProtocol.BuildThreadGoalGetParams(threadId), cancellationToken).ConfigureAwait(false);
+        return payload.TryGetPropertyValue("goal", out JsonNode? goalNode) && goalNode is JsonObject goalObject
+            ? CodexProtocol.ParseThreadGoal(goalObject)
+            : null;
+    }
+
+    public async Task<CodexThreadGoal> SetThreadGoalAsync(
+        string threadId,
+        string? objective,
+        CodexThreadGoalStatus? status,
+        long? tokenBudget,
+        bool tokenBudgetSpecified,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync(
+            "thread/goal/set",
+            CodexProtocol.BuildThreadGoalSetParams(threadId, objective, status, tokenBudget, tokenBudgetSpecified),
+            cancellationToken).ConfigureAwait(false);
+
+        return CodexProtocol.ParseThreadGoal(GetRequiredObject(payload, "goal"));
+    }
+
+    public async Task<bool> ClearThreadGoalAsync(string threadId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("thread/goal/clear", CodexProtocol.BuildThreadGoalClearParams(threadId), cancellationToken).ConfigureAwait(false);
+        return payload.TryGetPropertyValue("cleared", out JsonNode? clearedNode)
+            && clearedNode is JsonValue clearedValue
+            && clearedValue.TryGetValue<bool>(out bool cleared)
+            && cleared;
     }
 
     public async Task<CodexTurnSession> StartTurnAsync(
@@ -554,6 +591,8 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             CodexItemCompletedEvent itemCompleted => (itemCompleted.TurnId, itemCompleted.ThreadId),
             CodexThreadErrorEvent threadError => (threadError.TurnId, threadError.ThreadId),
             CodexThreadStartedEvent threadStarted => (null, threadStarted.Thread.Id),
+            CodexThreadGoalUpdatedEvent goalUpdated => (goalUpdated.TurnId, goalUpdated.ThreadId),
+            CodexThreadGoalClearedEvent goalCleared => (null, goalCleared.ThreadId),
             _ => (null, null),
         };
     }
@@ -580,4 +619,3 @@ internal sealed class CodexAppServerTransport : ICodexTransport
 
     private sealed record PendingNotification(CodexThreadEvent Event, string? TurnId, string? ThreadId);
 }
-
