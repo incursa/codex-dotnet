@@ -303,19 +303,18 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     private void DispatchNotification(CodexThreadEvent evt)
     {
         (string? turnId, string? threadId) = GetRoutingIdentifiers(evt);
-        CodexTurnSession? session;
 
         lock (_sessionGate)
         {
-            session = ResolveSessionLocked(turnId, threadId, allowUnkeyedFallback: string.IsNullOrWhiteSpace(turnId) && string.IsNullOrWhiteSpace(threadId));
+            CodexTurnSession? session = ResolveSessionLocked(turnId, threadId, allowUnkeyedFallback: string.IsNullOrWhiteSpace(turnId) && string.IsNullOrWhiteSpace(threadId));
             if (session is null)
             {
                 _pendingNotifications.Add(new PendingNotification(evt, turnId, threadId));
                 return;
             }
-        }
 
-        DeliverNotification(session, evt);
+            DeliverNotification(session, evt);
+        }
     }
 
     private void RegisterTurnSession(CodexTurnSession session)
@@ -333,33 +332,29 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             }
 
             _activeSessions.Add(session);
+            DispatchBufferedNotificationsLocked();
         }
-
-        DispatchBufferedNotifications();
     }
 
-    private void DispatchBufferedNotifications()
+    private void DispatchBufferedNotificationsLocked()
     {
         while (true)
         {
             PendingNotification? pending = null;
             CodexTurnSession? session = null;
 
-            lock (_sessionGate)
+            for (int i = 0; i < _pendingNotifications.Count; i++)
             {
-                for (int i = 0; i < _pendingNotifications.Count; i++)
+                PendingNotification candidate = _pendingNotifications[i];
+                session = ResolveSessionLocked(candidate.TurnId, candidate.ThreadId, allowUnkeyedFallback: string.IsNullOrWhiteSpace(candidate.TurnId) && string.IsNullOrWhiteSpace(candidate.ThreadId));
+                if (session is null)
                 {
-                    PendingNotification candidate = _pendingNotifications[i];
-                    session = ResolveSessionLocked(candidate.TurnId, candidate.ThreadId, allowUnkeyedFallback: string.IsNullOrWhiteSpace(candidate.TurnId) && string.IsNullOrWhiteSpace(candidate.ThreadId));
-                    if (session is null)
-                    {
-                        continue;
-                    }
-
-                    pending = candidate;
-                    _pendingNotifications.RemoveAt(i);
-                    break;
+                    continue;
                 }
+
+                pending = candidate;
+                _pendingNotifications.RemoveAt(i);
+                break;
             }
 
             if (pending is null || session is null)
