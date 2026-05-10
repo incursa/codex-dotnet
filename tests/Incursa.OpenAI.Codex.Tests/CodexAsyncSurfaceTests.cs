@@ -60,6 +60,7 @@ public sealed class CodexAsyncSurfaceTests
         [typeof(CodexSessionSourceKind)],
         [typeof(CodexSubAgentSourceKind)],
         [typeof(CodexThreadActiveFlag)],
+        [typeof(CodexThreadGoalStatus)],
         [typeof(CodexThreadSortKey)],
         [typeof(CodexThreadSourceKind)],
         [typeof(CodexTurnPlanStepStatus)],
@@ -77,5 +78,4 @@ public sealed class CodexAsyncSurfaceTests
         Assert.NotEmpty(Enum.GetNames(type));
     }
 }
-
 

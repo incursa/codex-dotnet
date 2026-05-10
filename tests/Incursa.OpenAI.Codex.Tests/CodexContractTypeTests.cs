@@ -131,6 +131,7 @@ public sealed class CodexContractTypeTests
             SupportsResumeThread = true,
             SupportsSetThreadName = true,
             SupportsStartThread = true,
+            SupportsThreadGoals = true,
             SupportsThreadStreaming = true,
             SupportsTurnInterruption = true,
             SupportsTurnSteering = true,
@@ -140,6 +141,7 @@ public sealed class CodexContractTypeTests
         Assert.NotSame(capabilities, capabilities with { });
         Assert.Equal(capabilities, capabilities with { });
         Assert.True(capabilities.SupportsAccountRateLimits);
+        Assert.True(capabilities.SupportsThreadGoals);
         Assert.True(capabilities.SupportsTurnSteering);
         Assert.Contains("turn.completed", capabilities.OptOutNotificationMethods);
 
@@ -220,6 +222,23 @@ public sealed class CodexContractTypeTests
         Assert.Equal(42, accountRateLimits.RateLimitsByLimitId["codex"].Primary!.UsedPercent);
         Assert.Equal(10080, accountRateLimits.RateLimitsByLimitId["codex"].Secondary!.WindowDurationMinutes);
         Assert.True(accountRateLimits.RateLimitsByLimitId["codex"].Credits!.HasCredits);
+
+        CodexThreadGoal goal = new()
+        {
+            ThreadId = "thread-1",
+            Objective = "ship goal mode",
+            Status = CodexThreadGoalStatus.Active,
+            TokenBudget = 1200,
+            TokensUsed = 42,
+            TimeUsedSeconds = 60,
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            UpdatedAt = DateTimeOffset.UnixEpoch.AddMinutes(1),
+        };
+        Assert.Equal(goal, goal with { });
+        Assert.Equal("thread-1", goal.ThreadId);
+        Assert.Equal("ship goal mode", goal.Objective);
+        Assert.Equal(CodexThreadGoalStatus.Active, goal.Status);
+        Assert.Equal(1200, goal.TokenBudget);
 
         CodexModelAvailabilityNux nux = new()
         {
@@ -410,6 +429,7 @@ public sealed class CodexContractTypeTests
         Assert.False(capabilities.SupportsResumeThread);
         Assert.False(capabilities.SupportsSetThreadName);
         Assert.False(capabilities.SupportsStartThread);
+        Assert.False(capabilities.SupportsThreadGoals);
         Assert.False(capabilities.SupportsThreadStreaming);
         Assert.False(capabilities.SupportsTurnInterruption);
         Assert.False(capabilities.SupportsTurnSteering);
@@ -432,6 +452,16 @@ public sealed class CodexContractTypeTests
         CodexAccountRateLimitsResult accountRateLimits = new();
         Assert.Empty(accountRateLimits.RateLimits);
         Assert.Empty(accountRateLimits.RateLimitsByLimitId);
+
+        CodexThreadGoal goal = new();
+        Assert.Equal(string.Empty, goal.ThreadId);
+        Assert.Equal(string.Empty, goal.Objective);
+        Assert.Equal(CodexThreadGoalStatus.Active, goal.Status);
+        Assert.Null(goal.TokenBudget);
+        Assert.Equal(0, goal.TokensUsed);
+        Assert.Equal(0, goal.TimeUsedSeconds);
+        Assert.Equal(default(DateTimeOffset), goal.CreatedAt);
+        Assert.Equal(default(DateTimeOffset), goal.UpdatedAt);
 
         CodexRateLimitSnapshot rateLimitSnapshot = new();
         Assert.Null(rateLimitSnapshot.Credits);
@@ -885,6 +915,24 @@ public sealed class CodexContractTypeTests
             },
         };
 
+        CodexThreadGoalUpdatedEvent goalUpdated = new()
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            Goal = new CodexThreadGoal
+            {
+                ThreadId = "thread-1",
+                Objective = "ship goal mode",
+                Status = CodexThreadGoalStatus.Paused,
+                TokensUsed = 42,
+            },
+        };
+
+        CodexThreadGoalClearedEvent goalCleared = new()
+        {
+            ThreadId = "thread-1",
+        };
+
         CodexUnknownThreadEvent unknownEvent = new("custom/runtime-event")
         {
             RawPayload = new JsonObject
@@ -903,6 +951,12 @@ public sealed class CodexContractTypeTests
         Assert.Equal("error", threadError.Type);
         Assert.Equal("account.rateLimits.updated", rateLimitsUpdated.Type);
         Assert.Equal("codex", rateLimitsUpdated.RateLimits.LimitId);
+        Assert.Equal("thread.goal.updated", goalUpdated.Type);
+        Assert.Equal("thread-1", goalUpdated.ThreadId);
+        Assert.Equal("turn-1", goalUpdated.TurnId);
+        Assert.Equal(CodexThreadGoalStatus.Paused, goalUpdated.Goal.Status);
+        Assert.Equal("thread.goal.cleared", goalCleared.Type);
+        Assert.Equal("thread-1", goalCleared.ThreadId);
         Assert.Equal("custom/runtime-event", unknownEvent.UnknownType);
         Assert.Equal("mystery", unknownEvent.RawPayload!["note"]!.GetValue<string>());
 
@@ -915,6 +969,8 @@ public sealed class CodexContractTypeTests
         Assert.Equal(itemCompleted, itemCompleted with { });
         Assert.Equal(threadError, threadError with { });
         Assert.Equal(rateLimitsUpdated, rateLimitsUpdated with { });
+        Assert.Equal(goalUpdated, goalUpdated with { });
+        Assert.Equal(goalCleared, goalCleared with { });
         Assert.Equal(unknownEvent, unknownEvent with { });
     }
 
@@ -1043,6 +1099,16 @@ public sealed class CodexContractTypeTests
         Assert.Equal("account.rateLimits.updated", rateLimitsUpdated.Type);
         Assert.Null(rateLimitsUpdated.RateLimits.LimitId);
         Assert.Null(rateLimitsUpdated.RateLimits.Primary);
+
+        CodexThreadGoalUpdatedEvent goalUpdated = new();
+        Assert.Equal("thread.goal.updated", goalUpdated.Type);
+        Assert.Equal(string.Empty, goalUpdated.ThreadId);
+        Assert.Null(goalUpdated.TurnId);
+        Assert.Equal(string.Empty, goalUpdated.Goal.ThreadId);
+
+        CodexThreadGoalClearedEvent goalCleared = new();
+        Assert.Equal("thread.goal.cleared", goalCleared.Type);
+        Assert.Equal(string.Empty, goalCleared.ThreadId);
 
         CodexUserMessageItem userMessage = new();
         Assert.Equal("userMessage", userMessage.Type);

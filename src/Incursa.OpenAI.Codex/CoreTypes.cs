@@ -384,6 +384,34 @@ public sealed record CodexCreditsSnapshot
     public bool? Unlimited { get; init; }
 }
 
+/// <summary>Represents the current goal configured for a Codex thread.</summary>
+public sealed record CodexThreadGoal
+{
+    /// <summary>The thread that owns the goal.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>The objective Codex should keep pursuing.</summary>
+    public string Objective { get; init; } = "";
+
+    /// <summary>The current goal status.</summary>
+    public CodexThreadGoalStatus Status { get; init; }
+
+    /// <summary>The optional token budget for the goal.</summary>
+    public long? TokenBudget { get; init; }
+
+    /// <summary>The cumulative tokens consumed while pursuing the goal.</summary>
+    public long TokensUsed { get; init; }
+
+    /// <summary>The cumulative elapsed time in seconds while pursuing the goal.</summary>
+    public long TimeUsedSeconds { get; init; }
+
+    /// <summary>When the goal was created.</summary>
+    public DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>When the goal was last updated.</summary>
+    public DateTimeOffset UpdatedAt { get; init; }
+}
+
 /// <summary>Result of executing a Codex run request.</summary>
 public sealed record CodexRunResult
 {
@@ -593,6 +621,9 @@ public sealed record CodexRuntimeCapabilities
 
     /// <summary>Whether setting a thread name is supported.</summary>
     public bool SupportsSetThreadName { get; init; }
+
+    /// <summary>Whether reading, setting, and clearing thread goals is supported.</summary>
+    public bool SupportsThreadGoals { get; init; }
 
     /// <summary>Whether starting threads is supported.</summary>
     public bool SupportsStartThread { get; init; }

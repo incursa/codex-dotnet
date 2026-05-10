@@ -71,6 +71,7 @@ The SDK MUST expose the following supporting enums as public, enum-backed value 
 - `CodexSessionSourceKind`
 - `CodexSubAgentSourceKind`
 - `CodexThreadActiveFlag`
+- `CodexThreadGoalStatus`
 - `CodexThreadSortKey`
 - `CodexThreadSourceKind`
 - `CodexTurnPlanStepStatus`
@@ -137,6 +138,7 @@ The SDK MUST expose the following helper records and discriminated unions:
 - `CodexModelAvailabilityNux`
 - `CodexModelUpgradeInfo`
 - `CodexReasoningEffortOption`
+- `CodexThreadGoal`
 - `CodexTurnRecord`
 - `CodexThreadSpawnSubAgentSource`
 - `CodexOtherSubAgentSource`
@@ -227,6 +229,8 @@ The SDK MUST expose the following concrete `CodexThreadEvent` subtypes:
 - `CodexItemStartedEvent`
 - `CodexItemUpdatedEvent`
 - `CodexItemCompletedEvent`
+- `CodexThreadGoalUpdatedEvent`
+- `CodexThreadGoalClearedEvent`
 - `CodexThreadErrorEvent`
 
 Trace:

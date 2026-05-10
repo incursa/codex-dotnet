@@ -412,6 +412,38 @@ public sealed record CodexAccountRateLimitsUpdatedEvent() : CodexThreadEvent("ac
 }
 
 /// <summary>
+/// Represents an app-server notification that a thread goal was updated.
+/// </summary>
+public sealed record CodexThreadGoalUpdatedEvent() : CodexThreadEvent("thread.goal.updated")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the turn identifier associated with the update, if any.
+    /// </summary>
+    public string? TurnId { get; init; }
+
+    /// <summary>
+    /// Gets the updated goal.
+    /// </summary>
+    public CodexThreadGoal Goal { get; init; } = new();
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread goal was cleared.
+/// </summary>
+public sealed record CodexThreadGoalClearedEvent() : CodexThreadEvent("thread.goal.cleared")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
 /// Fallback event for an unrecognized thread event type.
 /// </summary>
 /// <param name="UnknownType">Original event type string.</param>

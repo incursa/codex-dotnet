@@ -26,6 +26,7 @@ internal sealed class CodexExecTransport : ICodexTransport
         SupportsUnarchiveThread = false,
         SupportsSetThreadName = false,
         SupportsCompactThread = false,
+        SupportsThreadGoals = false,
         ExperimentalApi = true,
     };
 
@@ -119,6 +120,21 @@ internal sealed class CodexExecTransport : ICodexTransport
 
     public Task CompactThreadAsync(string threadId, CancellationToken cancellationToken)
         => Task.FromException(new CodexCapabilityNotSupportedException(nameof(CodexThread.CompactAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexThreadGoal?> GetThreadGoalAsync(string threadId, CancellationToken cancellationToken)
+        => Task.FromException<CodexThreadGoal?>(new CodexCapabilityNotSupportedException(nameof(CodexThread.GetGoalAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexThreadGoal> SetThreadGoalAsync(
+        string threadId,
+        string? objective,
+        CodexThreadGoalStatus? status,
+        long? tokenBudget,
+        bool tokenBudgetSpecified,
+        CancellationToken cancellationToken)
+        => Task.FromException<CodexThreadGoal>(new CodexCapabilityNotSupportedException(nameof(CodexThread.SetGoalAsync), CodexBackendSelection.Exec));
+
+    public Task<bool> ClearThreadGoalAsync(string threadId, CancellationToken cancellationToken)
+        => Task.FromException<bool>(new CodexCapabilityNotSupportedException(nameof(CodexThread.ClearGoalAsync), CodexBackendSelection.Exec));
 
     public Task<CodexTurnSession> StartTurnAsync(
         string? threadId,

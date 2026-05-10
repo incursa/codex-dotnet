@@ -325,6 +325,33 @@ public sealed class CodexClient : IAsyncDisposable
         await _transport.CompactThreadAsync(threadId, cancellationToken).ConfigureAwait(false);
     }
 
+    internal async Task<CodexThreadGoal?> GetThreadGoalAsync(string threadId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsThreadGoals == true, nameof(CodexThread.GetGoalAsync));
+        return await _transport.GetThreadGoalAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<CodexThreadGoal> SetThreadGoalAsync(
+        string threadId,
+        string? objective,
+        CodexThreadGoalStatus? status,
+        long? tokenBudget,
+        bool tokenBudgetSpecified,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsThreadGoals == true, nameof(CodexThread.SetGoalAsync));
+        return await _transport.SetThreadGoalAsync(threadId, objective, status, tokenBudget, tokenBudgetSpecified, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<bool> ClearThreadGoalAsync(string threadId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsThreadGoals == true, nameof(CodexThread.ClearGoalAsync));
+        return await _transport.ClearThreadGoalAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
     internal async Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -533,6 +560,75 @@ public sealed class CodexThread
     {
         string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
         await _client.CompactThreadAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads the current goal for this thread, if one is set.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the goal request.</param>
+    /// <returns>The current goal, or <see langword="null"/> when no goal is set.</returns>
+    public async Task<CodexThreadGoal?> GetGoalAsync(CancellationToken cancellationToken = default)
+    {
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.GetThreadGoalAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sets this thread's goal objective and marks it active.
+    /// </summary>
+    /// <param name="objective">The objective Codex should keep pursuing.</param>
+    /// <param name="tokenBudget">Optional token budget to assign to the goal.</param>
+    /// <param name="cancellationToken">A token that cancels the goal request.</param>
+    /// <returns>The updated thread goal.</returns>
+    public async Task<CodexThreadGoal> SetGoalAsync(
+        string objective,
+        long? tokenBudget = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(objective))
+        {
+            throw new ArgumentException("Goal objective cannot be blank.", nameof(objective));
+        }
+
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.SetThreadGoalAsync(
+            threadId,
+            objective.Trim(),
+            CodexThreadGoalStatus.Active,
+            tokenBudget,
+            tokenBudgetSpecified: tokenBudget.HasValue,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Updates this thread's current goal status.
+    /// </summary>
+    /// <param name="status">The new goal status.</param>
+    /// <param name="cancellationToken">A token that cancels the goal request.</param>
+    /// <returns>The updated thread goal.</returns>
+    public async Task<CodexThreadGoal> SetGoalStatusAsync(
+        CodexThreadGoalStatus status,
+        CancellationToken cancellationToken = default)
+    {
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.SetThreadGoalAsync(
+            threadId,
+            objective: null,
+            status,
+            tokenBudget: null,
+            tokenBudgetSpecified: false,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Clears this thread's goal.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the goal request.</param>
+    /// <returns><see langword="true"/> when a goal was cleared; otherwise, <see langword="false"/>.</returns>
+    public async Task<bool> ClearGoalAsync(CancellationToken cancellationToken = default)
+    {
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.ClearThreadGoalAsync(threadId, cancellationToken).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<CodexInputItem> NormalizeInput(string input)

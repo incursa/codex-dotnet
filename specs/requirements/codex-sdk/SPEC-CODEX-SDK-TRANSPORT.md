@@ -166,7 +166,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/tests/test_public_api_signatures.py
 
 ## REQ-CODEX-SDK-TRANSPORT-0240 Expose typed request methods for the app-server protocol
-The app-server transport MUST expose typed request methods for thread start, thread resume, thread list, thread read, thread fork, thread archive, thread unarchive, thread rename, thread compact, turn start, turn steer, turn interrupt, model list, and account rate-limit read.
+The app-server transport MUST expose typed request methods for thread start, thread resume, thread list, thread read, thread fork, thread archive, thread unarchive, thread rename, thread compact, thread goal get, thread goal set, thread goal clear, turn start, turn steer, turn interrupt, model list, and account rate-limit read.
 
 Trace:
 - Satisfied By:
@@ -177,9 +177,10 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/client.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/async_client.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/api.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## REQ-CODEX-SDK-TRANSPORT-0241 Preserve unknown notifications
-The app-server transport MUST preserve unknown or invalid notifications as structured fallback payloads rather than discarding them. It MUST also expose account rate-limit update notifications as a typed event when Codex sends `account/rateLimits/updated`.
+The app-server transport MUST preserve unknown or invalid notifications as structured fallback payloads rather than discarding them. It MUST also expose account rate-limit update notifications as a typed event when Codex sends `account/rateLimits/updated`, and thread goal notifications as typed events when Codex sends `thread/goal/updated` or `thread/goal/cleared`.
 
 Trace:
 - Satisfied By:
@@ -190,6 +191,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/client.py
   - C:/src/openai/codex/sdk/python/src/codex_app_server/models.py
   - C:/src/openai/codex/sdk/python/tests/test_client_rpc_methods.py
+  - C:/src/openai/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 
 ## REQ-CODEX-SDK-TRANSPORT-0242 Enforce single active turn consumer
 The app-server transport MUST reject a second active turn consumer on the same client instance until the first consumer finishes or is disposed.
@@ -287,7 +289,7 @@ Trace:
 ## Capability and Compatibility
 
 ## REQ-CODEX-SDK-TRANSPORT-0249 Gate unsupported methods by capability
-The transport layer MUST expose capability probing for model discovery, account rate-limit reads, thread listing, thread lifecycle, and turn steering, with unsupported methods failing with a capability-oriented exception.
+The transport layer MUST expose capability probing for model discovery, account rate-limit reads, thread listing, thread lifecycle, thread goal operations, and turn steering, with unsupported methods failing with a capability-oriented exception.
 
 Trace:
 - Satisfied By:

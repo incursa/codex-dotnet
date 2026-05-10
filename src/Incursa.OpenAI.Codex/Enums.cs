@@ -310,6 +310,22 @@ public enum CodexThreadActiveFlag
     WaitingOnUserInput,
 }
 
+/// <summary>Tracks the lifecycle status of a thread goal.</summary>
+public enum CodexThreadGoalStatus
+{
+    /// <summary>The goal is active and Codex should continue pursuing it.</summary>
+    Active,
+
+    /// <summary>The goal is paused until the caller resumes it.</summary>
+    Paused,
+
+    /// <summary>The goal stopped because its token budget was reached.</summary>
+    BudgetLimited,
+
+    /// <summary>The goal has been completed.</summary>
+    Complete,
+}
+
 /// <summary>Selects the sort key for thread lists.</summary>
 public enum CodexThreadSortKey
 {

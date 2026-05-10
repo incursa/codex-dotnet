@@ -151,26 +151,50 @@ public sealed class CodexProtocolTests
         JsonObject unarchive = CodexProtocol.BuildThreadUnarchiveParams("thread-5");
         JsonObject name = CodexProtocol.BuildThreadNameParams("thread-6", "renamed");
         JsonObject compact = CodexProtocol.BuildThreadCompactParams("thread-7");
+        JsonObject goalGet = CodexProtocol.BuildThreadGoalGetParams("thread-8");
+        JsonObject goalSet = CodexProtocol.BuildThreadGoalSetParams(
+            "thread-9",
+            "ship goal mode",
+            CodexThreadGoalStatus.Active,
+            1200,
+            tokenBudgetSpecified: true);
+        JsonObject goalStatus = CodexProtocol.BuildThreadGoalSetParams(
+            "thread-10",
+            objective: null,
+            CodexThreadGoalStatus.Paused,
+            tokenBudget: null,
+            tokenBudgetSpecified: false);
+        JsonObject goalClear = CodexProtocol.BuildThreadGoalClearParams("thread-11");
         JsonObject models = CodexProtocol.BuildModelListParams(new CodexModelListOptions
         {
             IncludeHidden = true,
         });
         JsonObject steer = CodexProtocol.BuildTurnSteerParams(
-            "thread-8",
-            "turn-9",
+            "thread-12",
+            "turn-13",
             [new CodexTextInput { Text = "steer" }]);
-        JsonObject interrupt = CodexProtocol.BuildTurnInterruptParams("thread-10", "turn-11");
+        JsonObject interrupt = CodexProtocol.BuildTurnInterruptParams("thread-14", "turn-15");
 
         Assert.Equal("thread-4", archive["threadId"]!.GetValue<string>());
         Assert.Equal("thread-5", unarchive["threadId"]!.GetValue<string>());
         Assert.Equal("thread-6", name["threadId"]!.GetValue<string>());
         Assert.Equal("renamed", name["name"]!.GetValue<string>());
         Assert.Equal("thread-7", compact["threadId"]!.GetValue<string>());
+        Assert.Equal("thread-8", goalGet["threadId"]!.GetValue<string>());
+        Assert.Equal("thread-9", goalSet["threadId"]!.GetValue<string>());
+        Assert.Equal("ship goal mode", goalSet["objective"]!.GetValue<string>());
+        Assert.Equal("active", goalSet["status"]!.GetValue<string>());
+        Assert.Equal(1200L, goalSet["tokenBudget"]!.GetValue<long>());
+        Assert.Equal("thread-10", goalStatus["threadId"]!.GetValue<string>());
+        Assert.Equal("paused", goalStatus["status"]!.GetValue<string>());
+        Assert.False(goalStatus.ContainsKey("objective"));
+        Assert.False(goalStatus.ContainsKey("tokenBudget"));
+        Assert.Equal("thread-11", goalClear["threadId"]!.GetValue<string>());
         Assert.True(models["includeHidden"]!.GetValue<bool>());
-        Assert.Equal("thread-8", steer["threadId"]!.GetValue<string>());
-        Assert.Equal("turn-9", steer["expectedTurnId"]!.GetValue<string>());
-        Assert.Equal("thread-10", interrupt["threadId"]!.GetValue<string>());
-        Assert.Equal("turn-11", interrupt["turnId"]!.GetValue<string>());
+        Assert.Equal("thread-12", steer["threadId"]!.GetValue<string>());
+        Assert.Equal("turn-13", steer["expectedTurnId"]!.GetValue<string>());
+        Assert.Equal("thread-14", interrupt["threadId"]!.GetValue<string>());
+        Assert.Equal("turn-15", interrupt["turnId"]!.GetValue<string>());
     }
 
     [Fact]
@@ -389,6 +413,40 @@ public sealed class CodexProtocolTests
         Assert.Equal(25, updated.RateLimits.Primary!.UsedPercent);
         Assert.Equal(300, updated.RateLimits.Primary.WindowDurationMinutes);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778076000L), updated.RateLimits.Primary.ResetsAt);
+    }
+
+    [Fact]
+    public void ParseThreadEvent_MapsThreadGoalNotifications()
+    {
+        CodexThreadEvent updatedEvent = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "thread/goal/updated",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["goal"] = CreateThreadGoal("thread-1", "ship goal mode", "budgetLimited"),
+            }));
+
+        CodexThreadGoalUpdatedEvent updated = Assert.IsType<CodexThreadGoalUpdatedEvent>(updatedEvent);
+        Assert.Equal("thread.goal.updated", updated.Type);
+        Assert.Equal("thread-1", updated.ThreadId);
+        Assert.Equal("turn-1", updated.TurnId);
+        Assert.Equal("ship goal mode", updated.Goal.Objective);
+        Assert.Equal(CodexThreadGoalStatus.BudgetLimited, updated.Goal.Status);
+        Assert.Equal(1200, updated.Goal.TokenBudget);
+        Assert.Equal(42, updated.Goal.TokensUsed);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778076000L), updated.Goal.CreatedAt);
+
+        CodexThreadEvent clearedEvent = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "thread/goal/cleared",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+            }));
+
+        CodexThreadGoalClearedEvent cleared = Assert.IsType<CodexThreadGoalClearedEvent>(clearedEvent);
+        Assert.Equal("thread.goal.cleared", cleared.Type);
+        Assert.Equal("thread-1", cleared.ThreadId);
     }
 
     [Fact]
@@ -734,4 +792,17 @@ public sealed class CodexProtocolTests
         Assert.Equal("codex-app-server", normalized.ServerInfo!.Name);
         Assert.Equal("1.2.3", normalized.ServerInfo.Version);
     }
+
+    private static JsonObject CreateThreadGoal(string threadId, string objective, string status = "active")
+        => new()
+        {
+            ["threadId"] = threadId,
+            ["objective"] = objective,
+            ["status"] = status,
+            ["tokenBudget"] = 1200L,
+            ["tokensUsed"] = 42L,
+            ["timeUsedSeconds"] = 60L,
+            ["createdAt"] = 1778076000L,
+            ["updatedAt"] = 1778076060L,
+        };
 }

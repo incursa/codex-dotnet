@@ -30,6 +30,18 @@ internal interface ICodexTransport : IAsyncDisposable
 
     Task CompactThreadAsync(string threadId, CancellationToken cancellationToken);
 
+    Task<CodexThreadGoal?> GetThreadGoalAsync(string threadId, CancellationToken cancellationToken);
+
+    Task<CodexThreadGoal> SetThreadGoalAsync(
+        string threadId,
+        string? objective,
+        CodexThreadGoalStatus? status,
+        long? tokenBudget,
+        bool tokenBudgetSpecified,
+        CancellationToken cancellationToken);
+
+    Task<bool> ClearThreadGoalAsync(string threadId, CancellationToken cancellationToken);
+
     Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -65,4 +77,3 @@ internal static class CodexResultHelpers
             ? new CodexInvalidRequestException($"Turn '{turn.Id}' failed without a populated error object.")
             : new CodexInvalidRequestException(turn.Error.Message);
 }
-
