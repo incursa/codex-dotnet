@@ -33,8 +33,8 @@ public sealed class CodexTurnSessionTests
             "turn-1",
             [new CodexTextInput { Text = "hello" }],
             new CodexTurnOptions(),
+            (_, _, _) => Task.CompletedTask,
             (_, _) => Task.CompletedTask,
-            _ => Task.CompletedTask,
             new CodexTurnConsumerGate());
 
         session.AppendEvent(new CodexTurnStartedEvent
@@ -90,6 +90,54 @@ public sealed class CodexTurnSessionTests
     }
 
     [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0304")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task TurnSession_RetriesControlRequestsAfterActiveTurnMismatch()
+    {
+        List<string> steerTurnIds = [];
+        List<string> interruptTurnIds = [];
+
+        CodexTurnSession session = new(
+            "thread-1",
+            "turn-original",
+            [new CodexTextInput { Text = "hello" }],
+            new CodexTurnOptions(),
+            (turnId, _, _) =>
+            {
+                steerTurnIds.Add(turnId);
+                if (steerTurnIds.Count == 1)
+                {
+                    throw new CodexServerBusyException("expected active turn id `turn-original` but found `turn-active`");
+                }
+
+                return Task.CompletedTask;
+            },
+            (turnId, _) =>
+            {
+                interruptTurnIds.Add(turnId);
+                if (interruptTurnIds.Count == 1)
+                {
+                    throw new CodexServerBusyException("expected active turn id turn-active but found turn-interrupt");
+                }
+
+                return Task.CompletedTask;
+            },
+            new CodexTurnConsumerGate());
+
+        await session.SteerAsync(
+            [new CodexTextInput { Text = "more context" }],
+            CancellationToken.None);
+        await session.InterruptAsync(CancellationToken.None);
+
+        Assert.Equal(["turn-original", "turn-active"], steerTurnIds);
+        Assert.Equal(["turn-active", "turn-interrupt"], interruptTurnIds);
+        Assert.Equal("turn-interrupt", session.Id);
+        Assert.True(session.IsInterruptRequested);
+        Assert.Equal(CodexTurnStatus.Interrupted, session.Status);
+    }
+
+    [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0291")]
     [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0296")]
     [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0300")]
@@ -100,8 +148,8 @@ public sealed class CodexTurnSessionTests
             "  ",
             [new CodexTextInput { Text = "seed" }],
             new CodexTurnOptions(),
-            (_, _) => Task.CompletedTask,
-            _ => Task.CompletedTask);
+            (_, _, _) => Task.CompletedTask,
+            (_, _) => Task.CompletedTask);
 
         session.BindThreadId("thread-0");
         session.BindTurnId("turn-0");
@@ -241,8 +289,8 @@ public sealed class CodexTurnSessionTests
             "turn-1",
             [new CodexTextInput { Text = "seed" }],
             new CodexTurnOptions(),
-            (_, _) => Task.CompletedTask,
-            _ => Task.CompletedTask);
+            (_, _, _) => Task.CompletedTask,
+            (_, _) => Task.CompletedTask);
 
         session.CompleteSuccess(
             [
@@ -299,8 +347,8 @@ public sealed class CodexTurnSessionTests
             "turn-1",
             [new CodexTextInput { Text = "seed" }],
             new CodexTurnOptions(),
-            (_, _) => Task.CompletedTask,
-            _ => Task.CompletedTask);
+            (_, _, _) => Task.CompletedTask,
+            (_, _) => Task.CompletedTask);
 
         session.AppendEvent(new CodexTurnStartedEvent
         {

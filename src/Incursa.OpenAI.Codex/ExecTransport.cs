@@ -199,8 +199,8 @@ internal sealed class CodexExecTransport : ICodexTransport
             turnId,
             input,
             options,
-            (_, _) => throw new CodexCapabilityNotSupportedException(nameof(CodexTurn.SteerAsync), CodexBackendSelection.Exec),
-            _ => throw new CodexCapabilityNotSupportedException(nameof(CodexTurn.InterruptAsync), CodexBackendSelection.Exec),
+            (_, _, _) => throw new CodexCapabilityNotSupportedException(nameof(CodexTurn.SteerAsync), CodexBackendSelection.Exec),
+            (_, _) => throw new CodexCapabilityNotSupportedException(nameof(CodexTurn.InterruptAsync), CodexBackendSelection.Exec),
             _turnConsumerGate);
 
         _ = PumpAsync(process, schemaFile, session, prompt, cancellationToken);

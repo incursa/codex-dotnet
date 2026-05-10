@@ -1012,6 +1012,139 @@ public sealed class CodexAppServerTransportTests
     }
 
     [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0304")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task TurnControls_RetrySteerAfterActiveTurnMismatchUsesReportedTurnId()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        List<string> steerTurnIds = [];
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (!request.TryGetPropertyValue("id", out JsonNode? idNode) || idNode is null)
+            {
+                return;
+            }
+
+            if (!request.TryGetPropertyValue("method", out JsonNode? methodNode) || methodNode is not JsonValue methodValue)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            string method = methodValue.GetValue<string>();
+            switch (method)
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["userAgent"] = "codex-app-server/1.2.3",
+                            ["platformFamily"] = "Unix",
+                            ["platformOs"] = "Linux",
+                        }));
+                    break;
+                case "thread/start":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["thread"] = CreateThreadSnapshot("thread-1"),
+                        }));
+                    break;
+                case "turn/start":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["threadId"] = "thread-1",
+                            ["turn"] = new JsonObject
+                            {
+                                ["id"] = "turn-original",
+                                ["status"] = "inProgress",
+                            },
+                        }));
+                    process.EnqueueStdout(TestJson.Notification(
+                        "turn.started",
+                        new JsonObject
+                        {
+                            ["turn"] = new JsonObject
+                            {
+                                ["id"] = "turn-original",
+                                ["status"] = "inProgress",
+                            },
+                        }));
+                    break;
+                case "turn/steer":
+                    {
+                        JsonObject payload = request["params"]!.AsObject();
+                        string expectedTurnId = payload["expectedTurnId"]!.GetValue<string>();
+                        steerTurnIds.Add(expectedTurnId);
+                        if (steerTurnIds.Count == 1)
+                        {
+                            process.EnqueueStdout(TestJson.ErrorResponse(
+                                id,
+                                -32000,
+                                "expected active turn id `turn-original` but found `turn-active`"));
+                            return;
+                        }
+
+                        process.EnqueueStdout(TestJson.Response(id, new JsonObject()));
+                        process.EnqueueStdout(TestJson.Notification(
+                            "turn.completed",
+                            new JsonObject
+                            {
+                                ["turn"] = new JsonObject
+                                {
+                                    ["id"] = "turn-active",
+                                    ["status"] = "completed",
+                                    ["items"] = new JsonArray
+                                    {
+                                        new JsonObject
+                                        {
+                                            ["type"] = "agentMessage",
+                                            ["id"] = "message-active",
+                                            ["phase"] = "finalAnswer",
+                                            ["text"] = "Steered",
+                                        },
+                                    },
+                                },
+                            }));
+                        process.Complete();
+                        break;
+                    }
+            }
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
+        {
+            WorkingDirectory = "/work",
+            Model = "gpt-5",
+            ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnRequest),
+        });
+
+        CodexTurn turn = await thread.StartTurnAsync("primary context");
+        await turn.SteerAsync([new CodexTextInput { Text = "extra context" }]);
+
+        List<CodexThreadEvent> events = new();
+        await foreach (CodexThreadEvent evt in turn.StreamAsync())
+        {
+            events.Add(evt);
+        }
+
+        Assert.Equal(["turn-original", "turn-active"], steerTurnIds);
+        Assert.Equal("turn-active", turn.Id);
+        Assert.Contains(events, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-active");
+    }
+
+    [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
     [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
     [CoverageType(RequirementCoverageType.Positive)]

@@ -695,8 +695,6 @@ public sealed class CodexTurn
     {
         Client = client;
         _session = session;
-        ThreadId = session.ThreadId;
-        Id = session.Id;
     }
 
     /// <summary>
@@ -707,12 +705,12 @@ public sealed class CodexTurn
     /// <summary>
     /// Gets the identifier of the thread that owns this turn.
     /// </summary>
-    public string ThreadId { get; }
+    public string ThreadId => _session.ThreadId;
 
     /// <summary>
     /// Gets the identifier of this turn.
     /// </summary>
-    public string Id { get; }
+    public string Id => _session.Id;
 
     /// <summary>
     /// Streams events emitted while this turn runs.

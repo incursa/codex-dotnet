@@ -234,18 +234,18 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             turn.Id,
             input,
             options,
-            async (steeredInput, token) =>
+            async (activeTurnId, steeredInput, token) =>
             {
                 await _connection!.RequestAsync(
                     "turn/steer",
-                    CodexProtocol.BuildTurnSteerParams(resolvedThreadId, turn.Id, steeredInput),
+                    CodexProtocol.BuildTurnSteerParams(resolvedThreadId, activeTurnId, steeredInput),
                     token).ConfigureAwait(false);
             },
-            async token =>
+            async (activeTurnId, token) =>
             {
                 await _connection!.RequestAsync(
                     "turn/interrupt",
-                    CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, turn.Id),
+                    CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, activeTurnId),
                     token).ConfigureAwait(false);
             },
             _turnConsumerGate);
@@ -369,6 +369,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     private void DeliverNotification(CodexTurnSession session, CodexThreadEvent evt)
     {
         session.AppendEvent(evt);
+        ReindexSessionLocked(session);
 
         if (evt is CodexTurnCompletedEvent or CodexTurnFailedEvent)
         {
@@ -376,24 +377,47 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         }
     }
 
+    private void ReindexSessionLocked(CodexTurnSession session)
+    {
+        RemoveSessionMappingsLocked(_sessionsByTurnId, session, session.Id);
+        RemoveSessionMappingsLocked(_sessionsByThreadId, session, session.ThreadId);
+
+        if (!string.IsNullOrWhiteSpace(session.Id))
+        {
+            _sessionsByTurnId[session.Id] = session;
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ThreadId))
+        {
+            _sessionsByThreadId[session.ThreadId] = session;
+        }
+    }
+
     private void CompleteAndUnregisterSession(CodexTurnSession session)
     {
         lock (_sessionGate)
         {
-            if (!string.IsNullOrWhiteSpace(session.Id))
-            {
-                _sessionsByTurnId.Remove(session.Id);
-            }
-
-            if (!string.IsNullOrWhiteSpace(session.ThreadId))
-            {
-                _sessionsByThreadId.Remove(session.ThreadId);
-            }
-
+            RemoveSessionMappingsLocked(_sessionsByTurnId, session, exceptKey: null);
+            RemoveSessionMappingsLocked(_sessionsByThreadId, session, exceptKey: null);
             _activeSessions.Remove(session);
         }
 
         session.CompleteWriter();
+    }
+
+    private static void RemoveSessionMappingsLocked(
+        Dictionary<string, CodexTurnSession> sessions,
+        CodexTurnSession session,
+        string? exceptKey)
+    {
+        foreach (KeyValuePair<string, CodexTurnSession> pair in sessions.ToArray())
+        {
+            if (ReferenceEquals(pair.Value, session)
+                && !string.Equals(pair.Key, exceptKey, StringComparison.Ordinal))
+            {
+                sessions.Remove(pair.Key);
+            }
+        }
     }
 
     private void FailActiveSessions(Exception exception)
@@ -602,6 +626,13 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         if (!string.IsNullOrWhiteSpace(threadId) && _sessionsByThreadId.TryGetValue(threadId, out CodexTurnSession? byThread))
         {
             return byThread;
+        }
+
+        if (!string.IsNullOrWhiteSpace(turnId)
+            && string.IsNullOrWhiteSpace(threadId)
+            && _activeSessions.Count == 1)
+        {
+            return _activeSessions[0];
         }
 
         if (allowUnkeyedFallback && _activeSessions.Count > 0)

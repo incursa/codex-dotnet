@@ -9,8 +9,8 @@ internal sealed class CodexTurnSession
     private readonly List<CodexInputItem> _steeredInput = new();
     private readonly List<CodexThreadItem> _items = new();
     private readonly CodexTurnConsumerGate? _consumerGate;
-    private readonly Func<IReadOnlyList<CodexInputItem>, CancellationToken, Task> _steerHandler;
-    private readonly Func<CancellationToken, Task> _interruptHandler;
+    private readonly Func<string, IReadOnlyList<CodexInputItem>, CancellationToken, Task> _steerHandler;
+    private readonly Func<string, CancellationToken, Task> _interruptHandler;
     private bool _consumerClaimed;
     private bool _interruptRequested;
     private string _threadId;
@@ -24,8 +24,8 @@ internal sealed class CodexTurnSession
         string turnId,
         IReadOnlyList<CodexInputItem> input,
         CodexTurnOptions? options,
-        Func<IReadOnlyList<CodexInputItem>, CancellationToken, Task> steerHandler,
-        Func<CancellationToken, Task> interruptHandler,
+        Func<string, IReadOnlyList<CodexInputItem>, CancellationToken, Task> steerHandler,
+        Func<string, CancellationToken, Task> interruptHandler,
         CodexTurnConsumerGate? consumerGate = null)
     {
         _threadId = string.IsNullOrWhiteSpace(threadId) ? string.Empty : threadId;
@@ -184,7 +184,16 @@ internal sealed class CodexTurnSession
             }
         }
 
-        await _steerHandler(input, cancellationToken).ConfigureAwait(false);
+        string turnId = Id;
+        try
+        {
+            await _steerHandler(turnId, input, cancellationToken).ConfigureAwait(false);
+        }
+        catch (CodexJsonRpcException exception) when (TryGetActiveTurnMismatch(exception, turnId, out string activeTurnId))
+        {
+            BindTurnId(activeTurnId);
+            await _steerHandler(activeTurnId, input, cancellationToken).ConfigureAwait(false);
+        }
 
         lock (_gate)
         {
@@ -203,7 +212,16 @@ internal sealed class CodexTurnSession
             }
         }
 
-        await _interruptHandler(cancellationToken).ConfigureAwait(false);
+        string turnId = Id;
+        try
+        {
+            await _interruptHandler(turnId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (CodexJsonRpcException exception) when (TryGetActiveTurnMismatch(exception, turnId, out string activeTurnId))
+        {
+            BindTurnId(activeTurnId);
+            await _interruptHandler(activeTurnId, cancellationToken).ConfigureAwait(false);
+        }
 
         lock (_gate)
         {
@@ -366,6 +384,51 @@ internal sealed class CodexTurnSession
             _consumerClaimed = false;
         }
     }
+
+    private static bool TryGetActiveTurnMismatch(CodexJsonRpcException exception, string attemptedTurnId, out string activeTurnId)
+    {
+        activeTurnId = string.Empty;
+        string? message = exception.Message;
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        const string prefix = "expected active turn id ";
+        int prefixIndex = message.IndexOf(prefix, StringComparison.Ordinal);
+        if (prefixIndex < 0)
+        {
+            return false;
+        }
+
+        string remainder = message[(prefixIndex + prefix.Length)..];
+        const string separator = " but found ";
+        int separatorIndex = remainder.IndexOf(separator, StringComparison.Ordinal);
+        if (separatorIndex < 0)
+        {
+            return false;
+        }
+
+        string expectedTurnId = TrimTurnId(remainder[..separatorIndex]);
+        string foundTurnId = TrimTurnId(remainder[(separatorIndex + separator.Length)..]);
+        if (string.IsNullOrWhiteSpace(foundTurnId)
+            || string.Equals(foundTurnId, attemptedTurnId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedTurnId)
+            && !string.Equals(expectedTurnId, attemptedTurnId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        activeTurnId = foundTurnId;
+        return true;
+    }
+
+    private static string TrimTurnId(string value)
+        => value.Trim().Trim('`');
 }
 
 internal sealed class CodexTurnConsumerGate
