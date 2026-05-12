@@ -578,7 +578,7 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/tests/exec.test.ts
 
 ## REQ-CODEX-SDK-0048 Translate app-server options faithfully
-The app-server-backed path MUST serialize approval policy, approval reviewer, base instructions, developer instructions, ephemeral flag, model, model provider, personality, sandbox, service tier, effort, summary, and output schema into the upstream JSON-RPC request fields.
+The app-server-backed path MUST serialize approval policy, approval reviewer, base instructions, developer instructions, ephemeral flag, model, model provider, personality, sandbox, service tier, effort, summary, and output schema into the upstream JSON-RPC request fields. Fast-mode service tier requests MUST use the current upstream request value.
 
 Trace:
 - Satisfied By:

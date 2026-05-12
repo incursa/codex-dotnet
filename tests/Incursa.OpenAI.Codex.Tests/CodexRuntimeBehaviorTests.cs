@@ -335,6 +335,7 @@ public sealed class CodexRuntimeBehaviorTests
             Model = "thread-model",
             Sandbox = new CodexReadOnlySandboxPolicy(),
             ModelReasoningEffort = CodexReasoningEffort.Low,
+            ServiceTier = CodexServiceTier.Flex,
             ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnFailure),
             WebSearchEnabled = true,
         });
@@ -347,6 +348,7 @@ public sealed class CodexRuntimeBehaviorTests
                 Model = "turn-model",
                 SandboxPolicy = new CodexDangerFullAccessSandboxPolicy(),
                 Effort = CodexReasoningEffort.High,
+                ServiceTier = CodexServiceTier.Fast,
                 ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnRequest),
             });
 
@@ -359,6 +361,7 @@ public sealed class CodexRuntimeBehaviorTests
         Assert.Contains("--cd", args);
         Assert.Contains("/turn-override", args);
         Assert.Contains("model_reasoning_effort=\"high\"", args);
+        Assert.Contains("service_tier=\"priority\"", args);
         Assert.Contains(@"web_search=""live""", args);
         Assert.Contains("approval_policy=\"on-request\"", args);
         Assert.Equal("Echo: override input", result.FinalResponse);

@@ -136,8 +136,10 @@ The SDK MUST expose the following helper records and discriminated unions:
   - `CodexActiveThreadStatus`
 - `CodexGitInfo`
 - `CodexModelAvailabilityNux`
+- `CodexModelServiceTier`
 - `CodexModelUpgradeInfo`
 - `CodexReasoningEffortOption`
+- `CodexTurnPlanStep`
 - `CodexThreadGoal`
 - `CodexTurnRecord`
 - `CodexThreadSpawnSubAgentSource`
@@ -231,6 +233,8 @@ The SDK MUST expose the following concrete `CodexThreadEvent` subtypes:
 - `CodexItemCompletedEvent`
 - `CodexThreadGoalUpdatedEvent`
 - `CodexThreadGoalClearedEvent`
+- `CodexTurnPlanUpdatedEvent`
+- `CodexPlanDeltaEvent`
 - `CodexThreadErrorEvent`
 
 Trace:

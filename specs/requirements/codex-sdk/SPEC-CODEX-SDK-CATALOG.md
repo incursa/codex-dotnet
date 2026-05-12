@@ -125,7 +125,7 @@ Trace:
 ## Inputs and Items
 
 ## REQ-CODEX-SDK-CATALOG-0306 Expose the async input, event, and item record families
-The SDK MUST expose `CodexInputItem`, `CodexTextInput`, `CodexImageInput`, `CodexLocalImageInput`, `CodexSkillInput`, `CodexMentionInput`, `CodexThreadEvent`, and `CodexThreadItem` as record-based families that preserve wire discriminators and unknown fallback payloads.
+The SDK MUST expose `CodexInputItem`, `CodexTextInput`, `CodexImageInput`, `CodexLocalImageInput`, `CodexSkillInput`, `CodexMentionInput`, `CodexThreadEvent`, and `CodexThreadItem` as record-based families that preserve wire discriminators, structured plan updates, plan deltas, and unknown fallback payloads.
 
 Trace:
 - Satisfied By:
@@ -142,7 +142,7 @@ Trace:
 ## Results, Metadata, and Capability
 
 ## REQ-CODEX-SDK-CATALOG-0307 Expose the async result, metadata, capability, and token-usage records
-The SDK MUST expose `CodexRunResult`, `CodexTurnRecord`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModelListResult`, `CodexModel`, `CodexUsage`, `CodexTokenUsageBreakdown`, `CodexThreadError`, `CodexServerInfo`, `CodexRuntimeMetadata`, and `CodexRuntimeCapabilities`.
+The SDK MUST expose `CodexRunResult`, `CodexTurnRecord`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModelListResult`, `CodexModel`, `CodexModelServiceTier`, `CodexUsage`, `CodexTokenUsageBreakdown`, `CodexThreadError`, `CodexServerInfo`, `CodexRuntimeMetadata`, and `CodexRuntimeCapabilities`.
 
 Trace:
 - Satisfied By:
@@ -184,7 +184,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/src/codex_app_server/client.py
 
 ## REQ-CODEX-SDK-CATALOG-0310 Expose supporting enum and value-object types
-The SDK MUST expose supporting enum and value-object types for backend selection, thread status, thread goal status, session source, git metadata, model availability metadata, model upgrade metadata, input modality, reasoning effort options, and thread sort and source filters.
+The SDK MUST expose supporting enum and value-object types for backend selection, thread status, thread goal status, session source, git metadata, model availability metadata, model service-tier metadata, model upgrade metadata, input modality, reasoning effort options, turn-plan steps, and thread sort and source filters.
 
 Trace:
 - Satisfied By:

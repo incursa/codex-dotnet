@@ -2094,47 +2094,6 @@ public sealed class CodexAppServerTransportTests
                                         ["status"] = "inProgress",
                                     },
                                 }));
-                            process.EnqueueStdout(TestJson.Notification(
-                                "turn.started",
-                                new JsonObject
-                                {
-                                    ["turn"] = new JsonObject
-                                    {
-                                        ["id"] = "turn-start",
-                                        ["status"] = "inProgress",
-                                    },
-                                }));
-                            process.EnqueueStdout(TestJson.Notification(
-                                "turn.completed",
-                                new JsonObject
-                                {
-                                    ["turn"] = new JsonObject
-                                    {
-                                        ["id"] = "turn-start",
-                                        ["status"] = "completed",
-                                        ["items"] = new JsonArray
-                                        {
-                                            new JsonObject
-                                            {
-                                                ["type"] = "agentMessage",
-                                                ["id"] = "message-start",
-                                                ["phase"] = "finalAnswer",
-                                                ["text"] = "Echo: start defaults",
-                                            },
-                                        },
-                                        ["usage"] = new JsonObject
-                                        {
-                                            ["last"] = new JsonObject
-                                            {
-                                                ["totalTokens"] = 1,
-                                            },
-                                            ["total"] = new JsonObject
-                                            {
-                                                ["totalTokens"] = 1,
-                                            },
-                                        },
-                                    },
-                                }));
                             return;
                         case "resume defaults":
                             Assert.Equal("thread-resumed", payload["threadId"]!.GetValue<string>());
@@ -2152,47 +2111,6 @@ public sealed class CodexAppServerTransportTests
                                     {
                                         ["id"] = "turn-resume",
                                         ["status"] = "inProgress",
-                                    },
-                                }));
-                            process.EnqueueStdout(TestJson.Notification(
-                                "turn.started",
-                                new JsonObject
-                                {
-                                    ["turn"] = new JsonObject
-                                    {
-                                        ["id"] = "turn-resume",
-                                        ["status"] = "inProgress",
-                                    },
-                                }));
-                            process.EnqueueStdout(TestJson.Notification(
-                                "turn.completed",
-                                new JsonObject
-                                {
-                                    ["turn"] = new JsonObject
-                                    {
-                                        ["id"] = "turn-resume",
-                                        ["status"] = "completed",
-                                        ["items"] = new JsonArray
-                                        {
-                                            new JsonObject
-                                            {
-                                                ["type"] = "agentMessage",
-                                                ["id"] = "message-resume",
-                                                ["phase"] = "finalAnswer",
-                                                ["text"] = "Echo: resume defaults",
-                                            },
-                                        },
-                                        ["usage"] = new JsonObject
-                                        {
-                                            ["last"] = new JsonObject
-                                            {
-                                                ["totalTokens"] = 1,
-                                            },
-                                            ["total"] = new JsonObject
-                                            {
-                                                ["totalTokens"] = 1,
-                                            },
-                                        },
                                     },
                                 }));
                             return;
@@ -2214,48 +2132,6 @@ public sealed class CodexAppServerTransportTests
                                         ["status"] = "inProgress",
                                     },
                                 }));
-                            process.EnqueueStdout(TestJson.Notification(
-                                "turn.started",
-                                new JsonObject
-                                {
-                                    ["turn"] = new JsonObject
-                                    {
-                                        ["id"] = "turn-fork",
-                                        ["status"] = "inProgress",
-                                    },
-                                }));
-                            process.EnqueueStdout(TestJson.Notification(
-                                "turn.completed",
-                                new JsonObject
-                                {
-                                    ["turn"] = new JsonObject
-                                    {
-                                        ["id"] = "turn-fork",
-                                        ["status"] = "completed",
-                                        ["items"] = new JsonArray
-                                        {
-                                            new JsonObject
-                                            {
-                                                ["type"] = "agentMessage",
-                                                ["id"] = "message-fork",
-                                                ["phase"] = "finalAnswer",
-                                                ["text"] = "Echo: fork defaults",
-                                            },
-                                        },
-                                        ["usage"] = new JsonObject
-                                        {
-                                            ["last"] = new JsonObject
-                                            {
-                                                ["totalTokens"] = 1,
-                                            },
-                                            ["total"] = new JsonObject
-                                            {
-                                                ["totalTokens"] = 1,
-                                            },
-                                        },
-                                    },
-                                }));
-                            process.Complete();
                             return;
                         default:
                             throw new InvalidOperationException($"Unexpected prompt '{prompt}'.");
@@ -2267,6 +2143,64 @@ public sealed class CodexAppServerTransportTests
 
         await using CodexClient client = CreateAppServerClient(launcher);
 
+        async Task<CodexRunResult> RunCompletedTurnAsync(
+            CodexThread thread,
+            string prompt,
+            string turnId,
+            string messageId,
+            bool completeProcess = false)
+        {
+            CodexTurn turn = await thread.StartTurnAsync(prompt);
+            process.EnqueueStdout(TestJson.Notification(
+                "turn.started",
+                new JsonObject
+                {
+                    ["turn"] = new JsonObject
+                    {
+                        ["id"] = turnId,
+                        ["status"] = "inProgress",
+                    },
+                }));
+            process.EnqueueStdout(TestJson.Notification(
+                "turn.completed",
+                new JsonObject
+                {
+                    ["turn"] = new JsonObject
+                    {
+                        ["id"] = turnId,
+                        ["status"] = "completed",
+                        ["items"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["type"] = "agentMessage",
+                                ["id"] = messageId,
+                                ["phase"] = "finalAnswer",
+                                ["text"] = $"Echo: {prompt}",
+                            },
+                        },
+                        ["usage"] = new JsonObject
+                        {
+                            ["last"] = new JsonObject
+                            {
+                                ["totalTokens"] = 1,
+                            },
+                            ["total"] = new JsonObject
+                            {
+                                ["totalTokens"] = 1,
+                            },
+                        },
+                    },
+                }));
+
+            if (completeProcess)
+            {
+                process.Complete();
+            }
+
+            return await turn.RunAsync();
+        }
+
         CodexThread startedThread = await client.StartThreadAsync(new CodexThreadOptions
         {
             WorkingDirectory = "/start-dir",
@@ -2276,7 +2210,7 @@ public sealed class CodexAppServerTransportTests
             ModelReasoningEffort = CodexReasoningEffort.High,
         });
 
-        CodexRunResult startedResult = await startedThread.RunAsync("start defaults");
+        CodexRunResult startedResult = await RunCompletedTurnAsync(startedThread, "start defaults", "turn-start", "message-start");
         Assert.Equal("Echo: start defaults", startedResult.FinalResponse);
 
         CodexThread resumedThread = await client.ResumeThreadAsync(startedThread.Id!, new CodexThreadOptions
@@ -2288,7 +2222,7 @@ public sealed class CodexAppServerTransportTests
             ModelReasoningEffort = CodexReasoningEffort.Low,
         });
 
-        CodexRunResult resumedResult = await resumedThread.RunAsync("resume defaults");
+        CodexRunResult resumedResult = await RunCompletedTurnAsync(resumedThread, "resume defaults", "turn-resume", "message-resume");
         Assert.Equal("Echo: resume defaults", resumedResult.FinalResponse);
 
         CodexThread forkedThread = await client.ForkThreadAsync(startedThread.Id!, new CodexThreadForkOptions
@@ -2300,7 +2234,7 @@ public sealed class CodexAppServerTransportTests
             ModelReasoningEffort = CodexReasoningEffort.Medium,
         });
 
-        CodexRunResult forkedResult = await forkedThread.RunAsync("fork defaults");
+        CodexRunResult forkedResult = await RunCompletedTurnAsync(forkedThread, "fork defaults", "turn-fork", "message-fork", completeProcess: true);
         Assert.Equal("Echo: fork defaults", forkedResult.FinalResponse);
     }
 

@@ -80,6 +80,8 @@ public sealed class CodexContractTypeTests
         Assert.Equal(CodexReasoningEffort.High, model.DefaultReasoningEffort);
         Assert.True(model.Hidden);
         Assert.True(model.SupportsPersonality);
+        Assert.Equal("fast", Assert.Single(model.AdditionalSpeedTiers));
+        Assert.Equal("priority", Assert.Single(model.ServiceTiers).Id);
         Assert.Equal("upgrade", model.Upgrade);
         Assert.Equal("Upgrade now", model.UpgradeInfo!.UpgradeCopy);
 
@@ -262,6 +264,14 @@ public sealed class CodexContractTypeTests
         };
         Assert.Equal(CodexReasoningEffort.High, effortOption.ReasoningEffort);
 
+        CodexModelServiceTier serviceTier = new()
+        {
+            Id = "priority",
+            Name = "Fast",
+            Description = "Fastest inference with increased plan usage",
+        };
+        Assert.Equal("priority", serviceTier.Id);
+
         CodexFileUpdateChange change = new()
         {
             Diff = "+hello",
@@ -389,6 +399,7 @@ public sealed class CodexContractTypeTests
 
         CodexModel model = new();
         Assert.Null(model.AvailabilityNux);
+        Assert.Empty(model.AdditionalSpeedTiers);
         Assert.Equal(CodexReasoningEffort.None, model.DefaultReasoningEffort);
         Assert.Equal(string.Empty, model.Description);
         Assert.Equal(string.Empty, model.DisplayName);
@@ -398,6 +409,7 @@ public sealed class CodexContractTypeTests
         Assert.False(model.IsDefault);
         Assert.Equal(string.Empty, model.Model);
         Assert.Empty(model.SupportedReasoningEfforts);
+        Assert.Empty(model.ServiceTiers);
         Assert.Null(model.SupportsPersonality);
         Assert.Null(model.Upgrade);
         Assert.Null(model.UpgradeInfo);
@@ -485,6 +497,11 @@ public sealed class CodexContractTypeTests
         CodexReasoningEffortOption effortOption = new();
         Assert.Equal(string.Empty, effortOption.Description);
         Assert.Equal(CodexReasoningEffort.None, effortOption.ReasoningEffort);
+
+        CodexModelServiceTier serviceTier = new();
+        Assert.Equal(string.Empty, serviceTier.Id);
+        Assert.Equal(string.Empty, serviceTier.Name);
+        Assert.Equal(string.Empty, serviceTier.Description);
 
         CodexFileUpdateChange change = new();
         Assert.Equal(string.Empty, change.Diff);
@@ -633,6 +650,14 @@ public sealed class CodexContractTypeTests
         Assert.Equal("boom", mcpError.Message);
         Assert.Single(mcpResult.Content);
         Assert.Equal("trace", mcpResult.StructuredContent!["kind"]!.GetValue<string>());
+
+        CodexTurnPlanStep turnPlanStep = new()
+        {
+            Step = "Verify plan updates",
+            Status = CodexTurnPlanStepStatus.InProgress,
+        };
+        Assert.Equal("Verify plan updates", turnPlanStep.Step);
+        Assert.Equal(CodexTurnPlanStepStatus.InProgress, turnPlanStep.Status);
 
         CodexUserMessageItem userMessage = new()
         {
@@ -933,6 +958,22 @@ public sealed class CodexContractTypeTests
             ThreadId = "thread-1",
         };
 
+        CodexTurnPlanUpdatedEvent planUpdated = new()
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            Explanation = "Plan changed",
+            Plan = [turnPlanStep],
+        };
+
+        CodexPlanDeltaEvent planDelta = new()
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            ItemId = "plan-1",
+            Delta = "Verify",
+        };
+
         CodexUnknownThreadEvent unknownEvent = new("custom/runtime-event")
         {
             RawPayload = new JsonObject
@@ -957,6 +998,12 @@ public sealed class CodexContractTypeTests
         Assert.Equal(CodexThreadGoalStatus.Paused, goalUpdated.Goal.Status);
         Assert.Equal("thread.goal.cleared", goalCleared.Type);
         Assert.Equal("thread-1", goalCleared.ThreadId);
+        Assert.Equal("turn.plan.updated", planUpdated.Type);
+        Assert.Equal("Plan changed", planUpdated.Explanation);
+        Assert.Equal(CodexTurnPlanStepStatus.InProgress, Assert.Single(planUpdated.Plan).Status);
+        Assert.Equal("item.plan.delta", planDelta.Type);
+        Assert.Equal("plan-1", planDelta.ItemId);
+        Assert.Equal("Verify", planDelta.Delta);
         Assert.Equal("custom/runtime-event", unknownEvent.UnknownType);
         Assert.Equal("mystery", unknownEvent.RawPayload!["note"]!.GetValue<string>());
 
@@ -971,6 +1018,8 @@ public sealed class CodexContractTypeTests
         Assert.Equal(rateLimitsUpdated, rateLimitsUpdated with { });
         Assert.Equal(goalUpdated, goalUpdated with { });
         Assert.Equal(goalCleared, goalCleared with { });
+        Assert.Equal(planUpdated, planUpdated with { });
+        Assert.Equal(planDelta, planDelta with { });
         Assert.Equal(unknownEvent, unknownEvent with { });
     }
 
@@ -1110,6 +1159,20 @@ public sealed class CodexContractTypeTests
         Assert.Equal("thread.goal.cleared", goalCleared.Type);
         Assert.Equal(string.Empty, goalCleared.ThreadId);
 
+        CodexTurnPlanUpdatedEvent planUpdated = new();
+        Assert.Equal("turn.plan.updated", planUpdated.Type);
+        Assert.Equal(string.Empty, planUpdated.ThreadId);
+        Assert.Equal(string.Empty, planUpdated.TurnId);
+        Assert.Null(planUpdated.Explanation);
+        Assert.Empty(planUpdated.Plan);
+
+        CodexPlanDeltaEvent planDelta = new();
+        Assert.Equal("item.plan.delta", planDelta.Type);
+        Assert.Equal(string.Empty, planDelta.ThreadId);
+        Assert.Equal(string.Empty, planDelta.TurnId);
+        Assert.Equal(string.Empty, planDelta.ItemId);
+        Assert.Equal(string.Empty, planDelta.Delta);
+
         CodexUserMessageItem userMessage = new();
         Assert.Equal("userMessage", userMessage.Type);
         Assert.Empty(userMessage.Content);
@@ -1122,6 +1185,10 @@ public sealed class CodexContractTypeTests
         CodexPlanItem plan = new();
         Assert.Equal("plan", plan.Type);
         Assert.Equal(string.Empty, plan.Text);
+
+        CodexTurnPlanStep turnPlanStep = new();
+        Assert.Equal(string.Empty, turnPlanStep.Step);
+        Assert.Equal(CodexTurnPlanStepStatus.Pending, turnPlanStep.Status);
 
         CodexReasoningItem reasoning = new();
         Assert.Equal("reasoning", reasoning.Type);
@@ -1309,6 +1376,7 @@ public sealed class CodexContractTypeTests
             {
                 Message = "upgrade available",
             },
+            AdditionalSpeedTiers = ["fast"],
             DefaultReasoningEffort = CodexReasoningEffort.High,
             Description = "Trace model",
             DisplayName = model.ToUpperInvariant(),
@@ -1328,6 +1396,15 @@ public sealed class CodexContractTypeTests
                 {
                     Description = "deep",
                     ReasoningEffort = CodexReasoningEffort.High,
+                },
+            ],
+            ServiceTiers =
+            [
+                new CodexModelServiceTier
+                {
+                    Id = "priority",
+                    Name = "Fast",
+                    Description = "Fastest inference with increased plan usage",
                 },
             ],
             SupportsPersonality = true,

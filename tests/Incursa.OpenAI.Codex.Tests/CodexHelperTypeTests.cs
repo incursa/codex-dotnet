@@ -217,6 +217,14 @@ public sealed class CodexHelperTypeTests
             ],
         };
         Assert.Equal("codex", rateLimits.RateLimits[0].LimitId);
+
+        CodexModelServiceTier serviceTier = new()
+        {
+            Id = "priority",
+            Name = "Fast",
+            Description = "Fastest inference with increased plan usage",
+        };
+        Assert.Equal("priority", serviceTier.Id);
     }
 
     [Fact]
@@ -301,6 +309,13 @@ public sealed class CodexHelperTypeTests
         Assert.Equal("boom", error.Message);
         Assert.Single(result.Content);
         Assert.Equal("trace", result.StructuredContent!["kind"]!.GetValue<string>());
+
+        CodexTurnPlanStep planStep = new()
+        {
+            Step = "Patch SDK",
+            Status = CodexTurnPlanStepStatus.Completed,
+        };
+        Assert.Equal("Patch SDK", planStep.Step);
+        Assert.Equal(CodexTurnPlanStepStatus.Completed, planStep.Status);
     }
 }
-
