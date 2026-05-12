@@ -243,7 +243,7 @@ public sealed class CodexProtocolTests
         Assert.Equal("friendly", payload["personality"]!.GetValue<string>());
         Assert.Equal("readOnly", payload["sandboxPolicy"]!["type"]!.GetValue<string>());
         Assert.True(payload["sandboxPolicy"]!["networkAccess"]!.GetValue<bool>());
-        Assert.Equal("fast", payload["serviceTier"]!.GetValue<string>());
+        Assert.Equal("priority", payload["serviceTier"]!.GetValue<string>());
         Assert.Equal("concise", payload["summary"]!.GetValue<string>());
         Assert.Equal("/tmp/work", payload["workingDirectory"]!.GetValue<string>());
         Assert.True(JsonNode.DeepEquals(outputSchema, payload["outputSchema"]));
@@ -447,6 +447,65 @@ public sealed class CodexProtocolTests
         CodexThreadGoalClearedEvent cleared = Assert.IsType<CodexThreadGoalClearedEvent>(clearedEvent);
         Assert.Equal("thread.goal.cleared", cleared.Type);
         Assert.Equal("thread-1", cleared.ThreadId);
+    }
+
+    [Fact]
+    public void ParseThreadEvent_MapsStructuredPlanNotifications()
+    {
+        CodexThreadEvent updatedEvent = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "turn/plan/updated",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["explanation"] = "Plan changed",
+                ["plan"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["step"] = "Inspect upstream",
+                        ["status"] = "completed",
+                    },
+                    new JsonObject
+                    {
+                        ["step"] = "Patch SDK",
+                        ["status"] = "inProgress",
+                    },
+                    new JsonObject
+                    {
+                        ["step"] = "Verify",
+                        ["status"] = "pending",
+                    },
+                },
+            }));
+
+        CodexTurnPlanUpdatedEvent updated = Assert.IsType<CodexTurnPlanUpdatedEvent>(updatedEvent);
+        Assert.Equal("turn.plan.updated", updated.Type);
+        Assert.Equal("thread-1", updated.ThreadId);
+        Assert.Equal("turn-1", updated.TurnId);
+        Assert.Equal("Plan changed", updated.Explanation);
+        Assert.Equal(3, updated.Plan.Count);
+        Assert.Equal("Inspect upstream", updated.Plan[0].Step);
+        Assert.Equal(CodexTurnPlanStepStatus.Completed, updated.Plan[0].Status);
+        Assert.Equal(CodexTurnPlanStepStatus.InProgress, updated.Plan[1].Status);
+        Assert.Equal(CodexTurnPlanStepStatus.Pending, updated.Plan[2].Status);
+
+        CodexThreadEvent deltaEvent = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "item/plan/delta",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["itemId"] = "plan-1",
+                ["delta"] = "Inspect",
+            }));
+
+        CodexPlanDeltaEvent delta = Assert.IsType<CodexPlanDeltaEvent>(deltaEvent);
+        Assert.Equal("item.plan.delta", delta.Type);
+        Assert.Equal("thread-1", delta.ThreadId);
+        Assert.Equal("turn-1", delta.TurnId);
+        Assert.Equal("plan-1", delta.ItemId);
+        Assert.Equal("Inspect", delta.Delta);
     }
 
     [Fact]
@@ -691,6 +750,16 @@ public sealed class CodexProtocolTests
                     ["hidden"] = false,
                     ["isDefault"] = true,
                     ["defaultReasoningEffort"] = "high",
+                    ["additionalSpeedTiers"] = new JsonArray { "fast" },
+                    ["serviceTiers"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["id"] = "priority",
+                            ["name"] = "Fast",
+                            ["description"] = "Fastest inference with increased plan usage",
+                        },
+                    },
                 },
             },
         });
@@ -700,6 +769,11 @@ public sealed class CodexProtocolTests
         Assert.Equal("model-1", result.Models[0].Id);
         Assert.Equal("gpt-5", result.Models[0].Model);
         Assert.Equal(CodexReasoningEffort.High, result.Models[0].DefaultReasoningEffort);
+        Assert.Equal("fast", Assert.Single(result.Models[0].AdditionalSpeedTiers));
+        CodexModelServiceTier serviceTier = Assert.Single(result.Models[0].ServiceTiers);
+        Assert.Equal("priority", serviceTier.Id);
+        Assert.Equal("Fast", serviceTier.Name);
+        Assert.Equal("Fastest inference with increased plan usage", serviceTier.Description);
     }
 
     [Fact]

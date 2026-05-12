@@ -58,9 +58,9 @@ Use [`AppServer`](Enums.cs) when you need long-lived conversations, [`CodexThrea
 - [`CodexThread`](CodexClient.cs): a stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, `CompactAsync`, `GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, and `ClearGoalAsync`
 - [`CodexTurn`](CodexClient.cs): a single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
 - [`CodexClientOptions`](Options.cs): backend selection, executable path override, API key, configuration, environment, and approval handler
-- [`CodexThreadOptions`](Options.cs) and [`CodexTurnOptions`](Options.cs): working directory, sandbox, approval, model, and output schema settings
+- [`CodexThreadOptions`](Options.cs) and [`CodexTurnOptions`](Options.cs): working directory, sandbox, approval, model, Fast mode service tier, and output schema settings
 - [`CodexInputItem`](ConversationTypes.cs) and the typed input union for text, remote image, local image, skill, and mention inputs
-- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadGoal`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexAccountRateLimitsUpdatedEvent`](ConversationTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
+- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadGoal`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexTurnPlanUpdatedEvent`](ConversationTypes.cs), [`CodexAccountRateLimitsUpdatedEvent`](ConversationTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
 
 ## Sample
 

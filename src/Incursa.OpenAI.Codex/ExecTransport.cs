@@ -424,6 +424,13 @@ internal sealed class CodexExecTransport : ICodexTransport
             args.Add($"model_reasoning_effort={JsonSerializer.Serialize(MapReasoningEffort(effectiveReasoningEffort.Value))}");
         }
 
+        CodexServiceTier? effectiveServiceTier = effectiveTurnOptions.ServiceTier ?? threadOptions?.ServiceTier;
+        if (effectiveServiceTier is not null)
+        {
+            args.Add("--config");
+            args.Add($"service_tier={JsonSerializer.Serialize(MapServiceTier(effectiveServiceTier.Value))}");
+        }
+
         if (threadOptions?.NetworkAccessEnabled is not null)
         {
             args.Add("--config");
@@ -546,6 +553,9 @@ internal sealed class CodexExecTransport : ICodexTransport
             CodexReasoningEffort.XHigh => "xhigh",
             _ => "medium",
         };
+
+    private static string MapServiceTier(CodexServiceTier serviceTier)
+        => serviceTier == CodexServiceTier.Flex ? "flex" : "priority";
 
     private static string MapWebSearchMode(CodexWebSearchMode mode)
         => mode switch

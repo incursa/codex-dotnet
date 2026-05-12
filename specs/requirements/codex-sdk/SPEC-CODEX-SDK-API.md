@@ -178,7 +178,7 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/src/thread.ts
 
 ## REQ-CODEX-SDK-API-0211 Capture per-turn overrides in dedicated options
-`CodexTurnOptions` MUST capture per-turn overrides such as structured output schema, model selection, sandbox policy, approval policy, service tier, and reasoning hints, while cancellation flows through standard `CancellationToken` parameters on the public methods.
+`CodexTurnOptions` MUST capture per-turn overrides such as structured output schema, model selection, sandbox policy, approval policy, service tier, and reasoning hints, while cancellation flows through standard `CancellationToken` parameters on the public methods. `CodexServiceTier.Fast` MUST serialize to the current upstream fast-mode request value while preserving the stable public enum name.
 
 Trace:
 - Satisfied By:
@@ -221,7 +221,7 @@ Trace:
   - C:/src/openai/codex/sdk/python/docs/api-reference.md
 
 ## REQ-CODEX-SDK-API-0214 Preserve the thread item and event hierarchies
-The SDK MUST expose `CodexThreadEvent` and `CodexThreadItem` as polymorphic hierarchies that preserve the upstream discriminators and unknown fallback payloads, including app-server thread goal notifications.
+The SDK MUST expose `CodexThreadEvent` and `CodexThreadItem` as polymorphic hierarchies that preserve the upstream discriminators and unknown fallback payloads, including app-server thread goal notifications, structured turn-plan updates, and plan item deltas.
 
 Trace:
 - Satisfied By:
@@ -237,7 +237,7 @@ Trace:
 ## Result and Metadata Shapes
 
 ## REQ-CODEX-SDK-API-0215 Expose the supporting result and metadata records
-The SDK MUST expose `CodexThreadError`, `CodexTokenUsageBreakdown`, `CodexUsage`, `CodexServerInfo`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModel`, and `CodexModelListResult` as immutable data shapes.
+The SDK MUST expose `CodexThreadError`, `CodexTokenUsageBreakdown`, `CodexUsage`, `CodexServerInfo`, `CodexRuntimeCapabilities`, `CodexRuntimeMetadata`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModel`, `CodexModelServiceTier`, and `CodexModelListResult` as immutable data shapes.
 
 Trace:
 - Satisfied By:

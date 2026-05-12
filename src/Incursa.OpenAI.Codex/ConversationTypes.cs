@@ -262,6 +262,22 @@ public sealed record CodexMcpToolCallResult
 }
 
 /// <summary>
+/// A single step in the structured plan for a turn.
+/// </summary>
+public sealed record CodexTurnPlanStep
+{
+    /// <summary>
+    /// Gets or sets the plan step text.
+    /// </summary>
+    public string Step { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the current plan step status.
+    /// </summary>
+    public CodexTurnPlanStepStatus Status { get; init; }
+}
+
+/// <summary>
 /// Base type for thread lifecycle and item events.
 /// </summary>
 /// <param name="Type">JSON discriminator for the event kind.</param>
@@ -441,6 +457,58 @@ public sealed record CodexThreadGoalClearedEvent() : CodexThreadEvent("thread.go
     /// Gets the thread identifier.
     /// </summary>
     public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents an app-server notification that the structured turn plan changed.
+/// </summary>
+public sealed record CodexTurnPlanUpdatedEvent() : CodexThreadEvent("turn.plan.updated")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the turn identifier.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the optional explanation supplied with the plan update.
+    /// </summary>
+    public string? Explanation { get; init; }
+
+    /// <summary>
+    /// Gets the ordered structured plan steps.
+    /// </summary>
+    public IReadOnlyList<CodexTurnPlanStep> Plan { get; init; } = [];
+}
+
+/// <summary>
+/// Represents an experimental streaming delta for a plan item.
+/// </summary>
+public sealed record CodexPlanDeltaEvent() : CodexThreadEvent("item.plan.delta")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the turn identifier.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the plan item identifier.
+    /// </summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the streamed plan text delta.
+    /// </summary>
+    public string Delta { get; init; } = "";
 }
 
 /// <summary>

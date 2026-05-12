@@ -612,6 +612,8 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             CodexThreadStartedEvent threadStarted => (null, threadStarted.Thread.Id),
             CodexThreadGoalUpdatedEvent goalUpdated => (goalUpdated.TurnId, goalUpdated.ThreadId),
             CodexThreadGoalClearedEvent goalCleared => (null, goalCleared.ThreadId),
+            CodexTurnPlanUpdatedEvent planUpdated => (planUpdated.TurnId, planUpdated.ThreadId),
+            CodexPlanDeltaEvent planDelta => (planDelta.TurnId, planDelta.ThreadId),
             _ => (null, null),
         };
     }

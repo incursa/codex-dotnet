@@ -272,6 +272,20 @@ internal static class CodexProtocol
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
             },
+            "turn.plan.updated" => new CodexTurnPlanUpdatedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                TurnId = GetString(payload, "turnId") ?? string.Empty,
+                Explanation = GetString(payload, "explanation"),
+                Plan = ParseTurnPlanSteps(payload),
+            },
+            "item.plan.delta" => new CodexPlanDeltaEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                TurnId = GetString(payload, "turnId") ?? string.Empty,
+                ItemId = GetString(payload, "itemId") ?? string.Empty,
+                Delta = GetString(payload, "delta") ?? string.Empty,
+            },
             _ => new CodexUnknownThreadEvent(normalizedType) { RawPayload = payload },
         };
     }
@@ -546,7 +560,9 @@ internal static class CodexProtocol
             Hidden = GetBool(payload, "hidden") ?? false,
             IsDefault = GetBool(payload, "isDefault") ?? false,
             DefaultReasoningEffort = ParseReasoningEffort(GetString(payload, "defaultReasoningEffort")),
+            AdditionalSpeedTiers = GetStringList(payload, "additionalSpeedTiers") ?? [],
             SupportedReasoningEfforts = [],
+            ServiceTiers = ParseModelServiceTiers(payload),
         };
     }
 
@@ -726,6 +742,43 @@ internal static class CodexProtocol
         return array.Select(item => item?.GetValue<string>()).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value!).ToArray();
     }
 
+    private static IReadOnlyList<CodexTurnPlanStep> ParseTurnPlanSteps(JsonObject payload)
+    {
+        JsonNode? planNode = GetNode(payload, "plan");
+        if (planNode is not JsonArray array)
+        {
+            return [];
+        }
+
+        return array
+            .OfType<JsonObject>()
+            .Select(step => new CodexTurnPlanStep
+            {
+                Step = GetString(step, "step") ?? string.Empty,
+                Status = ParseTurnPlanStepStatus(GetString(step, "status")),
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CodexModelServiceTier> ParseModelServiceTiers(JsonObject payload)
+    {
+        JsonNode? serviceTiersNode = GetNode(payload, "serviceTiers");
+        if (serviceTiersNode is not JsonArray array)
+        {
+            return [];
+        }
+
+        return array
+            .OfType<JsonObject>()
+            .Select(serviceTier => new CodexModelServiceTier
+            {
+                Id = GetString(serviceTier, "id") ?? string.Empty,
+                Name = GetString(serviceTier, "name") ?? string.Empty,
+                Description = GetString(serviceTier, "description") ?? string.Empty,
+            })
+            .ToArray();
+    }
+
     private static CodexThreadStatus ParseThreadStatus(JsonObject? payload)
     {
         string? type = GetString(payload, "type");
@@ -746,6 +799,14 @@ internal static class CodexProtocol
             "failed" => CodexTurnStatus.Failed,
             "inProgress" => CodexTurnStatus.InProgress,
             _ => CodexTurnStatus.InProgress,
+        };
+
+    private static CodexTurnPlanStepStatus ParseTurnPlanStepStatus(string? value)
+        => value switch
+        {
+            "completed" => CodexTurnPlanStepStatus.Completed,
+            "inProgress" or "in_progress" => CodexTurnPlanStepStatus.InProgress,
+            _ => CodexTurnPlanStepStatus.Pending,
         };
 
     private static CodexReasoningEffort ParseReasoningEffort(string? value)
@@ -821,7 +882,7 @@ internal static class CodexProtocol
         };
 
     private static string MapServiceTier(CodexServiceTier serviceTier)
-        => serviceTier == CodexServiceTier.Flex ? "flex" : "fast";
+        => serviceTier == CodexServiceTier.Flex ? "flex" : "priority";
 
     private static string MapNetworkAccess(CodexNetworkAccess networkAccess)
         => networkAccess == CodexNetworkAccess.Enabled ? "enabled" : "restricted";

@@ -199,6 +199,19 @@ public sealed record CodexReasoningEffortOption
     public CodexReasoningEffort ReasoningEffort { get; init; }
 }
 
+/// <summary>Service-tier metadata reported for a model.</summary>
+public sealed record CodexModelServiceTier
+{
+    /// <summary>The service-tier request identifier, such as <c>priority</c> or <c>flex</c>.</summary>
+    public string Id { get; init; } = "";
+
+    /// <summary>The user-facing service-tier name.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>The user-facing service-tier description.</summary>
+    public string Description { get; init; } = "";
+}
+
 /// <summary>Single-file update metadata returned by Codex.</summary>
 public sealed record CodexFileUpdateChange
 {
@@ -513,6 +526,9 @@ public sealed record CodexModel
     /// <summary>Optional availability note for the model.</summary>
     public CodexModelAvailabilityNux? AvailabilityNux { get; init; }
 
+    /// <summary>Deprecated speed-tier identifiers reported by older runtimes.</summary>
+    public IReadOnlyList<string> AdditionalSpeedTiers { get; init; } = [];
+
     /// <summary>The default reasoning effort for the model.</summary>
     public CodexReasoningEffort DefaultReasoningEffort { get; init; }
 
@@ -539,6 +555,9 @@ public sealed record CodexModel
 
     /// <summary>Reasoning-effort options supported by the model.</summary>
     public IReadOnlyList<CodexReasoningEffortOption> SupportedReasoningEfforts { get; init; } = [];
+
+    /// <summary>Service tiers supported by the model.</summary>
+    public IReadOnlyList<CodexModelServiceTier> ServiceTiers { get; init; } = [];
 
     /// <summary>Whether the model supports personality controls.</summary>
     public bool? SupportsPersonality { get; init; }
