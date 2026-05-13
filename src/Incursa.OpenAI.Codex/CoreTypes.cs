@@ -102,12 +102,20 @@ public abstract record CodexSessionSource;
 /// <param name="Value">The session source kind.</param>
 public sealed record CodexSessionSourceValue(CodexSessionSourceKind Value) : CodexSessionSource;
 
+/// <summary>Session source that stores a custom source label.</summary>
+/// <param name="Custom">The custom session source label.</param>
+public sealed record CodexCustomSessionSource(string Custom) : CodexSessionSource;
+
 /// <summary>Session source that points to a spawned sub-agent.</summary>
 /// <param name="SubAgent">The sub-agent source details.</param>
 public sealed record CodexSubAgentSessionSource(CodexSubAgentSource SubAgent) : CodexSessionSource;
 
 /// <summary>Base type for sub-agent source shapes.</summary>
 public abstract record CodexSubAgentSource;
+
+/// <summary>Sub-agent source that stores a raw source kind value.</summary>
+/// <param name="Value">The sub-agent source kind.</param>
+public sealed record CodexSubAgentSourceValue(CodexSubAgentSourceKind Value) : CodexSubAgentSource;
 
 /// <summary>Sub-agent source that came from thread spawning.</summary>
 /// <param name="ThreadSpawn">The thread-spawn metadata.</param>
@@ -164,6 +172,28 @@ public sealed record CodexGitInfo
 
     /// <summary>The current commit SHA, if known.</summary>
     public string? Sha { get; init; }
+}
+
+/// <summary>Patchable Git metadata for a thread update request.</summary>
+public readonly record struct CodexThreadMetadataGitInfoUpdate
+{
+    /// <summary>Gets or sets the branch name patch value.</summary>
+    public string? Branch { get; init; }
+
+    /// <summary>Gets or sets a value indicating whether the branch field is included in the patch.</summary>
+    public bool BranchSpecified { get; init; }
+
+    /// <summary>Gets or sets the remote origin URL patch value.</summary>
+    public string? OriginUrl { get; init; }
+
+    /// <summary>Gets or sets a value indicating whether the origin URL field is included in the patch.</summary>
+    public bool OriginUrlSpecified { get; init; }
+
+    /// <summary>Gets or sets the commit SHA patch value.</summary>
+    public string? Sha { get; init; }
+
+    /// <summary>Gets or sets a value indicating whether the SHA field is included in the patch.</summary>
+    public bool ShaSpecified { get; init; }
 }
 
 /// <summary>Availability note shown when a model is not immediately usable.</summary>
@@ -223,6 +253,52 @@ public sealed record CodexFileUpdateChange
 
     /// <summary>The path of the file that changed.</summary>
     public string Path { get; init; } = "";
+}
+
+/// <summary>A 1-based line and column position inside a text buffer.</summary>
+public sealed record CodexTextPosition
+{
+    /// <summary>The column number, in Unicode scalar values.</summary>
+    public int Column { get; init; }
+
+    /// <summary>The line number.</summary>
+    public int Line { get; init; }
+}
+
+/// <summary>A text range that points to a start and end position.</summary>
+public sealed record CodexTextRange
+{
+    /// <summary>The range end position.</summary>
+    public CodexTextPosition End { get; init; } = new();
+
+    /// <summary>The range start position.</summary>
+    public CodexTextPosition Start { get; init; } = new();
+}
+
+/// <summary>A single entry in a memory citation.</summary>
+public sealed record CodexMemoryCitationEntry
+{
+    /// <summary>The last line covered by the citation entry.</summary>
+    public int LineEnd { get; init; }
+
+    /// <summary>The first line covered by the citation entry.</summary>
+    public int LineStart { get; init; }
+
+    /// <summary>The note attached to the cited range.</summary>
+    public string Note { get; init; } = "";
+
+    /// <summary>The cited path.</summary>
+    public string Path { get; init; } = "";
+}
+
+/// <summary>A citation bundle attached to an agent message.</summary>
+public sealed record CodexMemoryCitation
+{
+    /// <summary>The cited entries.</summary>
+    public IReadOnlyList<CodexMemoryCitationEntry> Entries { get; init; } = [];
+
+    /// <summary>The thread identifiers associated with the citation.</summary>
+    public IReadOnlyList<string> ThreadIds { get; init; } = [];
 }
 
 /// <summary>A single todo item tracked by Codex.</summary>
@@ -337,7 +413,7 @@ public sealed record CodexRateLimitSnapshot
     /// <summary>
     /// Gets the Codex plan type reported by the runtime.
     /// </summary>
-    public string? PlanType { get; init; }
+    public CodexPlanType PlanType { get; init; }
 
     /// <summary>
     /// Gets the primary window, typically the shorter rolling window.
@@ -487,11 +563,26 @@ public record CodexThreadSummary
     /// <summary>The CLI version that produced the thread metadata.</summary>
     public string CliVersion { get; init; } = "";
 
+    /// <summary>Working directory captured for the thread.</summary>
+    public string Cwd { get; init; } = "";
+
     /// <summary>Workspace path associated with the thread, if any.</summary>
     public string? Path { get; init; }
 
+    /// <summary>The session identifier associated with the thread tree.</summary>
+    public string SessionId { get; init; } = "";
+
+    /// <summary>The identifier of the thread this one was forked from, if any.</summary>
+    public string? ForkedFromId { get; init; }
+
     /// <summary>The source that created the thread.</summary>
     public CodexSessionSource Source { get; init; } = new CodexSessionSourceValue(CodexSessionSourceKind.Unknown);
+
+    /// <summary>The thread origin classification, if any.</summary>
+    public CodexThreadSource? ThreadSource { get; init; }
+
+    /// <summary>The source that started the current thread session, if known.</summary>
+    public CodexThreadStartSource? SessionStartSource { get; init; }
 
     /// <summary>Role associated with the spawning agent, if any.</summary>
     public string? AgentRole { get; init; }
@@ -515,6 +606,9 @@ public sealed record CodexThreadListResult
 {
     /// <summary>The threads returned by the query.</summary>
     public IReadOnlyList<CodexThreadSummary> Threads { get; init; } = [];
+
+    /// <summary>Cursor for the previous page, if more results are available.</summary>
+    public string? BackwardsCursor { get; init; }
 
     /// <summary>Cursor for the next page, if more results are available.</summary>
     public string? NextCursor { get; init; }

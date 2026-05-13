@@ -87,10 +87,12 @@ public sealed class CodexContractTypeTests
 
         CodexThreadListResult threadList = new()
         {
+            BackwardsCursor = "thread-back-cursor",
             Threads = [summary],
             NextCursor = "thread-cursor",
         };
         Assert.Equal(threadList, threadList with { });
+        Assert.Equal("thread-back-cursor", threadList.BackwardsCursor);
         Assert.Equal("thread-cursor", threadList.NextCursor);
         Assert.Single(threadList.Threads);
 
@@ -203,7 +205,7 @@ public sealed class CodexContractTypeTests
             },
             LimitId = "codex",
             LimitName = "Codex",
-            PlanType = "plus",
+            PlanType = CodexPlanType.Plus,
             Primary = rateLimitWindow,
             Secondary = rateLimitWindow with
             {
@@ -479,7 +481,7 @@ public sealed class CodexContractTypeTests
         Assert.Null(rateLimitSnapshot.Credits);
         Assert.Null(rateLimitSnapshot.LimitId);
         Assert.Null(rateLimitSnapshot.LimitName);
-        Assert.Null(rateLimitSnapshot.PlanType);
+        Assert.Equal(CodexPlanType.Unknown, rateLimitSnapshot.PlanType);
         Assert.Null(rateLimitSnapshot.Primary);
         Assert.Null(rateLimitSnapshot.Secondary);
         Assert.Null(rateLimitSnapshot.RateLimitReachedType);
@@ -1292,8 +1294,13 @@ public sealed class CodexContractTypeTests
             UpdatedAt = DateTimeOffset.UnixEpoch.AddMinutes(1),
             Ephemeral = false,
             CliVersion = "1.2.3",
+            Cwd = "/work",
             Path = "/work",
-            Source = new CodexSessionSourceValue(CodexSessionSourceKind.Exec),
+            SessionId = "session-1",
+            ForkedFromId = "thread-parent",
+            Source = new CodexSubAgentSessionSource(new CodexSubAgentSourceValue(CodexSubAgentSourceKind.MemoryConsolidation)),
+            ThreadSource = CodexThreadSource.Subagent,
+            SessionStartSource = CodexThreadStartSource.Startup,
             AgentRole = "coding-agent",
             AgentNickname = "trace",
             GitInfo = new CodexGitInfo
@@ -1361,8 +1368,13 @@ public sealed class CodexContractTypeTests
             UpdatedAt = summary.UpdatedAt,
             Ephemeral = summary.Ephemeral,
             CliVersion = summary.CliVersion,
+            Cwd = summary.Cwd,
             Path = summary.Path,
+            SessionId = summary.SessionId,
+            ForkedFromId = summary.ForkedFromId,
             Source = summary.Source,
+            ThreadSource = summary.ThreadSource,
+            SessionStartSource = summary.SessionStartSource,
             AgentRole = summary.AgentRole,
             AgentNickname = summary.AgentNickname,
             GitInfo = summary.GitInfo,

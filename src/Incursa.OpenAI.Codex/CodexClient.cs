@@ -352,6 +352,39 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.ClearThreadGoalAsync(threadId, cancellationToken).ConfigureAwait(false);
     }
 
+    internal async Task<CodexThreadSnapshot> RollbackThreadAsync(string threadId, int numTurns, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        return await _transport.RollbackThreadAsync(threadId, numTurns, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<CodexThreadUnsubscribeStatus> UnsubscribeThreadAsync(string threadId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        return await _transport.UnsubscribeThreadAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(string threadId, CodexGitInfo? gitInfo, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        return await _transport.UpdateThreadMetadataAsync(threadId, gitInfo, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(
+        string threadId,
+        CodexThreadMetadataGitInfoUpdate gitInfo,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        return await _transport.UpdateThreadMetadataAsync(threadId, gitInfo, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task ShellCommandThreadAsync(string threadId, string command, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        await _transport.ShellCommandThreadAsync(threadId, command, cancellationToken).ConfigureAwait(false);
+    }
+
     internal async Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -629,6 +662,77 @@ public sealed class CodexThread
     {
         string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
         return await _client.ClearThreadGoalAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rolls back this thread by removing turns from the tail of its history.
+    /// </summary>
+    /// <param name="numTurns">The number of turns to drop from the end of the thread.</param>
+    /// <param name="cancellationToken">A token that cancels the rollback request.</param>
+    /// <returns>The updated thread snapshot.</returns>
+    public async Task<CodexThreadSnapshot> RollbackAsync(int numTurns = 1, CancellationToken cancellationToken = default)
+    {
+        if (numTurns < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(numTurns));
+        }
+
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.RollbackThreadAsync(threadId, numTurns, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Unsubscribes this thread from live updates.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the unsubscribe request.</param>
+    /// <returns>The unsubscribe status returned by the runtime.</returns>
+    public async Task<CodexThreadUnsubscribeStatus> UnsubscribeAsync(CancellationToken cancellationToken = default)
+    {
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.UnsubscribeThreadAsync(threadId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Updates the stored Git metadata associated with this thread.
+    /// </summary>
+    /// <param name="gitInfo">The Git metadata to apply, or <see langword="null"/> to clear the stored metadata.</param>
+    /// <param name="cancellationToken">A token that cancels the update request.</param>
+    /// <returns>The updated thread snapshot.</returns>
+    public async Task<CodexThreadSnapshot> UpdateMetadataAsync(CodexGitInfo? gitInfo, CancellationToken cancellationToken = default)
+    {
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.UpdateThreadMetadataAsync(threadId, gitInfo, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Updates the stored Git metadata associated with this thread using the patch wrapper shape.
+    /// </summary>
+    /// <param name="gitInfo">The Git metadata patch to apply.</param>
+    /// <param name="cancellationToken">A token that cancels the update request.</param>
+    /// <returns>The updated thread snapshot.</returns>
+    public async Task<CodexThreadSnapshot> UpdateMetadataAsync(
+        CodexThreadMetadataGitInfoUpdate gitInfo,
+        CancellationToken cancellationToken = default)
+    {
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.UpdateThreadMetadataAsync(threadId, gitInfo, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Runs a shell command attached to this thread.
+    /// </summary>
+    /// <param name="command">The shell command to execute.</param>
+    /// <param name="cancellationToken">A token that cancels the command request.</param>
+    /// <returns>A task that completes when the command request finishes.</returns>
+    public async Task ShellCommandAsync(string command, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new ArgumentException("Command must not be empty.", nameof(command));
+        }
+
+        string threadId = await EnsureThreadIdAsync(cancellationToken).ConfigureAwait(false);
+        await _client.ShellCommandThreadAsync(threadId, command, cancellationToken).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<CodexInputItem> NormalizeInput(string input)

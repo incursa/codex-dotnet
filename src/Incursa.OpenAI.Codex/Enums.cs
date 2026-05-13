@@ -80,6 +80,22 @@ public enum CodexCollabAgentTool
     CloseAgent,
 }
 
+/// <summary>Identifies the source of a command execution.</summary>
+public enum CodexCommandExecutionSource
+{
+    /// <summary>The command execution originated from the agent.</summary>
+    Agent,
+
+    /// <summary>The command execution originated from an interactive user shell.</summary>
+    UserShell,
+
+    /// <summary>The command execution came from exec startup.</summary>
+    UnifiedExecStartup,
+
+    /// <summary>The command execution came from exec interaction.</summary>
+    UnifiedExecInteraction,
+}
+
 /// <summary>Tracks progress for a collaborative-agent tool call.</summary>
 public enum CodexCollabAgentToolCallStatus
 {
@@ -268,6 +284,16 @@ public enum CodexServiceTier
     Flex,
 }
 
+/// <summary>Selects the direction used when sorting thread lists.</summary>
+public enum CodexThreadSortDirection
+{
+    /// <summary>Sorts oldest-first.</summary>
+    Asc,
+
+    /// <summary>Sorts newest-first.</summary>
+    Desc,
+}
+
 /// <summary>Identifies the source that created a session.</summary>
 public enum CodexSessionSourceKind
 {
@@ -287,6 +313,29 @@ public enum CodexSessionSourceKind
     Unknown,
 }
 
+/// <summary>Identifies the origin of a thread.</summary>
+public enum CodexThreadSource
+{
+    /// <summary>The thread was created by a user.</summary>
+    User,
+
+    /// <summary>The thread was created by a sub-agent.</summary>
+    Subagent,
+
+    /// <summary>The thread was created during memory consolidation.</summary>
+    MemoryConsolidation,
+}
+
+/// <summary>Identifies how the current thread session started.</summary>
+public enum CodexThreadStartSource
+{
+    /// <summary>The session started from the startup path.</summary>
+    Startup,
+
+    /// <summary>The session started as a clear action.</summary>
+    Clear,
+}
+
 /// <summary>Identifies why a sub-agent was created.</summary>
 public enum CodexSubAgentSourceKind
 {
@@ -298,6 +347,19 @@ public enum CodexSubAgentSourceKind
 
     /// <summary>The sub-agent was created for memory consolidation.</summary>
     MemoryConsolidation,
+}
+
+/// <summary>Tracks the unsubscribe state returned by the thread unsubscribe request.</summary>
+public enum CodexThreadUnsubscribeStatus
+{
+    /// <summary>The thread has not been loaded by the client.</summary>
+    NotLoaded,
+
+    /// <summary>The client was not subscribed to the thread.</summary>
+    NotSubscribed,
+
+    /// <summary>The client has been unsubscribed from the thread.</summary>
+    Unsubscribed,
 }
 
 /// <summary>Flags conditions that keep a thread active.</summary>
@@ -420,4 +482,324 @@ public enum CodexWebSearchMode
 
     /// <summary>Uses live web search results.</summary>
     Live,
+}
+
+/// <summary>Selects the reported account plan type.</summary>
+public enum CodexPlanType
+{
+    /// <summary>The plan could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The free plan.</summary>
+    Free,
+
+    /// <summary>The Go plan.</summary>
+    Go,
+
+    /// <summary>The Plus plan.</summary>
+    Plus,
+
+    /// <summary>The Pro plan.</summary>
+    Pro,
+
+    /// <summary>The Pro Lite plan.</summary>
+    Prolite,
+
+    /// <summary>The Team plan.</summary>
+    Team,
+
+    /// <summary>The self-serve business usage-based plan.</summary>
+    SelfServeBusinessUsageBased,
+
+    /// <summary>The business plan.</summary>
+    Business,
+
+    /// <summary>The enterprise CBP usage-based plan.</summary>
+    EnterpriseCbpUsageBased,
+
+    /// <summary>The enterprise plan.</summary>
+    Enterprise,
+
+    /// <summary>The education plan.</summary>
+    Edu,
+}
+
+/// <summary>Identifies the current account auth mode.</summary>
+public enum CodexAuthMode
+{
+    /// <summary>The auth mode could not be identified.</summary>
+    Unknown,
+
+    /// <summary>Uses API key auth.</summary>
+    ApiKey,
+
+    /// <summary>Uses ChatGPT auth.</summary>
+    Chatgpt,
+
+    /// <summary>Uses ChatGPT auth tokens.</summary>
+    ChatgptAuthTokens,
+
+    /// <summary>Uses agent identity auth.</summary>
+    AgentIdentity,
+}
+
+/// <summary>Identifies a process output stream.</summary>
+public enum CodexProcessOutputStream
+{
+    /// <summary>The stream could not be identified.</summary>
+    Unknown,
+
+    /// <summary>Standard output.</summary>
+    Stdout,
+
+    /// <summary>Standard error.</summary>
+    Stderr,
+}
+
+/// <summary>Identifies a hook event name.</summary>
+public enum CodexHookEventName
+{
+    /// <summary>The hook event could not be identified.</summary>
+    Unknown,
+
+    /// <summary>Runs before a tool use.</summary>
+    PreToolUse,
+
+    /// <summary>Runs for permission requests.</summary>
+    PermissionRequest,
+
+    /// <summary>Runs after a tool use.</summary>
+    PostToolUse,
+
+    /// <summary>Runs before compaction.</summary>
+    PreCompact,
+
+    /// <summary>Runs after compaction.</summary>
+    PostCompact,
+
+    /// <summary>Runs when the session starts.</summary>
+    SessionStart,
+
+    /// <summary>Runs when the user submits a prompt.</summary>
+    UserPromptSubmit,
+
+    /// <summary>Runs when the hook stops.</summary>
+    Stop,
+}
+
+/// <summary>Identifies how a hook execution ran.</summary>
+public enum CodexHookExecutionMode
+{
+    /// <summary>The execution mode could not be identified.</summary>
+    Unknown,
+
+    /// <summary>Runs synchronously.</summary>
+    Sync,
+
+    /// <summary>Runs asynchronously.</summary>
+    Async,
+}
+
+/// <summary>Identifies the kind of hook handler.</summary>
+public enum CodexHookHandlerType
+{
+    /// <summary>The handler type could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The hook handler is a command.</summary>
+    Command,
+
+    /// <summary>The hook handler is a prompt.</summary>
+    Prompt,
+
+    /// <summary>The hook handler is an agent.</summary>
+    Agent,
+}
+
+/// <summary>Identifies a hook output entry kind.</summary>
+public enum CodexHookOutputEntryKind
+{
+    /// <summary>The entry kind could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The entry is a warning.</summary>
+    Warning,
+
+    /// <summary>The entry stops the hook.</summary>
+    Stop,
+
+    /// <summary>The entry is feedback.</summary>
+    Feedback,
+
+    /// <summary>The entry is context.</summary>
+    Context,
+
+    /// <summary>The entry is an error.</summary>
+    Error,
+}
+
+/// <summary>Tracks a hook run status.</summary>
+public enum CodexHookRunStatus
+{
+    /// <summary>The status could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The hook is still running.</summary>
+    Running,
+
+    /// <summary>The hook completed successfully.</summary>
+    Completed,
+
+    /// <summary>The hook failed.</summary>
+    Failed,
+
+    /// <summary>The hook was blocked.</summary>
+    Blocked,
+
+    /// <summary>The hook was stopped.</summary>
+    Stopped,
+}
+
+/// <summary>Identifies the scope of a hook.</summary>
+public enum CodexHookScope
+{
+    /// <summary>The scope could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The hook applies to a thread.</summary>
+    Thread,
+
+    /// <summary>The hook applies to a turn.</summary>
+    Turn,
+}
+
+/// <summary>Identifies the source of a hook.</summary>
+public enum CodexHookSourceKind
+{
+    /// <summary>The source could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The hook came from the system.</summary>
+    System,
+
+    /// <summary>The hook came from the user.</summary>
+    User,
+
+    /// <summary>The hook came from the project.</summary>
+    Project,
+
+    /// <summary>The hook came from managed-device management.</summary>
+    Mdm,
+
+    /// <summary>The hook came from session flags.</summary>
+    SessionFlags,
+
+    /// <summary>The hook came from a plugin.</summary>
+    Plugin,
+
+    /// <summary>The hook came from cloud requirements.</summary>
+    CloudRequirements,
+
+    /// <summary>The hook came from a legacy managed config file.</summary>
+    LegacyManagedConfigFile,
+
+    /// <summary>The hook came from a legacy managed config MDM source.</summary>
+    LegacyManagedConfigMdm,
+}
+
+/// <summary>Identifies the version of the realtime conversation protocol.</summary>
+public enum CodexRealtimeConversationVersion
+{
+    /// <summary>The version could not be identified.</summary>
+    Unknown,
+
+    /// <summary>Realtime version 1.</summary>
+    V1,
+
+    /// <summary>Realtime version 2.</summary>
+    V2,
+}
+
+/// <summary>Identifies a fuzzy-file-search result kind.</summary>
+public enum CodexFuzzyFileSearchMatchType
+{
+    /// <summary>The match type could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The result is a file.</summary>
+    File,
+
+    /// <summary>The result is a directory.</summary>
+    Directory,
+}
+
+/// <summary>Tracks the startup state of an MCP server.</summary>
+public enum CodexMcpServerStartupState
+{
+    /// <summary>The state could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The server is starting.</summary>
+    Starting,
+
+    /// <summary>The server is ready.</summary>
+    Ready,
+
+    /// <summary>The server failed to start.</summary>
+    Failed,
+
+    /// <summary>The startup was cancelled.</summary>
+    Cancelled,
+}
+
+/// <summary>Tracks the status of remote-control connectivity.</summary>
+public enum CodexRemoteControlConnectionStatus
+{
+    /// <summary>The status could not be identified.</summary>
+    Unknown,
+
+    /// <summary>Remote control is disabled.</summary>
+    Disabled,
+
+    /// <summary>Remote control is connecting.</summary>
+    Connecting,
+
+    /// <summary>Remote control is connected.</summary>
+    Connected,
+
+    /// <summary>Remote control errored.</summary>
+    Errored,
+}
+
+/// <summary>Identifies the Windows sandbox setup mode.</summary>
+public enum CodexWindowsSandboxSetupMode
+{
+    /// <summary>The mode could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The sandbox runs elevated.</summary>
+    Elevated,
+
+    /// <summary>The sandbox runs unelevated.</summary>
+    Unelevated,
+}
+
+/// <summary>Identifies the reason for a model reroute.</summary>
+public enum CodexModelRerouteReason
+{
+    /// <summary>The reroute reason could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The reroute was triggered by a high-risk cyber activity safeguard.</summary>
+    HighRiskCyberActivity,
+}
+
+/// <summary>Identifies a model verification signal.</summary>
+public enum CodexModelVerificationValue
+{
+    /// <summary>The verification value could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The model was verified for trusted access for cyber.</summary>
+    TrustedAccessForCyber,
 }

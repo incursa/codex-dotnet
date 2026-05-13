@@ -55,10 +55,10 @@ Use [`AppServer`](Enums.cs) when you need long-lived conversations, [`CodexThrea
 ## Major API Surfaces
 
 - [`CodexClient`](CodexClient.cs): the root entry point for runtime startup, thread management, model discovery, account rate-limit reads, and `IsCodexAvailableAsync()` for an executable preflight
-- [`CodexThread`](CodexClient.cs): a stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, `CompactAsync`, `GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, and `ClearGoalAsync`
+- [`CodexThread`](CodexClient.cs): a stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, `CompactAsync`, `GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, `ClearGoalAsync`, `RollbackAsync`, `UnsubscribeAsync`, `UpdateMetadataAsync`, and `ShellCommandAsync`
 - [`CodexTurn`](CodexClient.cs): a single-turn handle with `StreamAsync`, `RunAsync`, `SteerAsync`, and `InterruptAsync`
 - [`CodexClientOptions`](Options.cs): backend selection, executable path override, API key, configuration, environment, and approval handler
-- [`CodexThreadOptions`](Options.cs) and [`CodexTurnOptions`](Options.cs): working directory, sandbox, approval, model, Fast mode service tier, and output schema settings
+- [`CodexThreadOptions`](Options.cs), [`CodexThreadListOptions`](Options.cs), and [`CodexTurnOptions`](Options.cs): working directory, thread origin metadata, sandbox, approval, model, Fast mode service tier, output schema, sort, and list-filter settings
 - [`CodexInputItem`](ConversationTypes.cs) and the typed input union for text, remote image, local image, skill, and mention inputs
 - [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadGoal`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexTurnPlanUpdatedEvent`](ConversationTypes.cs), [`CodexAccountRateLimitsUpdatedEvent`](ConversationTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
 

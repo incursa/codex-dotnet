@@ -129,6 +129,16 @@ public record CodexThreadOptions
     public string? ServiceName { get; init; }
 
     /// <summary>
+    /// Gets the source that started the current thread session.
+    /// </summary>
+    public CodexThreadStartSource? SessionStartSource { get; init; }
+
+    /// <summary>
+    /// Gets the origin classification associated with the thread.
+    /// </summary>
+    public CodexThreadSource? ThreadSource { get; init; }
+
+    /// <summary>
     /// Gets the default reasoning effort used for thread turns.
     /// </summary>
     public CodexReasoningEffort? ModelReasoningEffort { get; init; }
@@ -252,6 +262,11 @@ public sealed record CodexThreadListOptions
     public string? WorkingDirectory { get; init; }
 
     /// <summary>
+    /// Gets the working-directory filters for listed threads.
+    /// </summary>
+    public IReadOnlyList<string>? WorkingDirectories { get; init; }
+
+    /// <summary>
     /// Gets the maximum number of threads to return.
     /// </summary>
     public int? Limit { get; init; }
@@ -272,9 +287,19 @@ public sealed record CodexThreadListOptions
     public CodexThreadSortKey? SortKey { get; init; }
 
     /// <summary>
+    /// Gets the sort direction used for listed threads.
+    /// </summary>
+    public CodexThreadSortDirection? SortDirection { get; init; }
+
+    /// <summary>
     /// Gets the source-kind filters for listed threads.
     /// </summary>
     public IReadOnlyList<CodexThreadSourceKind>? SourceKinds { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the state database should be queried only.
+    /// </summary>
+    public bool? UseStateDbOnly { get; init; }
 }
 
 /// <summary>
@@ -345,4 +370,3 @@ public sealed class CodexClientOptions
 
     internal ICodexProcessLauncher? ProcessLauncher { get; set; }
 }
-

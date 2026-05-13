@@ -76,6 +76,18 @@ public sealed record CodexMentionInput() : CodexInputItem("mention")
 }
 
 /// <summary>
+/// Fallback conversation input item for unrecognized payloads.
+/// </summary>
+/// <param name="UnknownType">Original input item type string.</param>
+public sealed record CodexUnknownInputItem(string UnknownType) : CodexInputItem(UnknownType)
+{
+    /// <summary>
+    /// Gets or sets the raw payload, if preserved.
+    /// </summary>
+    public JsonObject? RawPayload { get; init; }
+}
+
+/// <summary>
 /// Base type for command actions emitted by conversation items.
 /// </summary>
 /// <param name="Type">JSON discriminator for the command action kind.</param>
@@ -205,6 +217,33 @@ public sealed record CodexFindInPageWebSearchAction() : CodexWebSearchAction("fi
 public sealed record CodexOtherWebSearchAction() : CodexWebSearchAction("other");
 
 /// <summary>
+/// Fragment of a hook prompt emitted by Codex.
+/// </summary>
+public sealed record CodexHookPromptFragment
+{
+    /// <summary>
+    /// Gets or sets the hook run identifier.
+    /// </summary>
+    public string HookRunId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the prompt text.
+    /// </summary>
+    public string Text { get; init; } = "";
+}
+
+/// <summary>
+/// Thread item describing a hook prompt.
+/// </summary>
+public sealed record CodexHookPromptItem() : CodexThreadItem("hookPrompt")
+{
+    /// <summary>
+    /// Gets or sets the prompt fragments.
+    /// </summary>
+    public IReadOnlyList<CodexHookPromptFragment> Fragments { get; init; } = [];
+}
+
+/// <summary>
 /// Base type for dynamic tool call output content items.
 /// </summary>
 /// <param name="Type">JSON discriminator for the content item kind.</param>
@@ -275,6 +314,103 @@ public sealed record CodexTurnPlanStep
     /// Gets or sets the current plan step status.
     /// </summary>
     public CodexTurnPlanStepStatus Status { get; init; }
+}
+
+/// <summary>A single line of output captured from a hook run.</summary>
+public sealed record CodexHookOutputEntry
+{
+    /// <summary>Gets or sets the output entry kind.</summary>
+    public CodexHookOutputEntryKind Kind { get; init; }
+
+    /// <summary>Gets or sets the output text.</summary>
+    public string Text { get; init; } = "";
+}
+
+/// <summary>Summary metadata for a hook run.</summary>
+public sealed record CodexHookRunSummary
+{
+    /// <summary>Gets or sets when the run completed, if it has finished.</summary>
+    public long? CompletedAt { get; init; }
+
+    /// <summary>Gets or sets the display order for the run.</summary>
+    public int DisplayOrder { get; init; }
+
+    /// <summary>Gets or sets the run duration in milliseconds, if available.</summary>
+    public long? DurationMs { get; init; }
+
+    /// <summary>Gets or sets the captured output entries.</summary>
+    public IReadOnlyList<CodexHookOutputEntry> Entries { get; init; } = [];
+
+    /// <summary>Gets or sets the hook event name.</summary>
+    public CodexHookEventName EventName { get; init; }
+
+    /// <summary>Gets or sets the execution mode.</summary>
+    public CodexHookExecutionMode ExecutionMode { get; init; }
+
+    /// <summary>Gets or sets the hook handler type.</summary>
+    public CodexHookHandlerType HandlerType { get; init; }
+
+    /// <summary>Gets or sets the run identifier.</summary>
+    public string Id { get; init; } = "";
+
+    /// <summary>Gets or sets the hook scope.</summary>
+    public CodexHookScope Scope { get; init; }
+
+    /// <summary>Gets or sets the hook source.</summary>
+    public CodexHookSourceKind Source { get; init; } = CodexHookSourceKind.Unknown;
+
+    /// <summary>Gets or sets the source path.</summary>
+    public string SourcePath { get; init; } = "";
+
+    /// <summary>Gets or sets when the run started.</summary>
+    public long StartedAt { get; init; }
+
+    /// <summary>Gets or sets the current run status.</summary>
+    public CodexHookRunStatus Status { get; init; }
+
+    /// <summary>Gets or sets the optional status message.</summary>
+    public string? StatusMessage { get; init; }
+}
+
+/// <summary>Audio chunk data streamed by thread realtime notifications.</summary>
+public sealed record CodexThreadRealtimeAudioChunk
+{
+    /// <summary>Gets or sets the chunk payload.</summary>
+    public string Data { get; init; } = "";
+
+    /// <summary>Gets or sets the item identifier, if the chunk is attached to one.</summary>
+    public string? ItemId { get; init; }
+
+    /// <summary>Gets or sets the channel count.</summary>
+    public int NumChannels { get; init; }
+
+    /// <summary>Gets or sets the sample rate.</summary>
+    public int SampleRate { get; init; }
+
+    /// <summary>Gets or sets the samples per channel, if reported.</summary>
+    public int? SamplesPerChannel { get; init; }
+}
+
+/// <summary>Result metadata for a fuzzy-file-search match.</summary>
+public sealed record CodexFuzzyFileSearchResult
+{
+    /// <summary>Gets or sets the file name.</summary>
+    public string FileName { get; init; } = "";
+
+    /// <summary>Gets or sets the matching indices, if provided.</summary>
+    public IReadOnlyList<int>? Indices { get; init; }
+
+    /// <summary>Gets or sets the match type.</summary>
+    public CodexFuzzyFileSearchMatchType MatchType { get; init; } = CodexFuzzyFileSearchMatchType.Unknown;
+
+    /// <summary>Gets or sets the full path.</summary>
+    public string Path { get; init; } = "";
+
+    /// <summary>Gets or sets the search root.</summary>
+    public string Root { get; init; } = "";
+
+    /// <summary>Gets or sets the search score.</summary>
+    public int Score { get; init; }
 }
 
 /// <summary>
@@ -391,6 +527,529 @@ public sealed record CodexItemCompletedEvent() : CodexThreadEvent("item.complete
 }
 
 /// <summary>
+/// Event published when an automatic approval review starts for an item.
+/// </summary>
+public sealed record CodexItemAutoApprovalReviewStartedEvent() : CodexThreadEvent("item.autoApprovalReview.started")
+{
+    /// <summary>
+    /// Gets or sets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the turn identifier.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the review identifier.
+    /// </summary>
+    public string ReviewId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the reviewed item identifier, if one exists.
+    /// </summary>
+    public string? TargetItemId { get; init; }
+
+    /// <summary>
+    /// Gets or sets the review start timestamp in milliseconds.
+    /// </summary>
+    public long StartedAtMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the review action payload.
+    /// </summary>
+    public JsonNode? Action { get; init; }
+
+    /// <summary>
+    /// Gets or sets the review payload.
+    /// </summary>
+    public JsonNode? Review { get; init; }
+}
+
+/// <summary>
+/// Event published when an automatic approval review completes for an item.
+/// </summary>
+public sealed record CodexItemAutoApprovalReviewCompletedEvent() : CodexThreadEvent("item.autoApprovalReview.completed")
+{
+    /// <summary>
+    /// Gets or sets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the turn identifier.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the review identifier.
+    /// </summary>
+    public string ReviewId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the reviewed item identifier, if one exists.
+    /// </summary>
+    public string? TargetItemId { get; init; }
+
+    /// <summary>
+    /// Gets or sets the review start timestamp in milliseconds.
+    /// </summary>
+    public long StartedAtMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the review completion timestamp in milliseconds.
+    /// </summary>
+    public long CompletedAtMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the decision source identifier.
+    /// </summary>
+    public string DecisionSource { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the review action payload.
+    /// </summary>
+    public JsonNode? Action { get; init; }
+
+    /// <summary>
+    /// Gets or sets the review payload.
+    /// </summary>
+    public JsonNode? Review { get; init; }
+}
+
+/// <summary>
+/// Event published when a hook run starts.
+/// </summary>
+public sealed record CodexHookStartedEvent() : CodexThreadEvent("hook.started")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the optional turn identifier.</summary>
+    public string? TurnId { get; init; }
+
+    /// <summary>Gets the hook run summary.</summary>
+    public CodexHookRunSummary Run { get; init; } = new();
+}
+
+/// <summary>
+/// Event published when a hook run completes.
+/// </summary>
+public sealed record CodexHookCompletedEvent() : CodexThreadEvent("hook.completed")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the optional turn identifier.</summary>
+    public string? TurnId { get; init; }
+
+    /// <summary>Gets the hook run summary.</summary>
+    public CodexHookRunSummary Run { get; init; } = new();
+}
+
+/// <summary>
+/// Represents a process output delta notification.
+/// </summary>
+public sealed record CodexProcessOutputDeltaEvent() : CodexThreadEvent("process.outputDelta")
+{
+    /// <summary>Gets whether the output stream reached the configured cap.</summary>
+    public bool CapReached { get; init; }
+
+    /// <summary>Gets the streamed delta as base64.</summary>
+    public string DeltaBase64 { get; init; } = "";
+
+    /// <summary>Gets the process handle.</summary>
+    public string ProcessHandle { get; init; } = "";
+
+    /// <summary>Gets the output stream.</summary>
+    public CodexProcessOutputStream Stream { get; init; } = CodexProcessOutputStream.Unknown;
+}
+
+/// <summary>
+/// Represents a process exit notification.
+/// </summary>
+public sealed record CodexProcessExitedEvent() : CodexThreadEvent("process.exited")
+{
+    /// <summary>Gets the process exit code.</summary>
+    public int ExitCode { get; init; }
+
+    /// <summary>Gets the process handle.</summary>
+    public string ProcessHandle { get; init; } = "";
+
+    /// <summary>Gets the buffered stderr output.</summary>
+    public string Stderr { get; init; } = "";
+
+    /// <summary>Gets whether stderr reached the configured cap.</summary>
+    public bool StderrCapReached { get; init; }
+
+    /// <summary>Gets the buffered stdout output.</summary>
+    public string Stdout { get; init; } = "";
+
+    /// <summary>Gets whether stdout reached the configured cap.</summary>
+    public bool StdoutCapReached { get; init; }
+}
+
+/// <summary>
+/// Represents a warning notification.
+/// </summary>
+public sealed record CodexWarningEvent() : CodexThreadEvent("warning")
+{
+    /// <summary>Gets the warning message.</summary>
+    public string Message { get; init; } = "";
+
+    /// <summary>Gets the optional target thread identifier.</summary>
+    public string? ThreadId { get; init; }
+}
+
+/// <summary>
+/// Represents a config warning notification.
+/// </summary>
+public sealed record CodexConfigWarningEvent() : CodexThreadEvent("configWarning")
+{
+    /// <summary>Gets the optional extra warning details.</summary>
+    public string? Details { get; init; }
+
+    /// <summary>Gets the optional config file path.</summary>
+    public string? Path { get; init; }
+
+    /// <summary>Gets the optional text range inside the config file.</summary>
+    public CodexTextRange? Range { get; init; }
+
+    /// <summary>Gets the warning summary.</summary>
+    public string Summary { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a deprecation notice notification.
+/// </summary>
+public sealed record CodexDeprecationNoticeEvent() : CodexThreadEvent("deprecationNotice")
+{
+    /// <summary>Gets optional extra guidance.</summary>
+    public string? Details { get; init; }
+
+    /// <summary>Gets the deprecation summary.</summary>
+    public string Summary { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a guardian warning notification.
+/// </summary>
+public sealed record CodexGuardianWarningEvent() : CodexThreadEvent("guardianWarning")
+{
+    /// <summary>Gets the warning message.</summary>
+    public string Message { get; init; } = "";
+
+    /// <summary>Gets the target thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents an account update notification.
+/// </summary>
+public sealed record CodexAccountUpdatedEvent() : CodexThreadEvent("account.updated")
+{
+    /// <summary>Gets the auth mode.</summary>
+    public CodexAuthMode AuthMode { get; init; } = CodexAuthMode.Unknown;
+
+    /// <summary>Gets the plan type.</summary>
+    public CodexPlanType PlanType { get; init; } = CodexPlanType.Unknown;
+}
+
+/// <summary>
+/// Represents a completed account login notification.
+/// </summary>
+public sealed record CodexAccountLoginCompletedEvent() : CodexThreadEvent("account.login.completed")
+{
+    /// <summary>Gets the login error message, if any.</summary>
+    public string? Error { get; init; }
+
+    /// <summary>Gets the login identifier, if any.</summary>
+    public string? LoginId { get; init; }
+
+    /// <summary>Gets whether the login succeeded.</summary>
+    public bool Success { get; init; }
+}
+
+/// <summary>
+/// Represents a resolved server request notification.
+/// </summary>
+public sealed record CodexServerRequestResolvedEvent() : CodexThreadEvent("serverRequest.resolved")
+{
+    /// <summary>Gets the resolved request identifier.</summary>
+    public string RequestId { get; init; } = string.Empty;
+
+    /// <summary>Gets the thread that resolved the request.</summary>
+    public string ThreadId { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Represents an app list refresh notification.
+/// </summary>
+public sealed record CodexAppListUpdatedEvent() : CodexThreadEvent("app.list.updated")
+{
+    /// <summary>Gets the raw app inventory list.</summary>
+    public IReadOnlyList<JsonObject> Data { get; init; } = [];
+}
+
+/// <summary>
+/// Represents a skills inventory refresh notification.
+/// </summary>
+public sealed record CodexSkillsChangedEvent() : CodexThreadEvent("skills.changed");
+
+/// <summary>
+/// Represents a file-system change notification.
+/// </summary>
+public sealed record CodexFsChangedEvent() : CodexThreadEvent("fs.changed")
+{
+    /// <summary>Gets the changed paths.</summary>
+    public IReadOnlyList<string> ChangedPaths { get; init; } = [];
+
+    /// <summary>Gets the watch identifier.</summary>
+    public string WatchId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a fuzzy-file-search session completion notification.
+/// </summary>
+public sealed record CodexFuzzyFileSearchSessionCompletedEvent() : CodexThreadEvent("fuzzyFileSearch.sessionCompleted")
+{
+    /// <summary>Gets the search session identifier.</summary>
+    public string SessionId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a fuzzy-file-search session update notification.
+/// </summary>
+public sealed record CodexFuzzyFileSearchSessionUpdatedEvent() : CodexThreadEvent("fuzzyFileSearch.sessionUpdated")
+{
+    /// <summary>Gets the search result list.</summary>
+    public IReadOnlyList<CodexFuzzyFileSearchResult> Files { get; init; } = [];
+
+    /// <summary>Gets the search query.</summary>
+    public string Query { get; init; } = "";
+
+    /// <summary>Gets the search session identifier.</summary>
+    public string SessionId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a completed MCP server OAuth login notification.
+/// </summary>
+public sealed record CodexMcpServerOauthLoginCompletedEvent() : CodexThreadEvent("mcpServer.oauthLogin.completed")
+{
+    /// <summary>Gets the error message, if any.</summary>
+    public string? Error { get; init; }
+
+    /// <summary>Gets the server name.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>Gets whether the login succeeded.</summary>
+    public bool Success { get; init; }
+}
+
+/// <summary>
+/// Represents an MCP server startup status update notification.
+/// </summary>
+public sealed record CodexMcpServerStartupStatusUpdatedEvent() : CodexThreadEvent("mcpServer.startupStatus.updated")
+{
+    /// <summary>Gets the error message, if any.</summary>
+    public string? Error { get; init; }
+
+    /// <summary>Gets the server name.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>Gets the startup state.</summary>
+    public CodexMcpServerStartupState Status { get; init; } = CodexMcpServerStartupState.Unknown;
+}
+
+/// <summary>
+/// Represents a remote-control status change notification.
+/// </summary>
+public sealed record CodexRemoteControlStatusChangedEvent() : CodexThreadEvent("remoteControl.status.changed")
+{
+    /// <summary>Gets the environment identifier, if any.</summary>
+    public string? EnvironmentId { get; init; }
+
+    /// <summary>Gets the installation identifier.</summary>
+    public string InstallationId { get; init; } = "";
+
+    /// <summary>Gets the connection status.</summary>
+    public CodexRemoteControlConnectionStatus Status { get; init; } = CodexRemoteControlConnectionStatus.Unknown;
+}
+
+/// <summary>
+/// Represents a Windows sandbox setup completion notification.
+/// </summary>
+public sealed record CodexWindowsSandboxSetupCompletedEvent() : CodexThreadEvent("windowsSandbox.setupCompleted")
+{
+    /// <summary>Gets the error message, if any.</summary>
+    public string? Error { get; init; }
+
+    /// <summary>Gets the sandbox mode.</summary>
+    public CodexWindowsSandboxSetupMode Mode { get; init; } = CodexWindowsSandboxSetupMode.Unknown;
+
+    /// <summary>Gets whether the setup succeeded.</summary>
+    public bool Success { get; init; }
+}
+
+/// <summary>
+/// Represents a Windows world-writable warning notification.
+/// </summary>
+public sealed record CodexWindowsWorldWritableWarningEvent() : CodexThreadEvent("windows.worldWritableWarning")
+{
+    /// <summary>Gets the number of extra paths beyond the sample set.</summary>
+    public int ExtraCount { get; init; }
+
+    /// <summary>Gets whether the scan failed.</summary>
+    public bool FailedScan { get; init; }
+
+    /// <summary>Gets the sampled paths.</summary>
+    public IReadOnlyList<string> SamplePaths { get; init; } = [];
+}
+
+/// <summary>
+/// Represents a model reroute notification.
+/// </summary>
+public sealed record CodexModelReroutedEvent() : CodexThreadEvent("model.rerouted")
+{
+    /// <summary>Gets the source model.</summary>
+    public string FromModel { get; init; } = "";
+
+    /// <summary>Gets the reroute reason.</summary>
+    public CodexModelRerouteReason Reason { get; init; } = CodexModelRerouteReason.Unknown;
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the destination model.</summary>
+    public string ToModel { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a model verification notification.
+/// </summary>
+public sealed record CodexModelVerificationEvent() : CodexThreadEvent("model.verification")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the verification values.</summary>
+    public IReadOnlyList<CodexModelVerificationValue> Verifications { get; init; } = [];
+}
+
+/// <summary>
+/// Represents a thread realtime session start notification.
+/// </summary>
+public sealed record CodexThreadRealtimeStartedEvent() : CodexThreadEvent("thread.realtime.started")
+{
+    /// <summary>Gets the realtime session identifier.</summary>
+    public string? RealtimeSessionId { get; init; }
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the realtime conversation version.</summary>
+    public CodexRealtimeConversationVersion Version { get; init; } = CodexRealtimeConversationVersion.Unknown;
+}
+
+/// <summary>
+/// Represents a thread realtime item addition notification.
+/// </summary>
+public sealed record CodexThreadRealtimeItemAddedEvent() : CodexThreadEvent("thread.realtime.itemAdded")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the raw item payload.</summary>
+    public JsonNode? Item { get; init; }
+}
+
+/// <summary>
+/// Represents a thread realtime transcript delta notification.
+/// </summary>
+public sealed record CodexThreadRealtimeTranscriptDeltaEvent() : CodexThreadEvent("thread.realtime.transcript.delta")
+{
+    /// <summary>Gets the text delta.</summary>
+    public string Delta { get; init; } = "";
+
+    /// <summary>Gets the speaker role.</summary>
+    public string Role { get; init; } = "";
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a thread realtime transcript completion notification.
+/// </summary>
+public sealed record CodexThreadRealtimeTranscriptDoneEvent() : CodexThreadEvent("thread.realtime.transcript.done")
+{
+    /// <summary>Gets the speaker role.</summary>
+    public string Role { get; init; } = "";
+
+    /// <summary>Gets the completed transcript text.</summary>
+    public string Text { get; init; } = "";
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a thread realtime output-audio delta notification.
+/// </summary>
+public sealed record CodexThreadRealtimeOutputAudioDeltaEvent() : CodexThreadEvent("thread.realtime.outputAudio.delta")
+{
+    /// <summary>Gets the audio chunk.</summary>
+    public CodexThreadRealtimeAudioChunk Audio { get; init; } = new();
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a thread realtime SDP notification.
+/// </summary>
+public sealed record CodexThreadRealtimeSdpEvent() : CodexThreadEvent("thread.realtime.sdp")
+{
+    /// <summary>Gets the SDP payload.</summary>
+    public string Sdp { get; init; } = "";
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a thread realtime error notification.
+/// </summary>
+public sealed record CodexThreadRealtimeErrorEvent() : CodexThreadEvent("thread.realtime.error")
+{
+    /// <summary>Gets the error message.</summary>
+    public string Message { get; init; } = "";
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a thread realtime closed notification.
+/// </summary>
+public sealed record CodexThreadRealtimeClosedEvent() : CodexThreadEvent("thread.realtime.closed")
+{
+    /// <summary>Gets the close reason, if any.</summary>
+    public string? Reason { get; init; }
+
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
 /// Event published when a thread-level error occurs.
 /// </summary>
 public sealed record CodexThreadErrorEvent() : CodexThreadEvent("error")
@@ -414,6 +1073,129 @@ public sealed record CodexThreadErrorEvent() : CodexThreadEvent("error")
     /// Gets or sets the error payload.
     /// </summary>
     public CodexTurnError Error { get; init; } = new();
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread status changed.
+/// </summary>
+public sealed record CodexThreadStatusChangedEvent() : CodexThreadEvent("thread.status.changed")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the updated thread status.
+    /// </summary>
+    public CodexThreadStatus Status { get; init; } = new CodexNotLoadedThreadStatus();
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread was archived.
+/// </summary>
+public sealed record CodexThreadArchivedEvent() : CodexThreadEvent("thread.archived")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread was closed.
+/// </summary>
+public sealed record CodexThreadClosedEvent() : CodexThreadEvent("thread.closed")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread was compacted.
+/// </summary>
+public sealed record CodexThreadCompactedEvent() : CodexThreadEvent("thread.compacted")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the turn identifier associated with the compaction.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread name changed.
+/// </summary>
+public sealed record CodexThreadNameUpdatedEvent() : CodexThreadEvent("thread.name.updated")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the updated thread name, when one is available.
+    /// </summary>
+    public string? ThreadName { get; init; }
+}
+
+/// <summary>
+/// Represents an app-server notification that thread token usage changed.
+/// </summary>
+public sealed record CodexThreadTokenUsageUpdatedEvent() : CodexThreadEvent("thread.tokenUsage.updated")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the turn identifier associated with the usage update.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the token-usage snapshot.
+    /// </summary>
+    public CodexUsage TokenUsage { get; init; } = new();
+}
+
+/// <summary>
+/// Represents an app-server notification that a thread was unarchived.
+/// </summary>
+public sealed record CodexThreadUnarchivedEvent() : CodexThreadEvent("thread.unarchived")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+}
+
+/// <summary>
+/// Represents an app-server notification that a turn diff changed.
+/// </summary>
+public sealed record CodexTurnDiffUpdatedEvent() : CodexThreadEvent("turn.diff.updated")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the turn identifier.
+    /// </summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the rendered turn diff.
+    /// </summary>
+    public string Diff { get; init; } = "";
 }
 
 /// <summary>
@@ -512,6 +1294,156 @@ public sealed record CodexPlanDeltaEvent() : CodexThreadEvent("item.plan.delta")
 }
 
 /// <summary>
+/// Represents a streamed delta for an agent message item.
+/// </summary>
+public sealed record CodexAgentMessageDeltaEvent() : CodexThreadEvent("item.agentMessage.delta")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the streamed text delta.</summary>
+    public string Delta { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a streamed delta for a command execution item.
+/// </summary>
+public sealed record CodexCommandExecutionOutputDeltaEvent() : CodexThreadEvent("item.commandExecution.outputDelta")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the streamed output delta.</summary>
+    public string Delta { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a streamed delta for a file change item.
+/// </summary>
+public sealed record CodexFileChangeOutputDeltaEvent() : CodexThreadEvent("item.fileChange.outputDelta")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the streamed output delta.</summary>
+    public string Delta { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a patch update for a file change item.
+/// </summary>
+public sealed record CodexFileChangePatchUpdatedEvent() : CodexThreadEvent("item.fileChange.patchUpdated")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the latest file changes.</summary>
+    public IReadOnlyList<CodexFileUpdateChange> Changes { get; init; } = [];
+}
+
+/// <summary>
+/// Represents progress for an MCP tool call item.
+/// </summary>
+public sealed record CodexMcpToolCallProgressEvent() : CodexThreadEvent("item.mcpToolCall.progress")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the progress message.</summary>
+    public string Message { get; init; } = "";
+}
+
+/// <summary>
+/// Represents a streamed delta for reasoning text.
+/// </summary>
+public sealed record CodexReasoningTextDeltaEvent() : CodexThreadEvent("item.reasoning.textDelta")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the content index for the delta.</summary>
+    public int ContentIndex { get; init; }
+
+    /// <summary>Gets the streamed text delta.</summary>
+    public string Delta { get; init; } = "";
+}
+
+/// <summary>
+/// Represents that a reasoning summary part was added.
+/// </summary>
+public sealed record CodexReasoningSummaryPartAddedEvent() : CodexThreadEvent("item.reasoning.summaryPartAdded")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the summary index.</summary>
+    public int SummaryIndex { get; init; }
+}
+
+/// <summary>
+/// Represents a streamed delta for reasoning summary text.
+/// </summary>
+public sealed record CodexReasoningSummaryTextDeltaEvent() : CodexThreadEvent("item.reasoning.summaryTextDelta")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the summary index.</summary>
+    public int SummaryIndex { get; init; }
+
+    /// <summary>Gets the streamed text delta.</summary>
+    public string Delta { get; init; } = "";
+}
+
+/// <summary>
 /// Fallback event for an unrecognized thread event type.
 /// </summary>
 /// <param name="UnknownType">Original event type string.</param>
@@ -551,6 +1483,11 @@ public sealed record CodexUserMessageItem() : CodexThreadItem("userMessage")
 /// </summary>
 public sealed record CodexAgentMessageItem() : CodexThreadItem("agentMessage")
 {
+    /// <summary>
+    /// Gets or sets the memory citation, if one was attached.
+    /// </summary>
+    public CodexMemoryCitation? MemoryCitation { get; init; }
+
     /// <summary>
     /// Gets or sets the message phase, if available.
     /// </summary>
@@ -608,6 +1545,11 @@ public sealed record CodexCommandExecutionItem() : CodexThreadItem("commandExecu
     /// Gets or sets the parsed command actions.
     /// </summary>
     public IReadOnlyList<CodexCommandAction> CommandActions { get; init; } = [];
+
+    /// <summary>
+    /// Gets or sets the source of the command execution, if known.
+    /// </summary>
+    public CodexCommandExecutionSource? Source { get; init; }
 
     /// <summary>
     /// Gets or sets the working directory.
@@ -677,6 +1619,11 @@ public sealed record CodexMcpToolCallItem() : CodexThreadItem("mcpToolCall")
     public string Server { get; init; } = "";
 
     /// <summary>
+    /// Gets or sets the optional MCP app resource URI.
+    /// </summary>
+    public string? McpAppResourceUri { get; init; }
+
+    /// <summary>
     /// Gets or sets the tool result, if any.
     /// </summary>
     public CodexMcpToolCallResult? Result { get; init; }
@@ -711,6 +1658,11 @@ public sealed record CodexDynamicToolCallItem() : CodexThreadItem("dynamicToolCa
     /// Gets or sets the duration in milliseconds, if known.
     /// </summary>
     public int? DurationMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the tool namespace, if one was supplied.
+    /// </summary>
+    public string? Namespace { get; init; }
 
     /// <summary>
     /// Gets or sets the call status.
@@ -816,6 +1768,11 @@ public sealed record CodexImageGenerationItem() : CodexThreadItem("imageGenerati
     /// Gets or sets the revised prompt, if any.
     /// </summary>
     public string? RevisedPrompt { get; init; }
+
+    /// <summary>
+    /// Gets or sets the saved image path, if any.
+    /// </summary>
+    public string? SavedPath { get; init; }
 
     /// <summary>
     /// Gets or sets the generation status.

@@ -330,6 +330,7 @@ public sealed class CodexAppServerTransportTests
                                 CreateThreadSummary("thread-1", name: "Read thread"),
                                 CreateThreadSummary("thread-2", name: "Forked thread"),
                             },
+                            ["backwardsCursor"] = "thread-prev-cursor",
                             ["nextCursor"] = "thread-cursor",
                         }));
                     break;
@@ -401,6 +402,39 @@ public sealed class CodexAppServerTransportTests
                         {
                             ["cleared"] = true,
                         }));
+                    break;
+                case "thread/rollback":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["thread"] = CreateThreadSnapshot("thread-1", name: "Rolled back thread"),
+                        }));
+                    break;
+                case "thread/unsubscribe":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["status"] = "unsubscribed",
+                        }));
+                    break;
+                case "thread/metadata/update":
+                    {
+                        JsonObject payload = request["params"]!.AsObject();
+                        JsonObject gitInfo = payload["gitInfo"]!.AsObject();
+                        Assert.Equal("main", gitInfo["branch"]!.GetValue<string>());
+                        Assert.Equal("https://example.com/repo.git", gitInfo["originUrl"]!.GetValue<string>());
+                        process.EnqueueStdout(TestJson.Response(
+                            id,
+                            new JsonObject
+                            {
+                                ["thread"] = CreateThreadSnapshot("thread-1", name: "Metadata updated"),
+                            }));
+                        break;
+                    }
+                case "thread/shellCommand":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject()));
                     break;
                 case "model/list":
                     process.EnqueueStdout(TestJson.Response(
@@ -482,6 +516,23 @@ public sealed class CodexAppServerTransportTests
 
         Assert.True(await thread.ClearGoalAsync());
 
+        CodexThreadSnapshot rolledBack = await thread.RollbackAsync(1);
+        Assert.Equal("Rolled back thread", rolledBack.Name);
+
+        CodexThreadSnapshot metadataUpdated = await thread.UpdateMetadataAsync(new CodexThreadMetadataGitInfoUpdate
+        {
+            BranchSpecified = true,
+            Branch = "main",
+            OriginUrlSpecified = true,
+            OriginUrl = "https://example.com/repo.git",
+        });
+        Assert.Equal("Metadata updated", metadataUpdated.Name);
+
+        await thread.ShellCommandAsync("pwd");
+
+        CodexThreadUnsubscribeStatus unsubscribeStatus = await thread.UnsubscribeAsync();
+        Assert.Equal(CodexThreadUnsubscribeStatus.Unsubscribed, unsubscribeStatus);
+
         await client.ArchiveThreadAsync(thread.Id!);
 
         CodexThread unarchivedThread = await client.UnarchiveThreadAsync(thread.Id!);
@@ -505,6 +556,7 @@ public sealed class CodexAppServerTransportTests
             SourceKinds = [CodexThreadSourceKind.AppServer],
         });
 
+        Assert.Equal("thread-prev-cursor", threads.BackwardsCursor);
         Assert.Equal("thread-cursor", threads.NextCursor);
         Assert.Equal(2, threads.Threads.Count);
         Assert.Equal("thread-1", threads.Threads[0].Id);
@@ -523,7 +575,7 @@ public sealed class CodexAppServerTransportTests
 
         CodexRateLimitSnapshot rateLimit = Assert.Single(rateLimits.RateLimits);
         Assert.Equal("codex", rateLimit.LimitId);
-        Assert.Equal("plus", rateLimit.PlanType);
+        Assert.Equal(CodexPlanType.Plus, rateLimit.PlanType);
         Assert.Equal(7, rateLimit.Primary!.UsedPercent);
         Assert.Equal(300, rateLimit.Primary.WindowDurationMinutes);
         Assert.Equal(42, rateLimit.Secondary!.UsedPercent);
@@ -2388,7 +2440,15 @@ public sealed class CodexAppServerTransportTests
             ["updatedAt"] = 2,
             ["ephemeral"] = false,
             ["cliVersion"] = "1.2.3",
+            ["cwd"] = "/work",
             ["path"] = "/work",
+            ["sessionId"] = $"session-{id}",
+            ["source"] = new JsonObject
+            {
+                ["custom"] = "app-server-test",
+            },
+            ["threadSource"] = "subagent",
+            ["sessionStartSource"] = "startup",
         };
 
     private static JsonObject CreateThreadSnapshot(string id, string? name = null, bool includeTurns = false)

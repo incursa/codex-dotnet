@@ -136,6 +136,24 @@ internal sealed class CodexExecTransport : ICodexTransport
     public Task<bool> ClearThreadGoalAsync(string threadId, CancellationToken cancellationToken)
         => Task.FromException<bool>(new CodexCapabilityNotSupportedException(nameof(CodexThread.ClearGoalAsync), CodexBackendSelection.Exec));
 
+    public Task<CodexThreadSnapshot> RollbackThreadAsync(string threadId, int numTurns, CancellationToken cancellationToken)
+        => Task.FromException<CodexThreadSnapshot>(new CodexCapabilityNotSupportedException(nameof(CodexThread.RollbackAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexThreadUnsubscribeStatus> UnsubscribeThreadAsync(string threadId, CancellationToken cancellationToken)
+        => Task.FromException<CodexThreadUnsubscribeStatus>(new CodexCapabilityNotSupportedException(nameof(CodexThread.UnsubscribeAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(string threadId, CodexGitInfo? gitInfo, CancellationToken cancellationToken)
+        => Task.FromException<CodexThreadSnapshot>(new CodexCapabilityNotSupportedException(nameof(CodexThread.UpdateMetadataAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(
+        string threadId,
+        CodexThreadMetadataGitInfoUpdate gitInfo,
+        CancellationToken cancellationToken)
+        => Task.FromException<CodexThreadSnapshot>(new CodexCapabilityNotSupportedException(nameof(CodexThread.UpdateMetadataAsync), CodexBackendSelection.Exec));
+
+    public Task ShellCommandThreadAsync(string threadId, string command, CancellationToken cancellationToken)
+        => Task.FromException(new CodexCapabilityNotSupportedException(nameof(CodexThread.ShellCommandAsync), CodexBackendSelection.Exec));
+
     public Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,

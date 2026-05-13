@@ -212,6 +212,43 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             && cleared;
     }
 
+    public async Task<CodexThreadSnapshot> RollbackThreadAsync(string threadId, int numTurns, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("thread/rollback", CodexProtocol.BuildThreadRollbackParams(threadId, numTurns), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseThreadSnapshot(GetRequiredObject(payload, "thread"));
+    }
+
+    public async Task<CodexThreadUnsubscribeStatus> UnsubscribeThreadAsync(string threadId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("thread/unsubscribe", CodexProtocol.BuildThreadUnsubscribeParams(threadId), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseThreadUnsubscribeStatus(GetString(payload, "status"));
+    }
+
+    public async Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(string threadId, CodexGitInfo? gitInfo, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("thread/metadata/update", CodexProtocol.BuildThreadMetadataUpdateParams(threadId, gitInfo), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseThreadSnapshot(GetRequiredObject(payload, "thread"));
+    }
+
+    public async Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(
+        string threadId,
+        CodexThreadMetadataGitInfoUpdate gitInfo,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("thread/metadata/update", CodexProtocol.BuildThreadMetadataUpdateParams(threadId, gitInfo), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseThreadSnapshot(GetRequiredObject(payload, "thread"));
+    }
+
+    public async Task ShellCommandThreadAsync(string threadId, string command, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        await RequestAsync("thread/shellCommand", CodexProtocol.BuildThreadShellCommandParams(threadId, command), cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -612,8 +649,24 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             CodexThreadStartedEvent threadStarted => (null, threadStarted.Thread.Id),
             CodexThreadGoalUpdatedEvent goalUpdated => (goalUpdated.TurnId, goalUpdated.ThreadId),
             CodexThreadGoalClearedEvent goalCleared => (null, goalCleared.ThreadId),
+            CodexThreadStatusChangedEvent statusChanged => (null, statusChanged.ThreadId),
+            CodexThreadArchivedEvent archived => (null, archived.ThreadId),
+            CodexThreadClosedEvent closed => (null, closed.ThreadId),
+            CodexThreadCompactedEvent compacted => (compacted.TurnId, compacted.ThreadId),
+            CodexThreadNameUpdatedEvent nameUpdated => (null, nameUpdated.ThreadId),
+            CodexThreadTokenUsageUpdatedEvent tokenUsageUpdated => (tokenUsageUpdated.TurnId, tokenUsageUpdated.ThreadId),
+            CodexThreadUnarchivedEvent unarchived => (null, unarchived.ThreadId),
+            CodexTurnDiffUpdatedEvent diffUpdated => (diffUpdated.TurnId, diffUpdated.ThreadId),
             CodexTurnPlanUpdatedEvent planUpdated => (planUpdated.TurnId, planUpdated.ThreadId),
             CodexPlanDeltaEvent planDelta => (planDelta.TurnId, planDelta.ThreadId),
+            CodexAgentMessageDeltaEvent agentMessageDelta => (agentMessageDelta.TurnId, agentMessageDelta.ThreadId),
+            CodexCommandExecutionOutputDeltaEvent commandExecutionDelta => (commandExecutionDelta.TurnId, commandExecutionDelta.ThreadId),
+            CodexFileChangeOutputDeltaEvent fileChangeOutputDelta => (fileChangeOutputDelta.TurnId, fileChangeOutputDelta.ThreadId),
+            CodexFileChangePatchUpdatedEvent fileChangePatchUpdated => (fileChangePatchUpdated.TurnId, fileChangePatchUpdated.ThreadId),
+            CodexMcpToolCallProgressEvent mcpToolCallProgress => (mcpToolCallProgress.TurnId, mcpToolCallProgress.ThreadId),
+            CodexReasoningTextDeltaEvent reasoningTextDelta => (reasoningTextDelta.TurnId, reasoningTextDelta.ThreadId),
+            CodexReasoningSummaryPartAddedEvent reasoningSummaryPartAdded => (reasoningSummaryPartAdded.TurnId, reasoningSummaryPartAdded.ThreadId),
+            CodexReasoningSummaryTextDeltaEvent reasoningSummaryTextDelta => (reasoningSummaryTextDelta.TurnId, reasoningSummaryTextDelta.ThreadId),
             _ => (null, null),
         };
     }

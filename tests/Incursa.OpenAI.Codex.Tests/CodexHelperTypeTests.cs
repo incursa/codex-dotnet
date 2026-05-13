@@ -20,7 +20,24 @@ public sealed class CodexHelperTypeTests
         [typeof(CodexNetworkAccess)],
         [typeof(CodexPatchApplyStatus)],
         [typeof(CodexPatchChangeKind)],
+        [typeof(CodexPlanType)],
         [typeof(CodexPersonality)],
+        [typeof(CodexAuthMode)],
+        [typeof(CodexProcessOutputStream)],
+        [typeof(CodexHookEventName)],
+        [typeof(CodexHookExecutionMode)],
+        [typeof(CodexHookHandlerType)],
+        [typeof(CodexHookOutputEntryKind)],
+        [typeof(CodexHookRunStatus)],
+        [typeof(CodexHookScope)],
+        [typeof(CodexHookSourceKind)],
+        [typeof(CodexRealtimeConversationVersion)],
+        [typeof(CodexFuzzyFileSearchMatchType)],
+        [typeof(CodexMcpServerStartupState)],
+        [typeof(CodexRemoteControlConnectionStatus)],
+        [typeof(CodexWindowsSandboxSetupMode)],
+        [typeof(CodexModelRerouteReason)],
+        [typeof(CodexModelVerificationValue)],
         [typeof(CodexReasoningEffort)],
         [typeof(CodexReasoningSummary)],
         [typeof(CodexSandboxMode)],
@@ -28,8 +45,12 @@ public sealed class CodexHelperTypeTests
         [typeof(CodexSessionSourceKind)],
         [typeof(CodexSubAgentSourceKind)],
         [typeof(CodexThreadActiveFlag)],
+        [typeof(CodexThreadSortDirection)],
         [typeof(CodexThreadSortKey)],
+        [typeof(CodexThreadSource)],
         [typeof(CodexThreadSourceKind)],
+        [typeof(CodexThreadStartSource)],
+        [typeof(CodexThreadUnsubscribeStatus)],
         [typeof(CodexTurnPlanStepStatus)],
         [typeof(CodexTurnStatus)],
         [typeof(CodexWebSearchContextSize)],
@@ -97,8 +118,13 @@ public sealed class CodexHelperTypeTests
             UpdatedAt = DateTimeOffset.UnixEpoch.AddHours(1),
             Ephemeral = true,
             CliVersion = "1.2.3",
+            Cwd = "/work",
             Path = "/work",
-            Source = new CodexSessionSourceValue(CodexSessionSourceKind.AppServer),
+            SessionId = "session-1",
+            ForkedFromId = "thread-parent",
+            Source = new CodexSubAgentSessionSource(new CodexSubAgentSourceValue(CodexSubAgentSourceKind.Review)),
+            ThreadSource = CodexThreadSource.Subagent,
+            SessionStartSource = CodexThreadStartSource.Startup,
             AgentRole = "coding-agent",
             AgentNickname = "trace",
             GitInfo = new CodexGitInfo
@@ -122,8 +148,13 @@ public sealed class CodexHelperTypeTests
             UpdatedAt = summary.UpdatedAt,
             Ephemeral = summary.Ephemeral,
             CliVersion = summary.CliVersion,
+            Cwd = summary.Cwd,
             Path = summary.Path,
+            SessionId = summary.SessionId,
+            ForkedFromId = summary.ForkedFromId,
             Source = summary.Source,
+            ThreadSource = summary.ThreadSource,
+            SessionStartSource = summary.SessionStartSource,
             AgentRole = summary.AgentRole,
             AgentNickname = summary.AgentNickname,
             GitInfo = summary.GitInfo,
@@ -207,7 +238,7 @@ public sealed class CodexHelperTypeTests
                 new CodexRateLimitSnapshot
                 {
                     LimitId = "codex",
-                    PlanType = "plus",
+                    PlanType = CodexPlanType.Plus,
                     Primary = new CodexRateLimitWindow
                     {
                         UsedPercent = 30,
@@ -217,6 +248,73 @@ public sealed class CodexHelperTypeTests
             ],
         };
         Assert.Equal("codex", rateLimits.RateLimits[0].LimitId);
+
+        CodexThreadMetadataGitInfoUpdate metadataUpdate = new()
+        {
+            BranchSpecified = true,
+            Branch = "main",
+            OriginUrlSpecified = true,
+            OriginUrl = null,
+            ShaSpecified = true,
+            Sha = "abc123",
+        };
+        Assert.True(metadataUpdate.BranchSpecified);
+        Assert.True(metadataUpdate.OriginUrlSpecified);
+        Assert.True(metadataUpdate.ShaSpecified);
+
+        CodexTextPosition position = new()
+        {
+            Line = 2,
+            Column = 4,
+        };
+        CodexTextRange range = new()
+        {
+            Start = position,
+            End = position with { Column = 12 },
+        };
+        Assert.Equal(2, range.Start.Line);
+
+        CodexHookOutputEntry hookOutput = new()
+        {
+            Kind = CodexHookOutputEntryKind.Warning,
+            Text = "watch this",
+        };
+        CodexHookRunSummary hookRun = new()
+        {
+            DisplayOrder = 1,
+            Entries = [hookOutput],
+            EventName = CodexHookEventName.SessionStart,
+            ExecutionMode = CodexHookExecutionMode.Sync,
+            HandlerType = CodexHookHandlerType.Command,
+            Id = "run-1",
+            Scope = CodexHookScope.Thread,
+            Source = CodexHookSourceKind.Plugin,
+            SourcePath = "/hooks/start",
+            StartedAt = 1778076000L,
+            Status = CodexHookRunStatus.Running,
+        };
+        Assert.Equal("run-1", hookRun.Id);
+
+        CodexThreadRealtimeAudioChunk audioChunk = new()
+        {
+            Data = "aGVsbG8=",
+            ItemId = "item-1",
+            NumChannels = 1,
+            SampleRate = 24000,
+            SamplesPerChannel = 3,
+        };
+        Assert.Equal(24000, audioChunk.SampleRate);
+
+        CodexFuzzyFileSearchResult fuzzyResult = new()
+        {
+            FileName = "trace.cs",
+            Indices = [1, 5],
+            MatchType = CodexFuzzyFileSearchMatchType.File,
+            Path = "/work/src/trace.cs",
+            Root = "/work",
+            Score = 91,
+        };
+        Assert.Equal(5, fuzzyResult.Indices![1]);
 
         CodexModelServiceTier serviceTier = new()
         {

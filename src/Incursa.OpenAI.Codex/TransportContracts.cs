@@ -42,6 +42,19 @@ internal interface ICodexTransport : IAsyncDisposable
 
     Task<bool> ClearThreadGoalAsync(string threadId, CancellationToken cancellationToken);
 
+    Task<CodexThreadSnapshot> RollbackThreadAsync(string threadId, int numTurns, CancellationToken cancellationToken);
+
+    Task<CodexThreadUnsubscribeStatus> UnsubscribeThreadAsync(string threadId, CancellationToken cancellationToken);
+
+    Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(string threadId, CodexGitInfo? gitInfo, CancellationToken cancellationToken);
+
+    Task<CodexThreadSnapshot> UpdateThreadMetadataAsync(
+        string threadId,
+        CodexThreadMetadataGitInfoUpdate gitInfo,
+        CancellationToken cancellationToken);
+
+    Task ShellCommandThreadAsync(string threadId, string command, CancellationToken cancellationToken);
+
     Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
