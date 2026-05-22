@@ -1,0 +1,53 @@
+name: Codex Upstream Parity Review
+
+on:
+  schedule:
+    - cron: "19 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review-upstream:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: codex-upstream-parity-review
+      cancel-in-progress: true
+    steps:
+      - name: Checkout Codex .NET repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout upstream Codex repo
+        uses: actions/checkout@v6
+        with:
+          repository: openai/codex
+          path: .upstream/openai-codex
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Review upstream parity
+        id: review
+        shell: pwsh
+        run: ./scripts/Invoke-UpstreamParityReview.ps1 -UpstreamRepoPath "$env:GITHUB_WORKSPACE/.upstream/openai-codex" -WriteReport
+
+      - name: Create parity handoff pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: bot/codex-upstream-parity-review
+          delete-branch: true
+          commit-message: "chore: refresh upstream parity handoff"
+          title: "Codex upstream parity handoff"
+          body: |
+            Automated parity review detected a new upstream Codex SDK comparison state.
+
+            The generated report in `quality/upstream-parity-gaps.md` captures the review baseline,
+            the current upstream head, and the commit/file deltas for the Python and TypeScript SDKs.
+
+            Review the Python SDK first, then update the .NET implementation and tests.
+          add-paths: |
+            quality/upstream-parity-gaps.md
