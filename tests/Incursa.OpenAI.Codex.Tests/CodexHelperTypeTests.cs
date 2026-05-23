@@ -51,7 +51,11 @@ public sealed class CodexHelperTypeTests
         [typeof(CodexThreadSourceKind)],
         [typeof(CodexThreadStartSource)],
         [typeof(CodexThreadUnsubscribeStatus)],
+        [typeof(CodexFinalResponseSource)],
+        [typeof(CodexTurnEventImportance)],
+        [typeof(CodexTurnEventKind)],
         [typeof(CodexTurnPlanStepStatus)],
+        [typeof(CodexTurnTerminalState)],
         [typeof(CodexTurnStatus)],
         [typeof(CodexWebSearchContextSize)],
         [typeof(CodexWebSearchMode)],
@@ -195,6 +199,66 @@ public sealed class CodexHelperTypeTests
         };
         Assert.Equal("done", runResult.FinalResponse);
         Assert.Equal(1, runResult.Usage!.Total.TotalTokens);
+
+        CodexTurnEvent normalizedEvent = new()
+        {
+            SequenceNumber = 1,
+            ProjectId = "project-1",
+            WorkingDirectory = "/work",
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            RawEventType = "turn.completed",
+            Kind = CodexTurnEventKind.Terminal,
+            Importance = CodexTurnEventImportance.High,
+            Timestamp = DateTimeOffset.UnixEpoch.AddMinutes(1),
+            Title = "Turn completed",
+            Text = "done",
+            Metadata = new Dictionary<string, string?>
+            {
+                ["status"] = "Completed",
+            },
+            IsTerminal = true,
+            TerminalState = CodexTurnTerminalState.Completed,
+            ContributesToFinalOutput = false,
+            IsUserVisibleByDefault = true,
+        };
+        Assert.Equal(CodexTurnTerminalState.Completed, normalizedEvent.TerminalState);
+
+        CodexTurnResult turnResult = new()
+        {
+            ProjectId = "project-1",
+            WorkingDirectory = "/work",
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            TerminalState = CodexTurnTerminalState.Completed,
+            TurnStatus = CodexTurnStatus.Completed,
+            TerminalEventSeen = true,
+            TerminalEventType = "turn.completed",
+            FinalResponseText = "done",
+            FinalResponseSource = CodexFinalResponseSource.TerminalEvent,
+            FinalResponseComplete = true,
+            StartedUtc = DateTimeOffset.UnixEpoch,
+            CompletedUtc = DateTimeOffset.UnixEpoch.AddMinutes(1),
+            RawEventCount = 2,
+            NormalizedEventCount = 3,
+            AssistantOutputCharCount = 4,
+            FinalResponseCharCount = 4,
+            Artifacts =
+            [
+                new CodexTurnArtifactSummary
+                {
+                    Id = "image-1",
+                    Type = "imageView",
+                    Path = "/work/image.png",
+                    Status = "ready",
+                },
+            ],
+            Items = runResult.Items,
+            Usage = runResult.Usage,
+            DiagnosticsTraceId = "trace-1",
+        };
+        Assert.True(turnResult.TerminalEventSeen);
+        Assert.Single(turnResult.Artifacts);
 
         CodexRuntimeMetadata metadata = new()
         {

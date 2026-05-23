@@ -831,6 +831,78 @@ public sealed class CodexTurn
     }
 
     /// <summary>
+    /// Streams normalized turn events emitted while this turn runs.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the event stream.</param>
+    /// <returns>An asynchronous stream of normalized turn events.</returns>
+    public async IAsyncEnumerable<CodexTurnEvent> StreamNormalizedAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        CodexTurnOutcomeBuilder outcomeBuilder = CreateOutcomeBuilder();
+        await using IAsyncEnumerator<CodexThreadEvent> enumerator = StreamAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
+        while (true)
+        {
+            CodexThreadEvent item;
+            try
+            {
+                if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    break;
+                }
+
+                item = enumerator.Current;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                outcomeBuilder.RecordStreamException(exception);
+                break;
+            }
+
+            foreach (CodexTurnEvent normalized in outcomeBuilder.Process(item))
+            {
+                yield return normalized;
+            }
+        }
+
+        foreach (CodexTurnEvent normalized in outcomeBuilder.CompleteStream())
+        {
+            yield return normalized;
+        }
+    }
+
+    /// <summary>
+    /// Runs this turn to stream closeout and returns detailed terminal-state diagnostics.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>The detailed turn result.</returns>
+    public async Task<CodexTurnResult> RunToResultAsync(CancellationToken cancellationToken = default)
+    {
+        CodexTurnOutcomeBuilder outcomeBuilder = CreateOutcomeBuilder();
+        try
+        {
+            await foreach (CodexThreadEvent item in StreamAsync(cancellationToken).ConfigureAwait(false))
+            {
+                outcomeBuilder.Process(item);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            outcomeBuilder.RecordStreamException(exception);
+        }
+
+        outcomeBuilder.CompleteStream();
+        return outcomeBuilder.ToResult();
+    }
+
+    /// <summary>
     /// Runs this turn to completion and returns the final result.
     /// </summary>
     /// <param name="cancellationToken">A token that cancels the run.</param>
@@ -889,4 +961,7 @@ public sealed class CodexTurn
     {
         await _session.InterruptAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    private CodexTurnOutcomeBuilder CreateOutcomeBuilder()
+        => new(ThreadId, Id, _session.Options?.WorkingDirectory);
 }

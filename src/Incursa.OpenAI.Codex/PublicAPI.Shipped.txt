@@ -544,6 +544,12 @@ M:Incursa.OpenAI.Codex.CodexFileUpdateChange.op_Inequality(Incursa.OpenAI.Codex.
 M:Incursa.OpenAI.Codex.CodexFileUpdateChange.<Clone>$():Incursa.OpenAI.Codex.CodexFileUpdateChange
 M:Incursa.OpenAI.Codex.CodexFileUpdateChange.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexFileUpdateChange.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexFinalResponseSource
+F:Incursa.OpenAI.Codex.CodexFinalResponseSource.AssistantDelta:Incursa.OpenAI.Codex.CodexFinalResponseSource
+F:Incursa.OpenAI.Codex.CodexFinalResponseSource.CompletedItem:Incursa.OpenAI.Codex.CodexFinalResponseSource
+F:Incursa.OpenAI.Codex.CodexFinalResponseSource.None:Incursa.OpenAI.Codex.CodexFinalResponseSource
+F:Incursa.OpenAI.Codex.CodexFinalResponseSource.TerminalEvent:Incursa.OpenAI.Codex.CodexFinalResponseSource
+F:Incursa.OpenAI.Codex.CodexFinalResponseSource.value__:System.Int32
 T:Incursa.OpenAI.Codex.CodexFindInPageWebSearchAction
 C:Incursa.OpenAI.Codex.CodexFindInPageWebSearchAction()
 P:Incursa.OpenAI.Codex.CodexFindInPageWebSearchAction.Pattern:System.String get; set;
@@ -2387,10 +2393,26 @@ P:Incursa.OpenAI.Codex.CodexTurn.Client:Incursa.OpenAI.Codex.CodexClient get;
 P:Incursa.OpenAI.Codex.CodexTurn.Id:System.String get;
 P:Incursa.OpenAI.Codex.CodexTurn.ThreadId:System.String get;
 M:Incursa.OpenAI.Codex.CodexTurn.StreamAsync(System.Threading.CancellationToken cancellationToken = optional):System.Collections.Generic.IAsyncEnumerable<Incursa.OpenAI.Codex.CodexThreadEvent>
+M:Incursa.OpenAI.Codex.CodexTurn.StreamNormalizedAsync(System.Threading.CancellationToken cancellationToken = optional):System.Collections.Generic.IAsyncEnumerable<Incursa.OpenAI.Codex.CodexTurnEvent>
 M:Incursa.OpenAI.Codex.CodexTurn.InterruptAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task
 M:Incursa.OpenAI.Codex.CodexTurn.SteerAsync(System.Collections.Generic.IReadOnlyList<Incursa.OpenAI.Codex.CodexInputItem> input, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task
 M:Incursa.OpenAI.Codex.CodexTurn.SteerAsync(System.String input, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task
 M:Incursa.OpenAI.Codex.CodexTurn.RunAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexRunResult>
+M:Incursa.OpenAI.Codex.CodexTurn.RunToResultAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexTurnResult>
+T:Incursa.OpenAI.Codex.CodexTurnArtifactSummary
+C:Incursa.OpenAI.Codex.CodexTurnArtifactSummary()
+P:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Id:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Path:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Result:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Status:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Type:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Equals(Incursa.OpenAI.Codex.CodexTurnArtifactSummary other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.op_Equality(Incursa.OpenAI.Codex.CodexTurnArtifactSummary left, Incursa.OpenAI.Codex.CodexTurnArtifactSummary right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.op_Inequality(Incursa.OpenAI.Codex.CodexTurnArtifactSummary left, Incursa.OpenAI.Codex.CodexTurnArtifactSummary right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.<Clone>$():Incursa.OpenAI.Codex.CodexTurnArtifactSummary
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexTurnArtifactSummary.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexTurnCompletedEvent
 C:Incursa.OpenAI.Codex.CodexTurnCompletedEvent()
 P:Incursa.OpenAI.Codex.CodexTurnCompletedEvent.Turn:Incursa.OpenAI.Codex.CodexTurnRecord get; set;
@@ -2427,6 +2449,48 @@ M:Incursa.OpenAI.Codex.CodexTurnError.op_Inequality(Incursa.OpenAI.Codex.CodexTu
 M:Incursa.OpenAI.Codex.CodexTurnError.<Clone>$():Incursa.OpenAI.Codex.CodexTurnError
 M:Incursa.OpenAI.Codex.CodexTurnError.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexTurnError.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexTurnEvent
+C:Incursa.OpenAI.Codex.CodexTurnEvent()
+P:Incursa.OpenAI.Codex.CodexTurnEvent.ContributesToFinalOutput:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.Importance:Incursa.OpenAI.Codex.CodexTurnEventImportance get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.IsTerminal:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.IsUserVisibleByDefault:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.Kind:Incursa.OpenAI.Codex.CodexTurnEventKind get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.Metadata:System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.ProjectId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.RawEventType:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.SequenceNumber:System.Int64 get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.TerminalState:Incursa.OpenAI.Codex.CodexTurnTerminalState get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.Text:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.ThreadId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.Timestamp:System.DateTimeOffset get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.Title:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.TurnId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnEvent.WorkingDirectory:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexTurnEvent.Equals(Incursa.OpenAI.Codex.CodexTurnEvent other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnEvent.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnEvent.op_Equality(Incursa.OpenAI.Codex.CodexTurnEvent left, Incursa.OpenAI.Codex.CodexTurnEvent right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnEvent.op_Inequality(Incursa.OpenAI.Codex.CodexTurnEvent left, Incursa.OpenAI.Codex.CodexTurnEvent right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnEvent.<Clone>$():Incursa.OpenAI.Codex.CodexTurnEvent
+M:Incursa.OpenAI.Codex.CodexTurnEvent.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexTurnEvent.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexTurnEventImportance
+F:Incursa.OpenAI.Codex.CodexTurnEventImportance.Critical:Incursa.OpenAI.Codex.CodexTurnEventImportance
+F:Incursa.OpenAI.Codex.CodexTurnEventImportance.High:Incursa.OpenAI.Codex.CodexTurnEventImportance
+F:Incursa.OpenAI.Codex.CodexTurnEventImportance.Low:Incursa.OpenAI.Codex.CodexTurnEventImportance
+F:Incursa.OpenAI.Codex.CodexTurnEventImportance.Normal:Incursa.OpenAI.Codex.CodexTurnEventImportance
+F:Incursa.OpenAI.Codex.CodexTurnEventImportance.value__:System.Int32
+T:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.Activity:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.ApprovalNeeded:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.Artifact:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.AssistantDelta:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.AssistantMessage:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.Error:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.FinalResponse:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.Progress:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.Terminal:Incursa.OpenAI.Codex.CodexTurnEventKind
+F:Incursa.OpenAI.Codex.CodexTurnEventKind.value__:System.Int32
 T:Incursa.OpenAI.Codex.CodexTurnFailedEvent
 C:Incursa.OpenAI.Codex.CodexTurnFailedEvent()
 P:Incursa.OpenAI.Codex.CodexTurnFailedEvent.Turn:Incursa.OpenAI.Codex.CodexTurnRecord get; set;
@@ -2501,6 +2565,37 @@ M:Incursa.OpenAI.Codex.CodexTurnRecord.op_Inequality(Incursa.OpenAI.Codex.CodexT
 M:Incursa.OpenAI.Codex.CodexTurnRecord.<Clone>$():Incursa.OpenAI.Codex.CodexTurnRecord
 M:Incursa.OpenAI.Codex.CodexTurnRecord.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexTurnRecord.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexTurnResult
+C:Incursa.OpenAI.Codex.CodexTurnResult()
+P:Incursa.OpenAI.Codex.CodexTurnResult.Artifacts:System.Collections.Generic.IReadOnlyList<Incursa.OpenAI.Codex.CodexTurnArtifactSummary> get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.AssistantOutputCharCount:System.Int32 get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.CompletedUtc:System.Nullable<System.DateTimeOffset> get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.DiagnosticsTraceId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.ErrorMessage:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.FinalResponseCharCount:System.Int32 get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.FinalResponseComplete:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.FinalResponseSource:Incursa.OpenAI.Codex.CodexFinalResponseSource get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.FinalResponseText:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.Items:System.Collections.Generic.IReadOnlyList<Incursa.OpenAI.Codex.CodexThreadItem> get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.NormalizedEventCount:System.Int32 get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.ProjectId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.RawEventCount:System.Int32 get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.StartedUtc:System.DateTimeOffset get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.TerminalEventSeen:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.TerminalEventType:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.TerminalState:Incursa.OpenAI.Codex.CodexTurnTerminalState get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.ThreadId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.TurnId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.TurnStatus:System.Nullable<Incursa.OpenAI.Codex.CodexTurnStatus> get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.Usage:Incursa.OpenAI.Codex.CodexUsage get; set;
+P:Incursa.OpenAI.Codex.CodexTurnResult.WorkingDirectory:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexTurnResult.Equals(Incursa.OpenAI.Codex.CodexTurnResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnResult.op_Equality(Incursa.OpenAI.Codex.CodexTurnResult left, Incursa.OpenAI.Codex.CodexTurnResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnResult.op_Inequality(Incursa.OpenAI.Codex.CodexTurnResult left, Incursa.OpenAI.Codex.CodexTurnResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexTurnResult.<Clone>$():Incursa.OpenAI.Codex.CodexTurnResult
+M:Incursa.OpenAI.Codex.CodexTurnResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexTurnResult.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexTurnStartedEvent
 C:Incursa.OpenAI.Codex.CodexTurnStartedEvent()
 P:Incursa.OpenAI.Codex.CodexTurnStartedEvent.Turn:Incursa.OpenAI.Codex.CodexTurnRecord get; set;
@@ -2518,6 +2613,14 @@ F:Incursa.OpenAI.Codex.CodexTurnStatus.Failed:Incursa.OpenAI.Codex.CodexTurnStat
 F:Incursa.OpenAI.Codex.CodexTurnStatus.InProgress:Incursa.OpenAI.Codex.CodexTurnStatus
 F:Incursa.OpenAI.Codex.CodexTurnStatus.Interrupted:Incursa.OpenAI.Codex.CodexTurnStatus
 F:Incursa.OpenAI.Codex.CodexTurnStatus.value__:System.Int32
+T:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.Completed:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.Failed:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.Incomplete:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.Interrupted:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.None:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.Unknown:Incursa.OpenAI.Codex.CodexTurnTerminalState
+F:Incursa.OpenAI.Codex.CodexTurnTerminalState.value__:System.Int32
 T:Incursa.OpenAI.Codex.CodexUnknownCommandAction
 C:Incursa.OpenAI.Codex.CodexUnknownCommandAction()
 P:Incursa.OpenAI.Codex.CodexUnknownCommandAction.Command:System.String get; set;
