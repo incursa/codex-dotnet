@@ -217,12 +217,9 @@ public sealed class CodexAppServerTransportTests
 
         launcher.Factory = _ => process;
 
-        CodexClientOptions options = new()
+        await using CodexClient client = CreateAppServerClient(launcher, options =>
         {
-            BackendSelection = CodexBackendSelection.AppServer,
-            CodexPathOverride = "codex",
-            ProcessLauncher = launcher,
-            Config = new CodexConfigObject
+            options.Config = new CodexConfigObject
             {
                 Values = new Dictionary<string, CodexConfigValue>(StringComparer.Ordinal)
                 {
@@ -234,10 +231,12 @@ public sealed class CodexAppServerTransportTests
                         },
                     },
                 },
-            },
-        };
-
-        await using CodexClient client = new(options);
+            };
+            options.PlanMode = new CodexPlanModeOptions
+            {
+                ReasoningEffort = CodexReasoningEffort.XHigh,
+            };
+        });
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
             WorkingDirectory = "/work",
@@ -268,6 +267,7 @@ public sealed class CodexAppServerTransportTests
 
         Assert.Equal("thread-1", thread.Id);
         Assert.Contains("client.feature=\"enabled\"", launcher.StartInfos.Single().Arguments);
+        Assert.Contains("plan_mode_reasoning_effort=\"xhigh\"", launcher.StartInfos.Single().Arguments);
     }
 
     [Fact]
@@ -2413,7 +2413,9 @@ public sealed class CodexAppServerTransportTests
         Assert.Empty(approvalResponse["result"]!.AsObject());
     }
 
-    private static CodexClient CreateAppServerClient(ScriptedCodexProcessLauncher launcher)
+    private static CodexClient CreateAppServerClient(
+        ScriptedCodexProcessLauncher launcher,
+        Action<CodexClientOptions>? configure = null)
     {
         CodexClientOptions options = new()
         {
@@ -2421,6 +2423,8 @@ public sealed class CodexAppServerTransportTests
             CodexPathOverride = "codex",
             ProcessLauncher = launcher,
         };
+
+        configure?.Invoke(options);
 
         return new CodexClient(options);
     }

@@ -47,6 +47,20 @@ public sealed class CodexInfrastructureTests
 
     [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0234")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public void ConfigSerialization_FlattensPlanModeOverrides()
+    {
+        IReadOnlyList<string> overrides = CodexConfigSerialization.FlattenPlanModeOverrides(new CodexPlanModeOptions
+        {
+            ReasoningEffort = CodexReasoningEffort.XHigh,
+        });
+
+        Assert.Single(overrides);
+        Assert.Equal("plan_mode_reasoning_effort=\"xhigh\"", overrides[0]);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0234")]
     [CoverageType(RequirementCoverageType.Negative)]
     public void ConfigSerialization_RejectsNonFiniteNumbers()
     {

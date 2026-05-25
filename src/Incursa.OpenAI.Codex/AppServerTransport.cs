@@ -557,6 +557,12 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             args.Add(overrideValue);
         }
 
+        foreach (string overrideValue in CodexConfigSerialization.FlattenPlanModeOverrides(_options.PlanMode))
+        {
+            args.Add("--config");
+            args.Add(overrideValue);
+        }
+
         args.Add("app-server");
         args.Add("--listen");
         args.Add("stdio://");

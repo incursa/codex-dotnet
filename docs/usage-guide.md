@@ -39,6 +39,7 @@ If you want a no-throw preflight for the local executable, call `await client.Is
 ## Backend Choice
 
 The [`CodexClientOptions`](../src/Incursa.OpenAI.Codex/Options.cs) type controls which runtime backend is used through its `BackendSelection` property.
+If you need Plan mode to use a different default reasoning effort, set `CodexClientOptions.PlanMode.ReasoningEffort`; it serializes to `plan_mode_reasoning_effort` in Codex config.
 
 | Backend | Best for | Supports | Does not support |
 | --- | --- | --- | --- |
@@ -57,7 +58,7 @@ At the transport level:
 ## Common Use Cases
 
 - One-shot answer: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunAsync(string)`
-- Streaming UI: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunStreamedAsync(string)` or [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when you need raw Codex events; call [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamNormalizedAsync()` when the UI needs stable event categories
+- Streaming UI: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunStreamedAsync(string)` or [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when you need raw Codex events; call [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamNormalizedAsync()` when the UI needs stable event categories; use [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ObserveEventsAsync()` or `ObserveNormalizedEventsAsync()` when multiple subscribers need to filter, buffer, or independently project the same turn stream
 - Turn diagnostics: call [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunToResultAsync()` to retrieve terminal-event state, final-response source, output counts, artifacts, and stream-ended-without-terminal diagnostics
 - Structured output: pass [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs).`OutputSchema`
 - Multimodal prompts: add [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) or [`CodexLocalImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs)
@@ -73,8 +74,9 @@ At the transport level:
 
 - [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs): root entry point, async-only, `IAsyncDisposable`, `GetAccountRateLimitsAsync()` for account rate-limit windows, and `IsCodexAvailableAsync()` for an executable preflight
 - [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs): stateful conversation handle
-- [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs): single-turn handle
-- [`CodexClientOptions`](../src/Incursa.OpenAI.Codex/Options.cs): backend selection, executable path override, API key, configuration, environment, and approval handler
+- [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs): single-turn handle with async-enumerable and observable event views
+- [`CodexClientOptions`](../src/Incursa.OpenAI.Codex/Options.cs): backend selection, executable path override, API key, configuration, plan-mode defaults, environment, and approval handler
+- [`CodexClientOptions.PlanMode`](../src/Incursa.OpenAI.Codex/Options.cs): plan-mode defaults such as `ReasoningEffort`, which serializes to Codex's `plan_mode_reasoning_effort` config key
 - [`CodexThreadOptions`](../src/Incursa.OpenAI.Codex/Options.cs): working directory, sandbox, approval, model, reasoning, web search, and thread-scoped settings
 - [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs): per-turn model, sandbox, approval, service tier, reasoning, and output schema settings
 - [`CodexInputItem`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) and derived types: [`CodexTextInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexLocalImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), [`CodexSkillInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs), and [`CodexMentionInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs)

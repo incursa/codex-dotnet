@@ -45,6 +45,7 @@ public sealed class CodexServiceCollectionExtensionsTests
                 ["ClientName"] = "TraceConfig",
                 ["BackendSelection"] = "Exec",
                 ["ApiKey"] = "config-api-key",
+                ["PlanMode:ReasoningEffort"] = "XHigh",
             })
             .Build();
 
@@ -58,8 +59,11 @@ public sealed class CodexServiceCollectionExtensionsTests
         Assert.Equal("TraceConfig", options.ClientName);
         Assert.Equal(CodexBackendSelection.Exec, options.BackendSelection);
         Assert.Equal("config-api-key", options.ApiKey);
+        Assert.NotNull(options.PlanMode);
+        Assert.Equal(CodexReasoningEffort.XHigh, options.PlanMode!.ReasoningEffort);
         Assert.Equal("TraceConfig", client.Options.ClientName);
         Assert.Equal("config-api-key", client.Options.ApiKey);
+        Assert.Equal(CodexReasoningEffort.XHigh, client.Options.PlanMode!.ReasoningEffort);
         Assert.Same(client, provider.GetRequiredService<CodexClient>());
     }
 }

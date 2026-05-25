@@ -794,11 +794,15 @@ public sealed class CodexThread
 public sealed class CodexTurn
 {
     private readonly CodexTurnSession _session;
+    private readonly CodexReplayObservable<CodexThreadEvent> _events;
+    private readonly CodexNormalizedTurnObservable _normalizedEvents;
 
     internal CodexTurn(CodexClient client, CodexTurnSession session)
     {
         Client = client;
         _session = session;
+        _events = new CodexReplayObservable<CodexThreadEvent>(_session.ReadEventsAsync);
+        _normalizedEvents = new CodexNormalizedTurnObservable(_events, () => CreateOutcomeBuilder());
     }
 
     /// <summary>
@@ -821,58 +825,30 @@ public sealed class CodexTurn
     /// </summary>
     /// <param name="cancellationToken">A token that cancels the event stream.</param>
     /// <returns>An asynchronous stream of thread events.</returns>
-    public async IAsyncEnumerable<CodexThreadEvent> StreamAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        await foreach (CodexThreadEvent item in _session.ReadEventsAsync(cancellationToken).ConfigureAwait(false))
-        {
-            yield return item;
-        }
-    }
+    public IAsyncEnumerable<CodexThreadEvent> StreamAsync(CancellationToken cancellationToken = default)
+        => CodexObservableAdapters.ToAsyncEnumerable(ObserveEventsAsync(), cancellationToken);
+
+    /// <summary>
+    /// Observes events emitted while this turn runs.
+    /// </summary>
+    /// <returns>An observable stream of thread events.</returns>
+    public IObservable<CodexThreadEvent> ObserveEventsAsync()
+        => _events;
 
     /// <summary>
     /// Streams normalized turn events emitted while this turn runs.
     /// </summary>
     /// <param name="cancellationToken">A token that cancels the event stream.</param>
     /// <returns>An asynchronous stream of normalized turn events.</returns>
-    public async IAsyncEnumerable<CodexTurnEvent> StreamNormalizedAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        CodexTurnOutcomeBuilder outcomeBuilder = CreateOutcomeBuilder();
-        await using IAsyncEnumerator<CodexThreadEvent> enumerator = StreamAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
-        while (true)
-        {
-            CodexThreadEvent item;
-            try
-            {
-                if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
-                {
-                    break;
-                }
+    public IAsyncEnumerable<CodexTurnEvent> StreamNormalizedAsync(CancellationToken cancellationToken = default)
+        => CodexObservableAdapters.ToAsyncEnumerable(ObserveNormalizedEventsAsync(), cancellationToken);
 
-                item = enumerator.Current;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                outcomeBuilder.RecordStreamException(exception);
-                break;
-            }
-
-            foreach (CodexTurnEvent normalized in outcomeBuilder.Process(item))
-            {
-                yield return normalized;
-            }
-        }
-
-        foreach (CodexTurnEvent normalized in outcomeBuilder.CompleteStream())
-        {
-            yield return normalized;
-        }
-    }
+    /// <summary>
+    /// Observes normalized turn events emitted while this turn runs.
+    /// </summary>
+    /// <returns>An observable stream of normalized turn events.</returns>
+    public IObservable<CodexTurnEvent> ObserveNormalizedEventsAsync()
+        => _normalizedEvents;
 
     /// <summary>
     /// Runs this turn to stream closeout and returns detailed terminal-state diagnostics.

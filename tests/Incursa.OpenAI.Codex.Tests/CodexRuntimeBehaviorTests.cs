@@ -328,7 +328,13 @@ public sealed class CodexRuntimeBehaviorTests
 
         launcher.Factory = _ => process;
 
-        await using CodexClient client = CreateExecClient(launcher);
+        await using CodexClient client = CreateExecClient(launcher, options =>
+        {
+            options.PlanMode = new CodexPlanModeOptions
+            {
+                ReasoningEffort = CodexReasoningEffort.XHigh,
+            };
+        });
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
             WorkingDirectory = "/thread-default",
@@ -360,6 +366,7 @@ public sealed class CodexRuntimeBehaviorTests
         Assert.Contains("danger-full-access", args);
         Assert.Contains("--cd", args);
         Assert.Contains("/turn-override", args);
+        Assert.Contains("plan_mode_reasoning_effort=\"xhigh\"", args);
         Assert.Contains("model_reasoning_effort=\"high\"", args);
         Assert.Contains("service_tier=\"priority\"", args);
         Assert.Contains(@"web_search=""live""", args);
@@ -951,7 +958,9 @@ public sealed class CodexRuntimeBehaviorTests
         Assert.Equal("done", result.FinalResponse);
     }
 
-    private static CodexClient CreateExecClient(ScriptedCodexProcessLauncher launcher)
+    private static CodexClient CreateExecClient(
+        ScriptedCodexProcessLauncher launcher,
+        Action<CodexClientOptions>? configure = null)
     {
         CodexClientOptions options = new()
         {
@@ -959,6 +968,8 @@ public sealed class CodexRuntimeBehaviorTests
             CodexPathOverride = "codex",
             ProcessLauncher = launcher,
         };
+
+        configure?.Invoke(options);
 
         return new CodexClient(options);
     }

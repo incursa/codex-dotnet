@@ -314,6 +314,17 @@ public sealed record CodexModelListOptions
 }
 
 /// <summary>
+/// Configures plan-mode-specific defaults for the Codex runtime.
+/// </summary>
+public sealed record CodexPlanModeOptions
+{
+    /// <summary>
+    /// Gets or sets the reasoning effort to use when Plan mode is active.
+    /// </summary>
+    public CodexReasoningEffort? ReasoningEffort { get; init; }
+}
+
+/// <summary>
 /// Configures the Codex client and the transport it uses to communicate with the runtime.
 /// </summary>
 public sealed class CodexClientOptions
@@ -342,6 +353,11 @@ public sealed class CodexClientOptions
     /// Gets or sets additional runtime configuration.
     /// </summary>
     public CodexConfigObject? Config { get; set; }
+
+    /// <summary>
+    /// Gets or sets plan-mode-specific defaults.
+    /// </summary>
+    public CodexPlanModeOptions? PlanMode { get; set; }
 
     /// <summary>
     /// Gets or sets environment variables passed to spawned Codex processes.

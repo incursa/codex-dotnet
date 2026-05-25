@@ -79,6 +79,12 @@ public sealed class CodexHelperTypeTests
         CodexApprovalModePolicy approval = new(CodexApprovalMode.OnRequest);
         Assert.Equal(CodexApprovalMode.OnRequest, approval.Mode);
 
+        CodexPlanModeOptions planMode = new()
+        {
+            ReasoningEffort = CodexReasoningEffort.XHigh,
+        };
+        Assert.Equal(CodexReasoningEffort.XHigh, planMode.ReasoningEffort);
+
         CodexGranularApprovalPolicy granular = new(new CodexGranularApprovalRules
         {
             McpElicitations = true,

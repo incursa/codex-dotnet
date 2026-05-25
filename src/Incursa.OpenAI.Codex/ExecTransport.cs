@@ -385,6 +385,7 @@ internal sealed class CodexExecTransport : ICodexTransport
         List<string> args = ["exec", "--experimental-json"];
         CodexTurnOptions effectiveTurnOptions = turnOptions ?? new CodexTurnOptions();
         AddConfigOverrides(args, _options.Config);
+        AddPlanModeOverrides(args, _options.PlanMode);
         AddConfigOverrides(args, threadOptions?.Config);
 
         if (!string.IsNullOrWhiteSpace(_options.BaseUrl))
@@ -504,6 +505,15 @@ internal sealed class CodexExecTransport : ICodexTransport
     private static void AddConfigOverrides(List<string> args, CodexConfigObject? config)
     {
         foreach (string overrideValue in CodexConfigSerialization.FlattenConfigOverrides(config))
+        {
+            args.Add("--config");
+            args.Add(overrideValue);
+        }
+    }
+
+    private static void AddPlanModeOverrides(List<string> args, CodexPlanModeOptions? planMode)
+    {
+        foreach (string overrideValue in CodexConfigSerialization.FlattenPlanModeOverrides(planMode))
         {
             args.Add("--config");
             args.Add(overrideValue);

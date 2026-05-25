@@ -155,6 +155,64 @@ public sealed class CodexTurnOutcomeTests
         Assert.DoesNotContain(events, evt => evt.RawEventType == "turn.completed" || evt.RawEventType == "turn.failed");
     }
 
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0300")]
+    public async Task ObserveNormalizedEventsAsync_FansOutTurnEventsToConcurrentSubscribers()
+    {
+        await using CodexClient client = new();
+        CodexTurnSession session = CreateSession();
+        CodexTurn turn = new(client, session);
+
+        RecordingObserver<CodexTurnEvent> firstObserver = new();
+        RecordingObserver<CodexTurnEvent> secondObserver = new();
+        using IDisposable firstSubscription = turn.ObserveNormalizedEventsAsync().Subscribe(firstObserver);
+        using IDisposable secondSubscription = turn.ObserveNormalizedEventsAsync().Subscribe(secondObserver);
+
+        session.AppendEvent(CreateStartedEvent());
+        session.AppendEvent(CreateCompletedEvent("Done."));
+        session.CompleteWriter();
+
+        await firstObserver.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        await secondObserver.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("Done.", Assert.Single(firstObserver.Events, evt => evt.Kind == CodexTurnEventKind.FinalResponse).Text);
+        Assert.Equal("Done.", Assert.Single(secondObserver.Events, evt => evt.Kind == CodexTurnEventKind.FinalResponse).Text);
+        Assert.Equal(CodexTurnTerminalState.Completed, Assert.Single(firstObserver.Events, evt => evt.Kind == CodexTurnEventKind.Terminal).TerminalState);
+        Assert.Equal(CodexTurnTerminalState.Completed, Assert.Single(secondObserver.Events, evt => evt.Kind == CodexTurnEventKind.Terminal).TerminalState);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0300")]
+    public async Task ObserveNormalizedEventsAsync_CanShareTurnWithStreamNormalizedAsync()
+    {
+        await using CodexClient client = new();
+        CodexTurnSession session = CreateSession();
+        CodexTurn turn = new(client, session);
+        RecordingObserver<CodexTurnEvent> observer = new();
+        using IDisposable subscription = turn.ObserveNormalizedEventsAsync().Subscribe(observer);
+        List<CodexTurnEvent> streamedEvents = [];
+
+        Task streamTask = Task.Run(async () =>
+        {
+            await foreach (CodexTurnEvent evt in turn.StreamNormalizedAsync())
+            {
+                streamedEvents.Add(evt);
+            }
+        });
+
+        session.AppendEvent(CreateStartedEvent());
+        session.AppendEvent(CreateCompletedEvent("Shared."));
+        session.CompleteWriter();
+
+        await streamTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await observer.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("Shared.", Assert.Single(streamedEvents, evt => evt.Kind == CodexTurnEventKind.FinalResponse).Text);
+        Assert.Equal("Shared.", Assert.Single(observer.Events, evt => evt.Kind == CodexTurnEventKind.FinalResponse).Text);
+    }
+
     private static CodexTurnSession CreateSession()
         => new(
             "thread-1",
@@ -195,4 +253,42 @@ public sealed class CodexTurnOutcomeTests
                 ],
             },
         };
+
+    private sealed class RecordingObserver<T> : IObserver<T>
+    {
+        private readonly object _gate = new();
+        private readonly List<T> _events = [];
+        private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Completion => _completion.Task;
+
+        public IReadOnlyList<T> Events
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _events.ToArray();
+                }
+            }
+        }
+
+        public void OnNext(T value)
+        {
+            lock (_gate)
+            {
+                _events.Add(value);
+            }
+        }
+
+        public void OnError(Exception error)
+        {
+            _completion.TrySetException(error);
+        }
+
+        public void OnCompleted()
+        {
+            _completion.TrySetResult();
+        }
+    }
 }

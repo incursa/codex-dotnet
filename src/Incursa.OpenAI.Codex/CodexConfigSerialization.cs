@@ -17,6 +17,16 @@ internal static class CodexConfigSerialization
         return overrides;
     }
 
+    public static IReadOnlyList<string> FlattenPlanModeOverrides(CodexPlanModeOptions? planMode)
+    {
+        if (planMode?.ReasoningEffort is null)
+        {
+            return [];
+        }
+
+        return [$"plan_mode_reasoning_effort={JsonSerializer.Serialize(MapReasoningEffort(planMode.ReasoningEffort.Value))}"];
+    }
+
     public static string ToTomlLiteral(JsonNode? value, string path)
     {
         return value switch
@@ -134,5 +144,19 @@ internal static class CodexConfigSerialization
         return key.All(static c => char.IsLetterOrDigit(c) || c is '_' or '-')
             ? key
             : JsonSerializer.Serialize(key);
+    }
+
+    private static string MapReasoningEffort(CodexReasoningEffort effort)
+    {
+        return effort switch
+        {
+            CodexReasoningEffort.None => "none",
+            CodexReasoningEffort.Minimal => "minimal",
+            CodexReasoningEffort.Low => "low",
+            CodexReasoningEffort.Medium => "medium",
+            CodexReasoningEffort.High => "high",
+            CodexReasoningEffort.XHigh => "xhigh",
+            _ => "medium",
+        };
     }
 }

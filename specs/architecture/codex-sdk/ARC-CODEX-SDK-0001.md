@@ -168,6 +168,7 @@ related_artifacts:
   - SPEC-CODEX-SDK-LIFECYCLE
   - SPEC-CODEX-SDK-CATALOG
   - SPEC-CODEX-SDK-HELPERS
+  - ARC-CODEX-SDK-0002
 ---
 
 # ARC-CODEX-SDK-0001 - Codex .NET SDK Architecture and Dependency Injection Boundary
