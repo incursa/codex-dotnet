@@ -270,26 +270,41 @@ internal static class CodexProtocol
         return normalizedType switch
         {
             "thread.started" => new CodexThreadStartedEvent { Thread = ParseThreadSummary(GetObject(payload, "thread") ?? payload) },
-            "turn.started" => new CodexTurnStartedEvent { Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload) },
-            "turn.completed" => new CodexTurnCompletedEvent { Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload) },
-            "turn.failed" => new CodexTurnFailedEvent { Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload) },
+            "turn.started" => new CodexTurnStartedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload),
+            },
+            "turn.completed" => new CodexTurnCompletedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload),
+            },
+            "turn.failed" => new CodexTurnFailedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload),
+            },
             "item.started" => new CodexItemStartedEvent
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
                 TurnId = GetString(payload, "turnId") ?? string.Empty,
                 Item = ParseThreadItem(GetObject(payload, "item") ?? payload),
+                StartedAtMs = GetLongAny(payload, "startedAtMs", "started_at_ms") ?? 0,
             },
             "item.updated" => new CodexItemUpdatedEvent
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
                 TurnId = GetString(payload, "turnId") ?? string.Empty,
                 Item = ParseThreadItem(GetObject(payload, "item") ?? payload),
+                CompletedAtMs = GetLongAny(payload, "completedAtMs") ?? 0,
             },
             "item.completed" => new CodexItemCompletedEvent
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
                 TurnId = GetString(payload, "turnId") ?? string.Empty,
                 Item = ParseThreadItem(GetObject(payload, "item") ?? payload),
+                CompletedAtMs = GetLongAny(payload, "completedAtMs", "completed_at_ms") ?? 0,
             },
             "item.autoApprovalReview.started" => new CodexItemAutoApprovalReviewStartedEvent
             {
@@ -326,6 +341,14 @@ internal static class CodexProtocol
                 TurnId = GetString(payload, "turnId") ?? string.Empty,
                 ItemId = GetString(payload, "itemId") ?? string.Empty,
                 Delta = GetString(payload, "delta") ?? string.Empty,
+            },
+            "item.commandExecution.terminalInteraction" => new CodexCommandExecutionTerminalInteractionEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                TurnId = GetString(payload, "turnId") ?? string.Empty,
+                ItemId = GetString(payload, "itemId") ?? string.Empty,
+                ProcessId = GetString(payload, "processId") ?? string.Empty,
+                Stdin = GetString(payload, "stdin") ?? string.Empty,
             },
             "item.fileChange.outputDelta" => new CodexFileChangeOutputDeltaEvent
             {
@@ -411,6 +434,11 @@ internal static class CodexProtocol
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
             },
+            "thread.settings.updated" => new CodexThreadSettingsUpdatedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                ThreadSettings = GetObject(payload, "threadSettings")?.DeepClone().AsObject(),
+            },
             "turn.diff.updated" => new CodexTurnDiffUpdatedEvent
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
@@ -466,6 +494,13 @@ internal static class CodexProtocol
                 ProcessHandle = GetString(payload, "processHandle") ?? string.Empty,
                 Stream = ParseProcessOutputStream(GetString(payload, "stream")),
             },
+            "command.exec.outputDelta" => new CodexCommandExecOutputDeltaEvent
+            {
+                CapReached = GetBool(payload, "capReached") ?? false,
+                DeltaBase64 = GetString(payload, "deltaBase64") ?? string.Empty,
+                ProcessId = GetString(payload, "processId") ?? string.Empty,
+                Stream = ParseProcessOutputStream(GetString(payload, "stream")),
+            },
             "process.exited" => new CodexProcessExitedEvent
             {
                 ExitCode = GetInt(payload, "exitCode") ?? 0,
@@ -510,7 +545,7 @@ internal static class CodexProtocol
             },
             "serverRequest.resolved" => new CodexServerRequestResolvedEvent
             {
-                RequestId = GetString(payload, "requestId") ?? string.Empty,
+                RequestId = GetStringOrScalar(payload, "requestId") ?? string.Empty,
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
             },
             "app.list.updated" => new CodexAppListUpdatedEvent
@@ -525,6 +560,7 @@ internal static class CodexProtocol
                 ChangedPaths = GetStringList(payload, "changedPaths") ?? [],
                 WatchId = GetString(payload, "watchId") ?? string.Empty,
             },
+            "externalAgentConfig.import.completed" => new CodexExternalAgentConfigImportCompletedEvent(),
             "fuzzyFileSearch.sessionCompleted" => new CodexFuzzyFileSearchSessionCompletedEvent
             {
                 SessionId = GetString(payload, "sessionId") ?? string.Empty,
@@ -621,6 +657,12 @@ internal static class CodexProtocol
             {
                 Reason = GetString(payload, "reason"),
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
+            },
+            "rawResponseItem.completed" => new CodexRawResponseItemCompletedEvent
+            {
+                ThreadId = GetString(payload, "threadId") ?? string.Empty,
+                TurnId = GetString(payload, "turnId") ?? string.Empty,
+                Item = GetNode(payload, "item")?.DeepClone(),
             },
             _ => new CodexUnknownThreadEvent(normalizedType) { RawPayload = payload },
         };
@@ -2442,6 +2484,31 @@ internal static class CodexProtocol
 
     private static string? GetString(JsonObject? payload, string name)
         => GetNode(payload, name)?.GetValue<string>();
+
+    private static string? GetStringOrScalar(JsonObject? payload, string name)
+    {
+        if (GetNode(payload, name) is not JsonValue value)
+        {
+            return null;
+        }
+
+        if (value.TryGetValue<string>(out string? text))
+        {
+            return text;
+        }
+
+        if (value.TryGetValue<long>(out long longValue))
+        {
+            return longValue.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (value.TryGetValue<int>(out int intValue))
+        {
+            return intValue.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return value.ToJsonString();
+    }
 
     private static string? GetStringAny(JsonObject? payload, params string[] names)
     {

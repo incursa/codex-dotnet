@@ -58,21 +58,21 @@ At the transport level:
 ## Common Use Cases
 
 - One-shot answer: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunAsync(string)`
-- Streaming UI: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunStreamedAsync(string)` or [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when you need raw Codex events; call [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamNormalizedAsync()` when the UI needs stable event categories; use [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ObserveEventsAsync()` or `ObserveNormalizedEventsAsync()` when multiple subscribers need to filter, buffer, or independently project the same turn stream
+- Streaming UI: call [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ObserveEventsAsync()` when you need the exhaustive client-wide raw event channel; call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunStreamedAsync(string)` or [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when you need raw events for one turn; call [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamNormalizedAsync()` when the UI needs stable event categories; use [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ObserveEventsAsync()` or `ObserveNormalizedEventsAsync()` when multiple subscribers need to filter, buffer, or independently project the same turn stream
 - Turn diagnostics: call [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunToResultAsync()` to retrieve terminal-event state, final-response source, output counts, artifacts, and stream-ended-without-terminal diagnostics
 - Structured output: pass [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs).`OutputSchema`
 - Multimodal prompts: add [`CodexImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) or [`CodexLocalImageInput`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs)
 - Fast mode: set [`CodexThreadOptions`](../src/Incursa.OpenAI.Codex/Options.cs).`ServiceTier` or [`CodexTurnOptions`](../src/Incursa.OpenAI.Codex/Options.cs).`ServiceTier` to [`CodexServiceTier`](../src/Incursa.OpenAI.Codex/Enums.cs).`Fast`; the SDK sends Codex's current `priority` request value
 - Structured plan updates: handle [`CodexTurnPlanUpdatedEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) from [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when the app-server pushes `turn/plan/updated`
 - Account rate-limit display: call [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`GetAccountRateLimitsAsync()` on the [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) backend
-- Account rate-limit updates: handle [`CodexAccountRateLimitsUpdatedEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) from an active [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when Codex pushes `account/rateLimits/updated`
+- Account rate-limit updates: handle [`CodexAccountRateLimitsUpdatedEvent`](../src/Incursa.OpenAI.Codex/ConversationTypes.cs) from [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ObserveEventsAsync()` or from an active [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`StreamAsync()` when Codex pushes `account/rateLimits/updated`
 - Thread goals: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, or `ClearGoalAsync` on the [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) backend
 - Long-lived agent sessions: use [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) plus [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ReadAsync`, `SetNameAsync`, `CompactAsync`, [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`SteerAsync`, and [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`InterruptAsync`
 - Hosted apps: register the client through [`Incursa.OpenAI.Codex.Extensions`](../src/Incursa.OpenAI.Codex.Extensions/README.md)
 
 ## Major API Surfaces
 
-- [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs): root entry point, async-only, `IAsyncDisposable`, `GetAccountRateLimitsAsync()` for account rate-limit windows, and `IsCodexAvailableAsync()` for an executable preflight
+- [`CodexClient`](../src/Incursa.OpenAI.Codex/CodexClient.cs): root entry point, async-only, `IAsyncDisposable`, `ObserveEventsAsync()` for the client-wide raw runtime event stream, `GetAccountRateLimitsAsync()` for account rate-limit windows, and `IsCodexAvailableAsync()` for an executable preflight
 - [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs): stateful conversation handle
 - [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs): single-turn handle with async-enumerable and observable event views
 - [`CodexClientOptions`](../src/Incursa.OpenAI.Codex/Options.cs): backend selection, executable path override, API key, configuration, plan-mode defaults, environment, and approval handler

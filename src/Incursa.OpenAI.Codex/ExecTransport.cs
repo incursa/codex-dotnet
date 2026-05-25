@@ -32,6 +32,7 @@ internal sealed class CodexExecTransport : ICodexTransport
 
     private readonly CodexClientOptions _options;
     private readonly CodexTurnConsumerGate _turnConsumerGate;
+    private readonly CodexBroadcastObservable<CodexThreadEvent> _events = new();
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private string? _executablePath;
     private bool _disposed;
@@ -44,6 +45,8 @@ internal sealed class CodexExecTransport : ICodexTransport
     }
 
     public CodexRuntimeCapabilities Capabilities => SupportedCapabilities;
+
+    public IObservable<CodexThreadEvent> ObserveEventsAsync() => _events;
 
     public async Task<CodexRuntimeMetadata> InitializeAsync(CancellationToken cancellationToken)
     {
@@ -154,6 +157,14 @@ internal sealed class CodexExecTransport : ICodexTransport
     public Task ShellCommandThreadAsync(string threadId, string command, CancellationToken cancellationToken)
         => Task.FromException(new CodexCapabilityNotSupportedException(nameof(CodexThread.ShellCommandAsync), CodexBackendSelection.Exec));
 
+    public Task<CodexTurnSession> AttachTurnAsync(
+        string threadId,
+        string turnId,
+        CodexThreadOptions? threadOptions,
+        CodexTurnAttachOptions? options,
+        CancellationToken cancellationToken)
+        => Task.FromException<CodexTurnSession>(new CodexCapabilityNotSupportedException(nameof(CodexThread.AttachTurnAsync), CodexBackendSelection.Exec));
+
     public Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -172,6 +183,7 @@ internal sealed class CodexExecTransport : ICodexTransport
     {
         _disposed = true;
         _initializeGate.Dispose();
+        _events.Complete();
         return ValueTask.CompletedTask;
     }
 
@@ -258,6 +270,7 @@ internal sealed class CodexExecTransport : ICodexTransport
                 }
 
                 CodexThreadEvent evt = ParseEvent(line);
+                _events.Publish(evt);
                 if (evt is CodexTurnCompletedEvent or CodexTurnFailedEvent)
                 {
                     terminalSeen = true;
@@ -272,8 +285,9 @@ internal sealed class CodexExecTransport : ICodexTransport
             if (!terminalSeen)
             {
                 string tail = BuildStderrTail(stderrLines);
-                session.AppendEvent(new CodexTurnFailedEvent
+                CodexThreadEvent failedEvent = new CodexTurnFailedEvent
                 {
+                    ThreadId = session.ThreadId,
                     Turn = new CodexTurnRecord
                     {
                         Id = session.Id,
@@ -285,13 +299,16 @@ internal sealed class CodexExecTransport : ICodexTransport
                             AdditionalDetails = string.IsNullOrWhiteSpace(tail) ? null : tail,
                         },
                     },
-                });
+                };
+                _events.Publish(failedEvent);
+                session.AppendEvent(failedEvent);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            session.AppendEvent(new CodexTurnFailedEvent
+            CodexThreadEvent failedEvent = new CodexTurnFailedEvent
             {
+                ThreadId = session.ThreadId,
                 Turn = new CodexTurnRecord
                 {
                     Id = session.Id,
@@ -303,7 +320,9 @@ internal sealed class CodexExecTransport : ICodexTransport
                         AdditionalDetails = exception.InnerException?.Message,
                     },
                 },
-            });
+            };
+            _events.Publish(failedEvent);
+            session.AppendEvent(failedEvent);
         }
         finally
         {

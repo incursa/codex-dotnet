@@ -400,6 +400,58 @@ public sealed class CodexProtocolTests
         Assert.IsType<CodexThreadStartedEvent>(started);
         Assert.Equal("thread-1", ((CodexThreadStartedEvent)started).Thread.Id);
 
+        CodexThreadEvent turnStarted = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "turn.started",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turn"] = new JsonObject
+                {
+                    ["id"] = "turn-1",
+                    ["status"] = "inProgress",
+                },
+            }));
+
+        CodexTurnStartedEvent typedTurnStarted = Assert.IsType<CodexTurnStartedEvent>(turnStarted);
+        Assert.Equal("thread-1", typedTurnStarted.ThreadId);
+        Assert.Equal("turn-1", typedTurnStarted.Turn.Id);
+
+        CodexThreadEvent itemStarted = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "item.started",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["startedAtMs"] = 1234L,
+                ["item"] = new JsonObject
+                {
+                    ["id"] = "item-started",
+                    ["type"] = "plan",
+                    ["text"] = "Plan",
+                },
+            }));
+
+        CodexItemStartedEvent typedItemStarted = Assert.IsType<CodexItemStartedEvent>(itemStarted);
+        Assert.Equal(1234L, typedItemStarted.StartedAtMs);
+
+        CodexThreadEvent itemCompleted = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "item.completed",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["completedAtMs"] = 2345L,
+                ["item"] = new JsonObject
+                {
+                    ["id"] = "item-completed",
+                    ["type"] = "plan",
+                    ["text"] = "Done",
+                },
+            }));
+
+        CodexItemCompletedEvent typedItemCompleted = Assert.IsType<CodexItemCompletedEvent>(itemCompleted);
+        Assert.Equal(2345L, typedItemCompleted.CompletedAtMs);
+
         CodexThreadEvent statusChanged = CodexProtocol.ParseThreadEvent(TestJson.Notification(
             "thread.status.changed",
             new JsonObject
@@ -425,6 +477,21 @@ public sealed class CodexProtocolTests
 
         Assert.IsType<CodexThreadUnarchivedEvent>(unarchived);
         Assert.Equal("thread-1", ((CodexThreadUnarchivedEvent)unarchived).ThreadId);
+
+        CodexThreadEvent settingsUpdated = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "thread.settings.updated",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["threadSettings"] = new JsonObject
+                {
+                    ["model"] = "gpt-5",
+                },
+            }));
+
+        CodexThreadSettingsUpdatedEvent threadSettings = Assert.IsType<CodexThreadSettingsUpdatedEvent>(settingsUpdated);
+        Assert.Equal("thread-1", threadSettings.ThreadId);
+        Assert.Equal("gpt-5", threadSettings.ThreadSettings?["model"]?.GetValue<string>());
 
         CodexThreadEvent closed = CodexProtocol.ParseThreadEvent(TestJson.Notification(
             "thread.closed",
@@ -524,6 +591,36 @@ public sealed class CodexProtocolTests
 
         Assert.IsType<CodexCommandExecutionOutputDeltaEvent>(commandDelta);
         Assert.Equal("output", ((CodexCommandExecutionOutputDeltaEvent)commandDelta).Delta);
+
+        CodexThreadEvent commandExecDelta = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "command.exec.outputDelta",
+            new JsonObject
+            {
+                ["processId"] = "process-1",
+                ["stream"] = "stdout",
+                ["deltaBase64"] = "b3V0",
+                ["capReached"] = true,
+            }));
+
+        CodexCommandExecOutputDeltaEvent typedCommandExecDelta = Assert.IsType<CodexCommandExecOutputDeltaEvent>(commandExecDelta);
+        Assert.Equal("process-1", typedCommandExecDelta.ProcessId);
+        Assert.Equal(CodexProcessOutputStream.Stdout, typedCommandExecDelta.Stream);
+        Assert.True(typedCommandExecDelta.CapReached);
+
+        CodexThreadEvent terminalInteraction = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "item.commandExecution.terminalInteraction",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["itemId"] = "item-2",
+                ["processId"] = "process-1",
+                ["stdin"] = "y",
+            }));
+
+        CodexCommandExecutionTerminalInteractionEvent typedTerminalInteraction = Assert.IsType<CodexCommandExecutionTerminalInteractionEvent>(terminalInteraction);
+        Assert.Equal("process-1", typedTerminalInteraction.ProcessId);
+        Assert.Equal("y", typedTerminalInteraction.Stdin);
 
         CodexThreadEvent fileChangeDelta = CodexProtocol.ParseThreadEvent(TestJson.Notification(
             "item.fileChange.outputDelta",
@@ -635,9 +732,26 @@ public sealed class CodexProtocolTests
                 },
             }));
 
-        Assert.IsType<CodexTurnCompletedEvent>(completed);
-        Assert.Equal("turn-1", ((CodexTurnCompletedEvent)completed).Turn.Id);
-        Assert.Single(((CodexTurnCompletedEvent)completed).Turn.Items);
+        CodexTurnCompletedEvent typedCompleted = Assert.IsType<CodexTurnCompletedEvent>(completed);
+        Assert.Equal("turn-1", typedCompleted.Turn.Id);
+        Assert.Single(typedCompleted.Turn.Items);
+
+        CodexThreadEvent rawResponseItem = CodexProtocol.ParseThreadEvent(TestJson.Notification(
+            "rawResponseItem.completed",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turnId"] = "turn-1",
+                ["item"] = new JsonObject
+                {
+                    ["type"] = "message",
+                    ["id"] = "raw-1",
+                },
+            }));
+
+        CodexRawResponseItemCompletedEvent typedRawResponseItem = Assert.IsType<CodexRawResponseItemCompletedEvent>(rawResponseItem);
+        Assert.Equal("turn-1", typedRawResponseItem.TurnId);
+        Assert.Equal("message", typedRawResponseItem.Item?["type"]?.GetValue<string>());
 
         CodexThreadEvent reviewStarted = CodexProtocol.ParseThreadEvent(TestJson.Notification(
             "item/autoApprovalReview/started",
@@ -1150,10 +1264,10 @@ public sealed class CodexProtocolTests
             "serverRequest/resolved",
             new JsonObject
             {
-                ["requestId"] = "request-1",
+                ["requestId"] = 42,
                 ["threadId"] = "thread-1",
             })));
-        Assert.Equal("request-1", serverRequestResolved.RequestId);
+        Assert.Equal("42", serverRequestResolved.RequestId);
         Assert.Equal("thread-1", serverRequestResolved.ThreadId);
 
         CodexAppListUpdatedEvent appListUpdated = Assert.IsType<CodexAppListUpdatedEvent>(CodexProtocol.ParseThreadEvent(TestJson.Notification(
@@ -1173,6 +1287,7 @@ public sealed class CodexProtocolTests
         Assert.Equal("Trace App", appListUpdated.Data[0]["name"]!.GetValue<string>());
 
         Assert.IsType<CodexSkillsChangedEvent>(CodexProtocol.ParseThreadEvent(TestJson.Notification("skills/changed", new JsonObject())));
+        Assert.IsType<CodexExternalAgentConfigImportCompletedEvent>(CodexProtocol.ParseThreadEvent(TestJson.Notification("externalAgentConfig/import/completed", new JsonObject())));
 
         CodexFsChangedEvent fsChanged = Assert.IsType<CodexFsChangedEvent>(CodexProtocol.ParseThreadEvent(TestJson.Notification(
             "fs/changed",

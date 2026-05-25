@@ -33,6 +33,11 @@ internal sealed class CodexReplayObservable<T> : IObservable<T>
             completed = _completed;
             error = _error;
 
+            if (!completed)
+            {
+                _subscriptions.Add(subscription);
+            }
+
             foreach (T item in history)
             {
                 subscription.TryWrite(item);
@@ -44,7 +49,6 @@ internal sealed class CodexReplayObservable<T> : IObservable<T>
             }
             else
             {
-                _subscriptions.Add(subscription);
                 EnsurePumpStarted();
             }
         }
@@ -151,6 +155,10 @@ internal sealed class CodexReplayObservable<T> : IObservable<T>
             {
                 _pumpCancellation = null;
                 _pumpTask = null;
+                if (!_completed && _subscriptions.Count > 0)
+                {
+                    EnsurePumpStarted();
+                }
             }
         }
 
@@ -276,6 +284,192 @@ internal sealed class CodexReplayObservable<T> : IObservable<T>
     }
 }
 
+internal sealed class CodexBroadcastObservable<T> : IObservable<T>
+{
+    private readonly object _gate = new();
+    private readonly List<Subscription> _subscriptions = [];
+    private bool _completed;
+    private Exception? _error;
+
+    public IDisposable Subscribe(IObserver<T> observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+
+        Subscription subscription = new(this, observer);
+        bool completed;
+        Exception? error;
+
+        lock (_gate)
+        {
+            completed = _completed;
+            error = _error;
+
+            if (completed)
+            {
+                subscription.Complete(error);
+            }
+            else
+            {
+                _subscriptions.Add(subscription);
+            }
+        }
+
+        return subscription;
+    }
+
+    public void Publish(T item)
+    {
+        Subscription[] subscriptions;
+        lock (_gate)
+        {
+            if (_completed)
+            {
+                return;
+            }
+
+            subscriptions = _subscriptions.ToArray();
+        }
+
+        foreach (Subscription subscription in subscriptions)
+        {
+            subscription.TryWrite(item);
+        }
+    }
+
+    public void Complete(Exception? error = null)
+    {
+        Subscription[] subscriptions;
+
+        lock (_gate)
+        {
+            if (_completed)
+            {
+                return;
+            }
+
+            _completed = true;
+            _error = error;
+            subscriptions = _subscriptions.ToArray();
+            _subscriptions.Clear();
+        }
+
+        foreach (Subscription subscription in subscriptions)
+        {
+            subscription.Complete(error);
+        }
+    }
+
+    private void Remove(Subscription subscription)
+    {
+        lock (_gate)
+        {
+            _subscriptions.Remove(subscription);
+        }
+    }
+
+    private sealed class Subscription : IDisposable
+    {
+        private readonly CodexBroadcastObservable<T> _owner;
+        private readonly IObserver<T> _observer;
+        private readonly Channel<T> _channel;
+        private int _disposed;
+        private bool _suppressTerminalNotification;
+
+        public Subscription(CodexBroadcastObservable<T> owner, IObserver<T> observer)
+        {
+            _owner = owner;
+            _observer = observer;
+            _channel = Channel.CreateUnbounded<T>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false,
+            });
+            _ = DispatchAsync();
+        }
+
+        public bool TryWrite(T item)
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return false;
+            }
+
+            return _channel.Writer.TryWrite(item);
+        }
+
+        public void Complete(Exception? error)
+        {
+            _channel.Writer.TryComplete(error);
+        }
+
+        public void Dispose()
+        {
+            Dispose(suppressTerminalNotification: true);
+        }
+
+        private void Dispose(bool suppressTerminalNotification)
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            _suppressTerminalNotification = suppressTerminalNotification;
+            _owner.Remove(this);
+            _channel.Writer.TryComplete();
+        }
+
+        private async Task DispatchAsync()
+        {
+            try
+            {
+                await foreach (T item in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
+                {
+                    try
+                    {
+                        _observer.OnNext(item);
+                    }
+                    catch (Exception exception)
+                    {
+                        NotifyError(exception);
+                        Dispose(suppressTerminalNotification: true);
+                        return;
+                    }
+                }
+
+                if (!_suppressTerminalNotification)
+                {
+                    _observer.OnCompleted();
+                }
+            }
+            catch (Exception exception)
+            {
+                if (!_suppressTerminalNotification)
+                {
+                    _observer.OnError(exception);
+                }
+            }
+            finally
+            {
+                _owner.Remove(this);
+            }
+        }
+
+        private void NotifyError(Exception exception)
+        {
+            try
+            {
+                _observer.OnError(exception);
+            }
+            catch
+            {
+                // Observer callbacks must not break the shared event stream.
+            }
+        }
+    }
+}
+
 internal sealed class CodexNormalizedTurnObservable : IObservable<CodexTurnEvent>
 {
     private readonly IObservable<CodexThreadEvent> _source;
@@ -372,7 +566,7 @@ internal static class CodexObservableAdapters
 
         try
         {
-            await foreach (T item in channel.Reader.ReadAllAsync(CancellationToken.None).ConfigureAwait(false))
+            await foreach (T item in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 yield return item;
             }

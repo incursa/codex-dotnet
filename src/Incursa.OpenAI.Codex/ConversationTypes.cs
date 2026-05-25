@@ -436,6 +436,11 @@ public sealed record CodexThreadStartedEvent() : CodexThreadEvent("thread.starte
 public sealed record CodexTurnStartedEvent() : CodexThreadEvent("turn.started")
 {
     /// <summary>
+    /// Gets or sets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
     /// Gets or sets the turn record.
     /// </summary>
     public CodexTurnRecord Turn { get; init; } = new();
@@ -447,6 +452,11 @@ public sealed record CodexTurnStartedEvent() : CodexThreadEvent("turn.started")
 public sealed record CodexTurnCompletedEvent() : CodexThreadEvent("turn.completed")
 {
     /// <summary>
+    /// Gets or sets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
     /// Gets or sets the turn record.
     /// </summary>
     public CodexTurnRecord Turn { get; init; } = new();
@@ -457,6 +467,11 @@ public sealed record CodexTurnCompletedEvent() : CodexThreadEvent("turn.complete
 /// </summary>
 public sealed record CodexTurnFailedEvent() : CodexThreadEvent("turn.failed")
 {
+    /// <summary>
+    /// Gets or sets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
     /// <summary>
     /// Gets or sets the turn record.
     /// </summary>
@@ -482,6 +497,11 @@ public sealed record CodexItemStartedEvent() : CodexThreadEvent("item.started")
     /// Gets or sets the item snapshot.
     /// </summary>
     public CodexThreadItem Item { get; init; } = new CodexUnknownThreadItem("unknown");
+
+    /// <summary>
+    /// Gets or sets the start timestamp in milliseconds, if reported.
+    /// </summary>
+    public long StartedAtMs { get; init; }
 }
 
 /// <summary>
@@ -503,6 +523,11 @@ public sealed record CodexItemUpdatedEvent() : CodexThreadEvent("item.updated")
     /// Gets or sets the item snapshot.
     /// </summary>
     public CodexThreadItem Item { get; init; } = new CodexUnknownThreadItem("unknown");
+
+    /// <summary>
+    /// Gets or sets the completion timestamp in milliseconds, if reported.
+    /// </summary>
+    public long CompletedAtMs { get; init; }
 }
 
 /// <summary>
@@ -524,6 +549,11 @@ public sealed record CodexItemCompletedEvent() : CodexThreadEvent("item.complete
     /// Gets or sets the item snapshot.
     /// </summary>
     public CodexThreadItem Item { get; init; } = new CodexUnknownThreadItem("unknown");
+
+    /// <summary>
+    /// Gets or sets the completion timestamp in milliseconds, if reported.
+    /// </summary>
+    public long CompletedAtMs { get; init; }
 }
 
 /// <summary>
@@ -661,6 +691,24 @@ public sealed record CodexProcessOutputDeltaEvent() : CodexThreadEvent("process.
 
     /// <summary>Gets the process handle.</summary>
     public string ProcessHandle { get; init; } = "";
+
+    /// <summary>Gets the output stream.</summary>
+    public CodexProcessOutputStream Stream { get; init; } = CodexProcessOutputStream.Unknown;
+}
+
+/// <summary>
+/// Represents a command execution output delta notification.
+/// </summary>
+public sealed record CodexCommandExecOutputDeltaEvent() : CodexThreadEvent("command.exec.outputDelta")
+{
+    /// <summary>Gets whether the output stream reached the configured cap.</summary>
+    public bool CapReached { get; init; }
+
+    /// <summary>Gets the streamed delta as base64.</summary>
+    public string DeltaBase64 { get; init; } = "";
+
+    /// <summary>Gets the client-supplied process identifier.</summary>
+    public string ProcessId { get; init; } = "";
 
     /// <summary>Gets the output stream.</summary>
     public CodexProcessOutputStream Stream { get; init; } = CodexProcessOutputStream.Unknown;
@@ -1178,6 +1226,22 @@ public sealed record CodexThreadUnarchivedEvent() : CodexThreadEvent("thread.una
 }
 
 /// <summary>
+/// Represents an app-server notification that thread settings changed.
+/// </summary>
+public sealed record CodexThreadSettingsUpdatedEvent() : CodexThreadEvent("thread.settings.updated")
+{
+    /// <summary>
+    /// Gets the thread identifier.
+    /// </summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the raw thread settings payload.
+    /// </summary>
+    public JsonObject? ThreadSettings { get; init; }
+}
+
+/// <summary>
 /// Represents an app-server notification that a turn diff changed.
 /// </summary>
 public sealed record CodexTurnDiffUpdatedEvent() : CodexThreadEvent("turn.diff.updated")
@@ -1330,6 +1394,27 @@ public sealed record CodexCommandExecutionOutputDeltaEvent() : CodexThreadEvent(
 }
 
 /// <summary>
+/// Represents terminal input written to a command execution item.
+/// </summary>
+public sealed record CodexCommandExecutionTerminalInteractionEvent() : CodexThreadEvent("item.commandExecution.terminalInteraction")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the item identifier.</summary>
+    public string ItemId { get; init; } = "";
+
+    /// <summary>Gets the process identifier.</summary>
+    public string ProcessId { get; init; } = "";
+
+    /// <summary>Gets the terminal input.</summary>
+    public string Stdin { get; init; } = "";
+}
+
+/// <summary>
 /// Represents a streamed delta for a file change item.
 /// </summary>
 public sealed record CodexFileChangeOutputDeltaEvent() : CodexThreadEvent("item.fileChange.outputDelta")
@@ -1442,6 +1527,27 @@ public sealed record CodexReasoningSummaryTextDeltaEvent() : CodexThreadEvent("i
     /// <summary>Gets the streamed text delta.</summary>
     public string Delta { get; init; } = "";
 }
+
+/// <summary>
+/// Represents an internal raw response item completion notification.
+/// </summary>
+public sealed record CodexRawResponseItemCompletedEvent() : CodexThreadEvent("rawResponseItem.completed")
+{
+    /// <summary>Gets the thread identifier.</summary>
+    public string ThreadId { get; init; } = "";
+
+    /// <summary>Gets the turn identifier.</summary>
+    public string TurnId { get; init; } = "";
+
+    /// <summary>Gets the raw response item payload.</summary>
+    public JsonNode? Item { get; init; }
+}
+
+/// <summary>
+/// Represents completion of an external-agent configuration import.
+/// </summary>
+public sealed record CodexExternalAgentConfigImportCompletedEvent()
+    : CodexThreadEvent("externalAgentConfig.import.completed");
 
 /// <summary>
 /// Fallback event for an unrecognized thread event type.

@@ -309,6 +309,7 @@ internal sealed class CodexTurnOutcomeBuilder
                 break;
 
             case CodexTurnStartedEvent turnStarted:
+                BindThreadId(turnStarted.ThreadId);
                 ApplyTurnRecord(turnStarted.Turn);
                 _terminalState = CodexTurnTerminalState.None;
                 AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Turn started", turnStarted.Turn.Id, timestamp, Metadata("status", turnStarted.Turn.Status.ToString()), isUserVisibleByDefault: false);
@@ -341,10 +342,12 @@ internal sealed class CodexTurnOutcomeBuilder
                 break;
 
             case CodexTurnCompletedEvent completedTurn:
+                BindThreadId(completedTurn.ThreadId);
                 ApplyTerminalTurn(evt.Type, completedTurn.Turn, timestamp, events);
                 break;
 
             case CodexTurnFailedEvent failedTurn:
+                BindThreadId(failedTurn.ThreadId);
                 ApplyTerminalTurn(evt.Type, failedTurn.Turn, timestamp, events);
                 break;
 
@@ -365,6 +368,165 @@ internal sealed class CodexTurnOutcomeBuilder
                 BindThreadId(planDelta.ThreadId);
                 BindTurnId(planDelta.TurnId);
                 AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Plan delta", planDelta.Delta, timestamp, Metadata("itemId", planDelta.ItemId), isUserVisibleByDefault: false);
+                break;
+
+            case CodexCommandExecutionOutputDeltaEvent commandDelta:
+                BindThreadId(commandDelta.ThreadId);
+                BindTurnId(commandDelta.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Normal, "Command output", commandDelta.Delta, timestamp, Metadata("itemId", commandDelta.ItemId), isUserVisibleByDefault: false);
+                break;
+
+            case CodexCommandExecutionTerminalInteractionEvent terminalInteraction:
+                BindThreadId(terminalInteraction.ThreadId);
+                BindTurnId(terminalInteraction.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Terminal interaction", terminalInteraction.Stdin, timestamp, Metadata("itemId", terminalInteraction.ItemId, "processId", terminalInteraction.ProcessId), isUserVisibleByDefault: false);
+                break;
+
+            case CodexCommandExecOutputDeltaEvent commandExecDelta:
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Normal, "Command exec output", commandExecDelta.DeltaBase64, timestamp, Metadata("processId", commandExecDelta.ProcessId, "stream", commandExecDelta.Stream.ToString(), "capReached", commandExecDelta.CapReached.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexFileChangeOutputDeltaEvent fileChangeDelta:
+                BindThreadId(fileChangeDelta.ThreadId);
+                BindTurnId(fileChangeDelta.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Normal, "File change output", fileChangeDelta.Delta, timestamp, Metadata("itemId", fileChangeDelta.ItemId), isUserVisibleByDefault: false);
+                break;
+
+            case CodexFileChangePatchUpdatedEvent fileChangePatch:
+                BindThreadId(fileChangePatch.ThreadId);
+                BindTurnId(fileChangePatch.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "File change patch updated", null, timestamp, Metadata("itemId", fileChangePatch.ItemId, "changeCount", fileChangePatch.Changes.Count.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexMcpToolCallProgressEvent mcpProgress:
+                BindThreadId(mcpProgress.ThreadId);
+                BindTurnId(mcpProgress.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Normal, "MCP tool progress", mcpProgress.Message, timestamp, Metadata("itemId", mcpProgress.ItemId), isUserVisibleByDefault: false);
+                break;
+
+            case CodexReasoningTextDeltaEvent reasoningText:
+                BindThreadId(reasoningText.ThreadId);
+                BindTurnId(reasoningText.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Low, "Reasoning text delta", reasoningText.Delta, timestamp, Metadata("itemId", reasoningText.ItemId, "contentIndex", reasoningText.ContentIndex.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexReasoningSummaryPartAddedEvent reasoningSummaryPart:
+                BindThreadId(reasoningSummaryPart.ThreadId);
+                BindTurnId(reasoningSummaryPart.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Low, "Reasoning summary part added", null, timestamp, Metadata("itemId", reasoningSummaryPart.ItemId, "summaryIndex", reasoningSummaryPart.SummaryIndex.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexReasoningSummaryTextDeltaEvent reasoningSummary:
+                BindThreadId(reasoningSummary.ThreadId);
+                BindTurnId(reasoningSummary.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Low, "Reasoning summary delta", reasoningSummary.Delta, timestamp, Metadata("itemId", reasoningSummary.ItemId, "summaryIndex", reasoningSummary.SummaryIndex.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexTurnDiffUpdatedEvent diffUpdated:
+                BindThreadId(diffUpdated.ThreadId);
+                BindTurnId(diffUpdated.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Turn diff updated", diffUpdated.Diff, timestamp, Metadata("diffLength", diffUpdated.Diff.Length.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexThreadTokenUsageUpdatedEvent tokenUsage:
+                BindThreadId(tokenUsage.ThreadId);
+                BindTurnId(tokenUsage.TurnId);
+                _usage = tokenUsage.TokenUsage;
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Low, "Token usage updated", null, timestamp, Metadata("lastTokens", tokenUsage.TokenUsage.Last.TotalTokens.ToString(), "totalTokens", tokenUsage.TokenUsage.Total.TotalTokens.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexThreadGoalUpdatedEvent goalUpdated:
+                BindThreadId(goalUpdated.ThreadId);
+                BindTurnId(goalUpdated.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Goal updated", goalUpdated.Goal.Objective, timestamp, Metadata("status", goalUpdated.Goal.Status.ToString(), "tokenBudget", goalUpdated.Goal.TokenBudget?.ToString(), "tokensUsed", goalUpdated.Goal.TokensUsed.ToString()), isUserVisibleByDefault: true);
+                break;
+
+            case CodexThreadGoalClearedEvent goalCleared:
+                BindThreadId(goalCleared.ThreadId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Goal cleared", null, timestamp, isUserVisibleByDefault: true);
+                break;
+
+            case CodexThreadSettingsUpdatedEvent settingsUpdated:
+                BindThreadId(settingsUpdated.ThreadId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Thread settings updated", null, timestamp, Metadata("hasSettings", (settingsUpdated.ThreadSettings is not null).ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexItemAutoApprovalReviewStartedEvent reviewStarted:
+                BindThreadId(reviewStarted.ThreadId);
+                BindTurnId(reviewStarted.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Auto-approval review started", null, timestamp, Metadata("reviewId", reviewStarted.ReviewId, "targetItemId", reviewStarted.TargetItemId), isUserVisibleByDefault: false);
+                break;
+
+            case CodexItemAutoApprovalReviewCompletedEvent reviewCompleted:
+                BindThreadId(reviewCompleted.ThreadId);
+                BindTurnId(reviewCompleted.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Auto-approval review completed", null, timestamp, Metadata("reviewId", reviewCompleted.ReviewId, "targetItemId", reviewCompleted.TargetItemId, "decisionSource", reviewCompleted.DecisionSource), isUserVisibleByDefault: false);
+                break;
+
+            case CodexHookStartedEvent hookStarted:
+                BindThreadId(hookStarted.ThreadId);
+                BindTurnId(hookStarted.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Low, "Hook started", hookStarted.Run.StatusMessage, timestamp, DescribeHookMetadata(hookStarted.Run), isUserVisibleByDefault: false);
+                break;
+
+            case CodexHookCompletedEvent hookCompleted:
+                BindThreadId(hookCompleted.ThreadId);
+                BindTurnId(hookCompleted.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Low, "Hook completed", hookCompleted.Run.StatusMessage, timestamp, DescribeHookMetadata(hookCompleted.Run), isUserVisibleByDefault: false);
+                break;
+
+            case CodexModelReroutedEvent modelRerouted:
+                BindThreadId(modelRerouted.ThreadId);
+                BindTurnId(modelRerouted.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.High, "Model rerouted", $"{modelRerouted.FromModel} -> {modelRerouted.ToModel}", timestamp, Metadata("reason", modelRerouted.Reason.ToString()), isUserVisibleByDefault: true);
+                break;
+
+            case CodexModelVerificationEvent modelVerification:
+                BindThreadId(modelVerification.ThreadId);
+                BindTurnId(modelVerification.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Model verification", null, timestamp, Metadata("verificationCount", modelVerification.Verifications.Count.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexAccountRateLimitsUpdatedEvent rateLimits:
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Rate limits updated", rateLimits.RateLimits.LimitId, timestamp, Metadata("planType", rateLimits.RateLimits.PlanType.ToString(), "primaryUsedPercent", rateLimits.RateLimits.Primary?.UsedPercent.ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexWarningEvent warning:
+                BindThreadId(warning.ThreadId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Error, CodexTurnEventImportance.High, "Warning", warning.Message, timestamp, isUserVisibleByDefault: true);
+                break;
+
+            case CodexConfigWarningEvent configWarning:
+                AddEvent(events, evt.Type, CodexTurnEventKind.Error, CodexTurnEventImportance.High, "Config warning", configWarning.Summary, timestamp, Metadata("path", configWarning.Path, "details", configWarning.Details), isUserVisibleByDefault: true);
+                break;
+
+            case CodexDeprecationNoticeEvent deprecation:
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Deprecation notice", deprecation.Summary, timestamp, Metadata("details", deprecation.Details), isUserVisibleByDefault: true);
+                break;
+
+            case CodexGuardianWarningEvent guardianWarning:
+                BindThreadId(guardianWarning.ThreadId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Error, CodexTurnEventImportance.High, "Guardian warning", guardianWarning.Message, timestamp, isUserVisibleByDefault: true);
+                break;
+
+            case CodexThreadRealtimeTranscriptDeltaEvent transcriptDelta:
+                BindThreadId(transcriptDelta.ThreadId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Progress, CodexTurnEventImportance.Normal, "Realtime transcript delta", transcriptDelta.Delta, timestamp, Metadata("role", transcriptDelta.Role), isUserVisibleByDefault: false);
+                break;
+
+            case CodexThreadRealtimeTranscriptDoneEvent transcriptDone:
+                BindThreadId(transcriptDone.ThreadId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "Realtime transcript", transcriptDone.Text, timestamp, Metadata("role", transcriptDone.Role), isUserVisibleByDefault: true);
+                break;
+
+            case CodexRawResponseItemCompletedEvent rawResponseItem:
+                BindThreadId(rawResponseItem.ThreadId);
+                BindTurnId(rawResponseItem.TurnId);
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Low, "Raw response item completed", null, timestamp, Metadata("hasItem", (rawResponseItem.Item is not null).ToString()), isUserVisibleByDefault: false);
+                break;
+
+            case CodexExternalAgentConfigImportCompletedEvent:
+                AddEvent(events, evt.Type, CodexTurnEventKind.Activity, CodexTurnEventImportance.Normal, "External agent config import completed", null, timestamp, isUserVisibleByDefault: false);
                 break;
 
             case CodexThreadCompactedEvent compacted:
@@ -779,6 +941,15 @@ internal sealed class CodexTurnOutcomeBuilder
             CodexImageGenerationItem imageGeneration => Metadata("itemId", imageGeneration.Id, "path", imageGeneration.SavedPath, "result", imageGeneration.Result, "status", imageGeneration.Status),
             _ => Metadata("itemId", item.Id),
         };
+
+    private static IReadOnlyDictionary<string, string?> DescribeHookMetadata(CodexHookRunSummary run)
+        => Metadata(
+            "hookRunId", run.Id,
+            "eventName", run.EventName.ToString(),
+            "status", run.Status.ToString(),
+            "handlerType", run.HandlerType.ToString(),
+            "executionMode", run.ExecutionMode.ToString(),
+            "source", run.Source.ToString());
 
     private static bool IsUnknownAgentMessageDelta(CodexUnknownThreadEvent unknown, out string? delta)
     {

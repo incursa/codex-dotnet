@@ -6,6 +6,8 @@ internal interface ICodexTransport : IAsyncDisposable
 {
     CodexRuntimeCapabilities Capabilities { get; }
 
+    IObservable<CodexThreadEvent> ObserveEventsAsync();
+
     Task<CodexRuntimeMetadata> InitializeAsync(CancellationToken cancellationToken);
 
     Task<CodexThreadHandleState> StartThreadAsync(CodexThreadOptions? options, CancellationToken cancellationToken);
@@ -54,6 +56,13 @@ internal interface ICodexTransport : IAsyncDisposable
         CancellationToken cancellationToken);
 
     Task ShellCommandThreadAsync(string threadId, string command, CancellationToken cancellationToken);
+
+    Task<CodexTurnSession> AttachTurnAsync(
+        string threadId,
+        string turnId,
+        CodexThreadOptions? threadOptions,
+        CodexTurnAttachOptions? options,
+        CancellationToken cancellationToken);
 
     Task<CodexTurnSession> StartTurnAsync(
         string? threadId,

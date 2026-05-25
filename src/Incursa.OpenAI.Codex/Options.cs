@@ -231,6 +231,17 @@ public sealed record CodexTurnOptions
 }
 
 /// <summary>
+/// Configures a request to attach to an already-running Codex turn.
+/// </summary>
+public sealed record CodexTurnAttachOptions
+{
+    /// <summary>
+    /// Gets thread resume options used while re-subscribing to the active thread.
+    /// </summary>
+    public CodexThreadOptions? ResumeOptions { get; init; }
+}
+
+/// <summary>
 /// Configures a request to read a Codex thread snapshot.
 /// </summary>
 public sealed record CodexThreadReadOptions

@@ -55,6 +55,16 @@ public sealed class CodexClient : IAsyncDisposable
     public CodexRuntimeCapabilities? Capabilities { get; private set; }
 
     /// <summary>
+    /// Observes all runtime events received by this client after subscription.
+    /// </summary>
+    /// <returns>An observable stream of raw runtime events from the selected backend.</returns>
+    public IObservable<CodexThreadEvent> ObserveEventsAsync()
+    {
+        ThrowIfDisposed();
+        return _transport.ObserveEventsAsync();
+    }
+
+    /// <summary>
     /// Initializes the selected Codex backend and reads runtime metadata.
     /// </summary>
     /// <param name="cancellationToken">A token that cancels the initialization request.</param>
@@ -397,6 +407,19 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.StartTurnAsync(threadId, input, threadOptions, options, cancellationToken).ConfigureAwait(false);
     }
 
+    internal async Task<CodexTurnSession> AttachTurnAsync(
+        string threadId,
+        string turnId,
+        CodexThreadOptions? threadOptions,
+        CodexTurnAttachOptions? options,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsResumeThread == true, nameof(CodexThread.AttachTurnAsync));
+        EnsureCapability(Capabilities?.SupportsThreadStreaming == true, nameof(CodexThread.AttachTurnAsync));
+        return await _transport.AttachTurnAsync(threadId, turnId, threadOptions, options, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
@@ -555,6 +578,39 @@ public sealed class CodexThread
         {
             _id = session.ThreadId;
         }
+        return new CodexTurn(_client, session);
+    }
+
+    /// <summary>
+    /// Attaches a handle to an already-running turn on this thread.
+    /// </summary>
+    /// <param name="turnId">The identifier of the in-flight turn to attach.</param>
+    /// <param name="options">Options that control the thread resume used for the attach operation.</param>
+    /// <param name="cancellationToken">A token that cancels the attach request.</param>
+    /// <returns>A handle that streams subsequent events for the active turn.</returns>
+    public async Task<CodexTurn> AttachTurnAsync(
+        string turnId,
+        CodexTurnAttachOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(turnId))
+        {
+            throw new ArgumentException("Turn id must not be empty.", nameof(turnId));
+        }
+
+        if (string.IsNullOrWhiteSpace(_id))
+        {
+            throw new InvalidOperationException("Cannot attach a turn until the thread id is known.");
+        }
+
+        CodexThreadOptions? resumeOptions = options?.ResumeOptions ?? _defaults;
+        CodexTurnSession session = await _client.AttachTurnAsync(_id!, turnId, resumeOptions, options, cancellationToken).ConfigureAwait(false);
+        _started = true;
+        if (!string.IsNullOrWhiteSpace(session.ThreadId))
+        {
+            _id = session.ThreadId;
+        }
+
         return new CodexTurn(_client, session);
     }
 

@@ -213,6 +213,92 @@ public sealed class CodexTurnOutcomeTests
         Assert.Equal("Shared.", Assert.Single(observer.Events, evt => evt.Kind == CodexTurnEventKind.FinalResponse).Text);
     }
 
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0294")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    public async Task StreamNormalizedAsync_ProjectsTypedProgressEventsWithMetadata()
+    {
+        await using CodexClient client = new();
+        CodexTurnSession session = CreateSession();
+        session.AppendEvent(new CodexCommandExecutionOutputDeltaEvent
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            ItemId = "cmd-1",
+            Delta = "stdout chunk",
+        });
+        session.AppendEvent(new CodexMcpToolCallProgressEvent
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            ItemId = "mcp-1",
+            Message = "tool is running",
+        });
+        session.AppendEvent(new CodexThreadGoalUpdatedEvent
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            Goal = new CodexThreadGoal
+            {
+                ThreadId = "thread-1",
+                Objective = "finish observable support",
+                Status = CodexThreadGoalStatus.Active,
+                TokenBudget = 1200,
+                TokensUsed = 42,
+            },
+        });
+        session.AppendEvent(new CodexThreadTokenUsageUpdatedEvent
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            TokenUsage = new CodexUsage
+            {
+                Last = new CodexTokenUsageBreakdown { TotalTokens = 7 },
+                Total = new CodexTokenUsageBreakdown { TotalTokens = 99 },
+            },
+        });
+        session.AppendEvent(new CodexHookStartedEvent
+        {
+            ThreadId = "thread-1",
+            TurnId = "turn-1",
+            Run = new CodexHookRunSummary
+            {
+                Id = "hook-1",
+                EventName = CodexHookEventName.PreToolUse,
+                Status = CodexHookRunStatus.Running,
+            },
+        });
+        session.AppendEvent(CreateCompletedEvent("Done."));
+        session.CompleteWriter();
+
+        List<CodexTurnEvent> events = [];
+        await foreach (CodexTurnEvent evt in new CodexTurn(client, session).StreamNormalizedAsync())
+        {
+            events.Add(evt);
+        }
+
+        Assert.Contains(events, evt =>
+            evt.RawEventType == "item.commandExecution.outputDelta"
+            && evt.Kind == CodexTurnEventKind.Progress
+            && evt.Text == "stdout chunk"
+            && evt.Metadata["itemId"] == "cmd-1");
+        Assert.Contains(events, evt =>
+            evt.RawEventType == "item.mcpToolCall.progress"
+            && evt.Text == "tool is running"
+            && evt.Metadata["itemId"] == "mcp-1");
+        Assert.Contains(events, evt =>
+            evt.RawEventType == "thread.goal.updated"
+            && evt.Text == "finish observable support"
+            && evt.Metadata["tokensUsed"] == "42"
+            && evt.IsUserVisibleByDefault);
+        Assert.Contains(events, evt =>
+            evt.RawEventType == "thread.tokenUsage.updated"
+            && evt.Metadata["totalTokens"] == "99");
+        Assert.Contains(events, evt =>
+            evt.RawEventType == "hook.started"
+            && evt.Metadata["hookRunId"] == "hook-1");
+    }
+
     private static CodexTurnSession CreateSession()
         => new(
             "thread-1",

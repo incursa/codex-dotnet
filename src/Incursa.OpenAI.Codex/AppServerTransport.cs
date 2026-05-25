@@ -30,12 +30,14 @@ internal sealed class CodexAppServerTransport : ICodexTransport
 
     private readonly CodexClientOptions _options;
     private readonly CodexTurnConsumerGate _turnConsumerGate;
+    private readonly CodexBroadcastObservable<CodexThreadEvent> _events = new();
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private readonly object _sessionGate = new();
     private readonly List<CodexTurnSession> _activeSessions = [];
     private readonly Dictionary<string, CodexTurnSession> _sessionsByTurnId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CodexTurnSession> _sessionsByThreadId = new(StringComparer.Ordinal);
     private readonly List<PendingNotification> _pendingNotifications = [];
+    private int _sessionRegistrationsInFlight;
     private JsonRpcConnection? _connection;
     private ICodexProcess? _process;
     private bool _disposed;
@@ -50,6 +52,8 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     }
 
     public CodexRuntimeCapabilities Capabilities => SupportedCapabilities;
+
+    public IObservable<CodexThreadEvent> ObserveEventsAsync() => _events;
 
     public async Task<CodexRuntimeMetadata> InitializeAsync(CancellationToken cancellationToken)
     {
@@ -249,6 +253,80 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         await RequestAsync("thread/shellCommand", CodexProtocol.BuildThreadShellCommandParams(threadId, command), cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<CodexTurnSession> AttachTurnAsync(
+        string threadId,
+        string turnId,
+        CodexThreadOptions? threadOptions,
+        CodexTurnAttachOptions? options,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(threadId))
+        {
+            throw new ArgumentException("Thread id must not be empty.", nameof(threadId));
+        }
+
+        if (string.IsNullOrWhiteSpace(turnId))
+        {
+            throw new ArgumentException("Turn id must not be empty.", nameof(turnId));
+        }
+
+        CodexThreadOptions? resumeOptions = options?.ResumeOptions ?? threadOptions;
+        BeginSessionRegistration();
+        try
+        {
+            JsonObject payload = await RequestObjectAsync(
+                "thread/resume",
+                CodexProtocol.BuildThreadResumeParams(threadId, resumeOptions),
+                cancellationToken).ConfigureAwait(false);
+
+            CodexThreadHandleState handle = CodexProtocol.ParseThreadHandleState(payload, resumeOptions);
+            CodexTurnRecord? turn = handle.Snapshot.Turns.FirstOrDefault(candidate => string.Equals(candidate.Id, turnId, StringComparison.Ordinal));
+            if (turn is null)
+            {
+                throw new CodexInvalidRequestException($"Turn '{turnId}' was not found on thread '{threadId}'.");
+            }
+
+            if (turn.Status is not CodexTurnStatus.InProgress)
+            {
+                throw new InvalidOperationException($"Turn '{turnId}' on thread '{threadId}' is not active.");
+            }
+
+            string resolvedThreadId = string.IsNullOrWhiteSpace(handle.Snapshot.Id) ? threadId : handle.Snapshot.Id;
+            CodexTurnSession session = new(
+                resolvedThreadId,
+                turn.Id,
+                [],
+                BuildAttachedTurnOptions(handle.Snapshot, resumeOptions),
+                async (activeTurnId, steeredInput, token) =>
+                {
+                    await _connection!.RequestAsync(
+                        "turn/steer",
+                        CodexProtocol.BuildTurnSteerParams(resolvedThreadId, activeTurnId, steeredInput),
+                        token).ConfigureAwait(false);
+                },
+                async (activeTurnId, token) =>
+                {
+                    await _connection!.RequestAsync(
+                        "turn/interrupt",
+                        CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, activeTurnId),
+                        token).ConfigureAwait(false);
+                },
+                _turnConsumerGate);
+
+            session.BindThreadId(resolvedThreadId);
+            session.BindTurnId(turn.Id);
+            session.SeedTurnRecord(turn);
+            RegisterTurnSession(session);
+            return session;
+        }
+        finally
+        {
+            EndSessionRegistration();
+        }
+    }
+
     public async Task<CodexTurnSession> StartTurnAsync(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -258,39 +336,47 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
 
-        JsonObject payload = await RequestObjectAsync(
-            "turn/start",
-            CodexProtocol.BuildTurnStartParams(threadId, input, options),
-            cancellationToken).ConfigureAwait(false);
+        BeginSessionRegistration();
+        try
+        {
+            JsonObject payload = await RequestObjectAsync(
+                "turn/start",
+                CodexProtocol.BuildTurnStartParams(threadId, input, options),
+                cancellationToken).ConfigureAwait(false);
 
-        JsonObject turnObject = GetRequiredObject(payload, "turn");
-        CodexTurnRecord turn = CodexProtocol.ParseTurnRecord(turnObject);
-        string resolvedThreadId = threadId ?? GetString(payload, "threadId") ?? string.Empty;
-        CodexTurnSession session = new(
-            resolvedThreadId,
-            turn.Id,
-            input,
-            options,
-            async (activeTurnId, steeredInput, token) =>
-            {
-                await _connection!.RequestAsync(
-                    "turn/steer",
-                    CodexProtocol.BuildTurnSteerParams(resolvedThreadId, activeTurnId, steeredInput),
-                    token).ConfigureAwait(false);
-            },
-            async (activeTurnId, token) =>
-            {
-                await _connection!.RequestAsync(
-                    "turn/interrupt",
-                    CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, activeTurnId),
-                    token).ConfigureAwait(false);
-            },
-            _turnConsumerGate);
+            JsonObject turnObject = GetRequiredObject(payload, "turn");
+            CodexTurnRecord turn = CodexProtocol.ParseTurnRecord(turnObject);
+            string resolvedThreadId = threadId ?? GetString(payload, "threadId") ?? string.Empty;
+            CodexTurnSession session = new(
+                resolvedThreadId,
+                turn.Id,
+                input,
+                options,
+                async (activeTurnId, steeredInput, token) =>
+                {
+                    await _connection!.RequestAsync(
+                        "turn/steer",
+                        CodexProtocol.BuildTurnSteerParams(resolvedThreadId, activeTurnId, steeredInput),
+                        token).ConfigureAwait(false);
+                },
+                async (activeTurnId, token) =>
+                {
+                    await _connection!.RequestAsync(
+                        "turn/interrupt",
+                        CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, activeTurnId),
+                        token).ConfigureAwait(false);
+                },
+                _turnConsumerGate);
 
-        session.BindThreadId(resolvedThreadId);
-        session.BindTurnId(turn.Id);
-        RegisterTurnSession(session);
-        return session;
+            session.BindThreadId(resolvedThreadId);
+            session.BindTurnId(turn.Id);
+            RegisterTurnSession(session);
+            return session;
+        }
+        finally
+        {
+            EndSessionRegistration();
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -303,6 +389,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         _disposed = true;
         _initializeGate.Dispose();
         await DisposeConnectionAsync().ConfigureAwait(false);
+        _events.Complete();
     }
 
     private void EnsureNotificationDispatcherStarted()
@@ -328,29 +415,62 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             {
                 JsonObject message = await connection.NextNotificationAsync(CancellationToken.None).ConfigureAwait(false);
                 CodexThreadEvent evt = CodexProtocol.ParseThreadEvent(message);
+                _events.Publish(evt);
                 DispatchNotification(evt);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             FailActiveSessions(exception);
+            _events.Complete(_disposed ? null : exception);
         }
     }
 
     private void DispatchNotification(CodexThreadEvent evt)
     {
         (string? turnId, string? threadId) = GetRoutingIdentifiers(evt);
+        bool hasRoutingIdentifier = !string.IsNullOrWhiteSpace(turnId) || !string.IsNullOrWhiteSpace(threadId);
 
         lock (_sessionGate)
         {
-            CodexTurnSession? session = ResolveSessionLocked(turnId, threadId, allowUnkeyedFallback: string.IsNullOrWhiteSpace(turnId) && string.IsNullOrWhiteSpace(threadId));
+            CodexTurnSession? session = ResolveSessionLocked(turnId, threadId, allowUnkeyedFallback: !hasRoutingIdentifier);
             if (session is null)
             {
-                _pendingNotifications.Add(new PendingNotification(evt, turnId, threadId));
+                if (hasRoutingIdentifier || _sessionRegistrationsInFlight > 0)
+                {
+                    _pendingNotifications.Add(new PendingNotification(evt, turnId, threadId));
+                }
+
                 return;
             }
 
             DeliverNotification(session, evt);
+        }
+    }
+
+    private void BeginSessionRegistration()
+    {
+        lock (_sessionGate)
+        {
+            _sessionRegistrationsInFlight++;
+        }
+    }
+
+    private void EndSessionRegistration()
+    {
+        lock (_sessionGate)
+        {
+            if (_sessionRegistrationsInFlight > 0)
+            {
+                _sessionRegistrationsInFlight--;
+            }
+
+            if (_sessionRegistrationsInFlight == 0 && _activeSessions.Count == 0)
+            {
+                _pendingNotifications.RemoveAll(static pending =>
+                    string.IsNullOrWhiteSpace(pending.TurnId)
+                    && string.IsNullOrWhiteSpace(pending.ThreadId));
+            }
         }
     }
 
@@ -471,8 +591,9 @@ internal sealed class CodexAppServerTransport : ICodexTransport
 
         foreach (CodexTurnSession session in sessions)
         {
-            session.AppendEvent(new CodexTurnFailedEvent
+            CodexThreadEvent failedEvent = new CodexTurnFailedEvent
             {
+                ThreadId = session.ThreadId,
                 Turn = new CodexTurnRecord
                 {
                     Id = session.Id,
@@ -484,7 +605,9 @@ internal sealed class CodexAppServerTransport : ICodexTransport
                         AdditionalDetails = exception.InnerException?.Message,
                     },
                 },
-            });
+            };
+            _events.Publish(failedEvent);
+            session.AppendEvent(failedEvent);
             session.CompleteWriter();
         }
     }
@@ -638,21 +761,41 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         throw new CodexInvalidRequestException($"Expected '{name}' to be a JSON object.");
     }
 
-    private static string? GetString(JsonObject payload, string name)
-        => payload.TryGetPropertyValue(name, out JsonNode? node) ? node?.GetValue<string>() : null;
+    private static string? GetString(JsonObject? payload, string name)
+        => payload is not null && payload.TryGetPropertyValue(name, out JsonNode? node) ? node?.GetValue<string>() : null;
+
+    private static CodexTurnOptions BuildAttachedTurnOptions(CodexThreadSnapshot snapshot, CodexThreadOptions? threadOptions)
+        => new()
+        {
+            ApprovalPolicy = threadOptions?.ApprovalPolicy,
+            ApprovalsReviewer = threadOptions?.ApprovalsReviewer,
+            Effort = threadOptions?.ModelReasoningEffort,
+            Model = threadOptions?.Model,
+            Personality = threadOptions?.Personality,
+            SandboxPolicy = threadOptions?.Sandbox,
+            ServiceTier = threadOptions?.ServiceTier,
+            WorkingDirectory = string.IsNullOrWhiteSpace(snapshot.Cwd) ? threadOptions?.WorkingDirectory : snapshot.Cwd,
+        };
 
     private static (string? TurnId, string? ThreadId) GetRoutingIdentifiers(CodexThreadEvent evt)
     {
         return evt switch
         {
-            CodexTurnStartedEvent turnStarted => (turnStarted.Turn.Id, null),
-            CodexTurnCompletedEvent turnCompleted => (turnCompleted.Turn.Id, null),
-            CodexTurnFailedEvent turnFailed => (turnFailed.Turn.Id, null),
+            CodexTurnStartedEvent turnStarted => (turnStarted.Turn.Id, turnStarted.ThreadId),
+            CodexTurnCompletedEvent turnCompleted => (turnCompleted.Turn.Id, turnCompleted.ThreadId),
+            CodexTurnFailedEvent turnFailed => (turnFailed.Turn.Id, turnFailed.ThreadId),
             CodexItemStartedEvent itemStarted => (itemStarted.TurnId, itemStarted.ThreadId),
             CodexItemUpdatedEvent itemUpdated => (itemUpdated.TurnId, itemUpdated.ThreadId),
             CodexItemCompletedEvent itemCompleted => (itemCompleted.TurnId, itemCompleted.ThreadId),
+            CodexItemAutoApprovalReviewStartedEvent autoApprovalStarted => (autoApprovalStarted.TurnId, autoApprovalStarted.ThreadId),
+            CodexItemAutoApprovalReviewCompletedEvent autoApprovalCompleted => (autoApprovalCompleted.TurnId, autoApprovalCompleted.ThreadId),
             CodexThreadErrorEvent threadError => (threadError.TurnId, threadError.ThreadId),
             CodexThreadStartedEvent threadStarted => (null, threadStarted.Thread.Id),
+            CodexHookStartedEvent hookStarted => (hookStarted.TurnId, hookStarted.ThreadId),
+            CodexHookCompletedEvent hookCompleted => (hookCompleted.TurnId, hookCompleted.ThreadId),
+            CodexWarningEvent warning => (null, warning.ThreadId),
+            CodexGuardianWarningEvent guardianWarning => (null, guardianWarning.ThreadId),
+            CodexServerRequestResolvedEvent serverRequestResolved => (null, serverRequestResolved.ThreadId),
             CodexThreadGoalUpdatedEvent goalUpdated => (goalUpdated.TurnId, goalUpdated.ThreadId),
             CodexThreadGoalClearedEvent goalCleared => (null, goalCleared.ThreadId),
             CodexThreadStatusChangedEvent statusChanged => (null, statusChanged.ThreadId),
@@ -662,17 +805,31 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             CodexThreadNameUpdatedEvent nameUpdated => (null, nameUpdated.ThreadId),
             CodexThreadTokenUsageUpdatedEvent tokenUsageUpdated => (tokenUsageUpdated.TurnId, tokenUsageUpdated.ThreadId),
             CodexThreadUnarchivedEvent unarchived => (null, unarchived.ThreadId),
+            CodexThreadSettingsUpdatedEvent settingsUpdated => (null, settingsUpdated.ThreadId),
             CodexTurnDiffUpdatedEvent diffUpdated => (diffUpdated.TurnId, diffUpdated.ThreadId),
             CodexTurnPlanUpdatedEvent planUpdated => (planUpdated.TurnId, planUpdated.ThreadId),
             CodexPlanDeltaEvent planDelta => (planDelta.TurnId, planDelta.ThreadId),
             CodexAgentMessageDeltaEvent agentMessageDelta => (agentMessageDelta.TurnId, agentMessageDelta.ThreadId),
             CodexCommandExecutionOutputDeltaEvent commandExecutionDelta => (commandExecutionDelta.TurnId, commandExecutionDelta.ThreadId),
+            CodexCommandExecutionTerminalInteractionEvent terminalInteraction => (terminalInteraction.TurnId, terminalInteraction.ThreadId),
             CodexFileChangeOutputDeltaEvent fileChangeOutputDelta => (fileChangeOutputDelta.TurnId, fileChangeOutputDelta.ThreadId),
             CodexFileChangePatchUpdatedEvent fileChangePatchUpdated => (fileChangePatchUpdated.TurnId, fileChangePatchUpdated.ThreadId),
             CodexMcpToolCallProgressEvent mcpToolCallProgress => (mcpToolCallProgress.TurnId, mcpToolCallProgress.ThreadId),
             CodexReasoningTextDeltaEvent reasoningTextDelta => (reasoningTextDelta.TurnId, reasoningTextDelta.ThreadId),
             CodexReasoningSummaryPartAddedEvent reasoningSummaryPartAdded => (reasoningSummaryPartAdded.TurnId, reasoningSummaryPartAdded.ThreadId),
             CodexReasoningSummaryTextDeltaEvent reasoningSummaryTextDelta => (reasoningSummaryTextDelta.TurnId, reasoningSummaryTextDelta.ThreadId),
+            CodexModelReroutedEvent modelRerouted => (modelRerouted.TurnId, modelRerouted.ThreadId),
+            CodexModelVerificationEvent modelVerification => (modelVerification.TurnId, modelVerification.ThreadId),
+            CodexThreadRealtimeStartedEvent realtimeStarted => (null, realtimeStarted.ThreadId),
+            CodexThreadRealtimeItemAddedEvent realtimeItemAdded => (null, realtimeItemAdded.ThreadId),
+            CodexThreadRealtimeTranscriptDeltaEvent realtimeTranscriptDelta => (null, realtimeTranscriptDelta.ThreadId),
+            CodexThreadRealtimeTranscriptDoneEvent realtimeTranscriptDone => (null, realtimeTranscriptDone.ThreadId),
+            CodexThreadRealtimeOutputAudioDeltaEvent realtimeOutputAudioDelta => (null, realtimeOutputAudioDelta.ThreadId),
+            CodexThreadRealtimeSdpEvent realtimeSdp => (null, realtimeSdp.ThreadId),
+            CodexThreadRealtimeErrorEvent realtimeError => (null, realtimeError.ThreadId),
+            CodexThreadRealtimeClosedEvent realtimeClosed => (null, realtimeClosed.ThreadId),
+            CodexRawResponseItemCompletedEvent rawResponseItemCompleted => (rawResponseItemCompleted.TurnId, rawResponseItemCompleted.ThreadId),
+            CodexUnknownThreadEvent unknown => (GetString(unknown.RawPayload, "turnId"), GetString(unknown.RawPayload, "threadId")),
             _ => (null, null),
         };
     }

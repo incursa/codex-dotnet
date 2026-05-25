@@ -123,6 +123,108 @@ public sealed class CodexAppServerTransportTests
     }
 
     [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    public async Task ObserveEventsAsync_ReceivesNotificationsWithoutActiveTurn()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (!request.TryGetPropertyValue("id", out JsonNode? idNode) || idNode is null)
+            {
+                return;
+            }
+
+            string? method = request["method"]?.GetValue<string>();
+            if (method == "initialize")
+            {
+                process.EnqueueStdout(TestJson.Response(
+                    idNode.GetValue<string>(),
+                    new JsonObject
+                    {
+                        ["userAgent"] = "codex-app-server/1.2.3",
+                        ["platformFamily"] = "Unix",
+                        ["platformOs"] = "Linux",
+                    }));
+                return;
+            }
+
+            if (method == "thread/start")
+            {
+                process.EnqueueStdout(TestJson.Response(
+                    idNode.GetValue<string>(),
+                    new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshot("thread-1"),
+                    }));
+                return;
+            }
+
+            if (method == "turn/start")
+            {
+                process.EnqueueStdout(TestJson.Response(
+                    idNode.GetValue<string>(),
+                    new JsonObject
+                    {
+                        ["threadId"] = "thread-1",
+                        ["turn"] = new JsonObject
+                        {
+                            ["id"] = "turn-1",
+                            ["status"] = "inProgress",
+                        },
+                    }));
+            }
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        RecordingObserver<CodexThreadEvent> observer = new(evt => evt is CodexAccountUpdatedEvent);
+        using IDisposable subscription = client.ObserveEventsAsync().Subscribe(observer);
+
+        await client.InitializeAsync();
+        process.EnqueueStdout(TestJson.Notification(
+            "account.updated",
+            new JsonObject
+            {
+                ["authMode"] = "chatgpt",
+                ["planType"] = "plus",
+            }));
+
+        CodexAccountUpdatedEvent accountUpdated = Assert.IsType<CodexAccountUpdatedEvent>(
+            await observer.MatchingEvent.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal(CodexPlanType.Plus, accountUpdated.PlanType);
+
+        CodexThread thread = await client.StartThreadAsync();
+        CodexTurn turn = await thread.StartTurnAsync("after account update");
+        process.EnqueueStdout(TestJson.Notification(
+            "turn.completed",
+            new JsonObject
+            {
+                ["threadId"] = "thread-1",
+                ["turn"] = new JsonObject
+                {
+                    ["id"] = "turn-1",
+                    ["status"] = "completed",
+                },
+            }));
+
+        List<CodexThreadEvent> turnEvents = [];
+        await foreach (CodexThreadEvent evt in turn.StreamAsync())
+        {
+            turnEvents.Add(evt);
+        }
+
+        Assert.DoesNotContain(turnEvents, evt => evt is CodexAccountUpdatedEvent);
+        Assert.Contains(turnEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-1");
+
+        process.Complete();
+    }
+
+    [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0238")]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0239")]
     [CoverageType(RequirementCoverageType.Negative)]
@@ -1968,6 +2070,38 @@ public sealed class CodexAppServerTransportTests
                 },
             }));
         process.EnqueueStdout(TestJson.Notification(
+            "model.rerouted",
+            new JsonObject
+            {
+                ["threadId"] = "thread-a",
+                ["turnId"] = "turn-a",
+                ["fromModel"] = "gpt-5",
+                ["toModel"] = "gpt-5.1",
+                ["reason"] = "rateLimited",
+            }));
+        process.EnqueueStdout(TestJson.Notification(
+            "hook.started",
+            new JsonObject
+            {
+                ["threadId"] = "thread-a",
+                ["turnId"] = "turn-a",
+                ["run"] = new JsonObject
+                {
+                    ["id"] = "hook-a",
+                    ["eventName"] = "preToolUse",
+                    ["status"] = "running",
+                },
+            }));
+        process.EnqueueStdout(TestJson.Notification(
+            "item.autoApprovalReview.started",
+            new JsonObject
+            {
+                ["threadId"] = "thread-a",
+                ["turnId"] = "turn-a",
+                ["reviewId"] = "review-a",
+                ["startedAtMs"] = 1234L,
+            }));
+        process.EnqueueStdout(TestJson.Notification(
             "item.completed",
             new JsonObject
             {
@@ -2050,14 +2184,335 @@ public sealed class CodexAppServerTransportTests
         }
 
         Assert.Contains(turnAEvents, evt => evt is CodexTurnStartedEvent started && started.Turn.Id == "turn-a");
+        Assert.Contains(turnAEvents, evt => evt is CodexModelReroutedEvent rerouted && rerouted.TurnId == "turn-a");
+        Assert.Contains(turnAEvents, evt => evt is CodexHookStartedEvent hook && hook.TurnId == "turn-a");
+        Assert.Contains(turnAEvents, evt => evt is CodexItemAutoApprovalReviewStartedEvent review && review.TurnId == "turn-a");
         Assert.Contains(turnAEvents, evt => evt is CodexItemCompletedEvent completed && completed.TurnId == "turn-a" && ((CodexAgentMessageItem)completed.Item).Text == "A");
         Assert.Contains(turnAEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-a");
         Assert.All(turnAEvents.OfType<CodexItemCompletedEvent>(), evt => Assert.Equal("turn-a", evt.TurnId));
 
         Assert.Contains(turnBEvents, evt => evt is CodexTurnStartedEvent started && started.Turn.Id == "turn-b");
+        Assert.DoesNotContain(turnBEvents, evt =>
+            evt is CodexModelReroutedEvent
+                or CodexHookStartedEvent
+                or CodexItemAutoApprovalReviewStartedEvent);
         Assert.Contains(turnBEvents, evt => evt is CodexItemCompletedEvent completed && completed.TurnId == "turn-b" && ((CodexAgentMessageItem)completed.Item).Text == "B");
         Assert.Contains(turnBEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-b");
         Assert.All(turnBEvents.OfType<CodexItemCompletedEvent>(), evt => Assert.Equal("turn-b", evt.TurnId));
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0238")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0304")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    public async Task AttachTurnAsync_ResumesThreadAndStreamsNormalizedEvents()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        int resumeRequests = 0;
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (!request.TryGetPropertyValue("id", out JsonNode? idNode) || idNode is null)
+            {
+                return;
+            }
+
+            if (!request.TryGetPropertyValue("method", out JsonNode? methodNode) || methodNode is not JsonValue methodValue)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            switch (methodValue.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["userAgent"] = "codex-app-server/1.2.3",
+                            ["platformFamily"] = "Unix",
+                            ["platformOs"] = "Linux",
+                        }));
+                    break;
+                case "thread/resume":
+                    resumeRequests++;
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["thread"] = CreateThreadSnapshotWithTurn("thread-1", "turn-active", "inProgress"),
+                        }));
+                    if (resumeRequests == 2)
+                    {
+                        process.EnqueueStdout(TestJson.Notification(
+                            "item.completed",
+                            new JsonObject
+                            {
+                                ["threadId"] = "thread-1",
+                                ["turnId"] = "turn-active",
+                                ["item"] = CreateAgentMessageItem("message-attached", "Attached complete"),
+                            }));
+                        process.EnqueueStdout(TestJson.Notification(
+                            "turn.completed",
+                            new JsonObject
+                            {
+                                ["turn"] = new JsonObject
+                                {
+                                    ["id"] = "turn-active",
+                                    ["status"] = "completed",
+                                    ["items"] = new JsonArray
+                                    {
+                                        CreateAgentMessageItem("message-attached", "Attached complete"),
+                                    },
+                                    ["usage"] = new JsonObject
+                                    {
+                                        ["last"] = new JsonObject
+                                        {
+                                            ["totalTokens"] = 3,
+                                        },
+                                        ["total"] = new JsonObject
+                                        {
+                                            ["totalTokens"] = 3,
+                                        },
+                                    },
+                                },
+                            }));
+                        process.Complete();
+                    }
+                    break;
+            }
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.ResumeThreadAsync("thread-1");
+        CodexTurn turn = await thread.AttachTurnAsync("turn-active");
+
+        List<CodexTurnEvent> events = [];
+        await foreach (CodexTurnEvent evt in turn.StreamNormalizedAsync())
+        {
+            events.Add(evt);
+        }
+
+        Assert.Equal("thread-1", turn.ThreadId);
+        Assert.Equal("turn-active", turn.Id);
+        Assert.Equal("Attached complete", Assert.Single(events, evt => evt.Kind == CodexTurnEventKind.FinalResponse).Text);
+        Assert.Equal(CodexTurnTerminalState.Completed, Assert.Single(events, evt => evt.Kind == CodexTurnEventKind.Terminal).TerminalState);
+        Assert.Equal(2, resumeRequests);
+        Assert.DoesNotContain(process.StdIn.Lines, line => line.Contains("\"method\":\"turn/start\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0304")]
+    [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
+    public async Task AttachTurnAsync_SupportsSteerAndInterrupt()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        bool sawSteer = false;
+        bool sawInterrupt = false;
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (!request.TryGetPropertyValue("id", out JsonNode? idNode) || idNode is null)
+            {
+                return;
+            }
+
+            if (!request.TryGetPropertyValue("method", out JsonNode? methodNode) || methodNode is not JsonValue methodValue)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            string method = methodValue.GetValue<string>();
+            switch (method)
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["userAgent"] = "codex-app-server/1.2.3",
+                            ["platformFamily"] = "Unix",
+                            ["platformOs"] = "Linux",
+                        }));
+                    break;
+                case "thread/resume":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["thread"] = CreateThreadSnapshotWithTurn("thread-1", "turn-active", "inProgress"),
+                        }));
+                    break;
+                case "turn/steer":
+                    JsonObject steerPayload = request["params"]!.AsObject();
+                    Assert.Equal("thread-1", steerPayload["threadId"]!.GetValue<string>());
+                    Assert.Equal("turn-active", steerPayload["expectedTurnId"]!.GetValue<string>());
+                    Assert.Equal("steer input", steerPayload["input"]!.AsArray()[0]!.AsObject()["text"]!.GetValue<string>());
+                    sawSteer = true;
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["turnId"] = "turn-active",
+                        }));
+                    break;
+                case "turn/interrupt":
+                    JsonObject interruptPayload = request["params"]!.AsObject();
+                    Assert.Equal("thread-1", interruptPayload["threadId"]!.GetValue<string>());
+                    Assert.Equal("turn-active", interruptPayload["turnId"]!.GetValue<string>());
+                    sawInterrupt = true;
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject()));
+                    process.EnqueueStdout(TestJson.Notification(
+                        "turn.completed",
+                        new JsonObject
+                        {
+                            ["turn"] = new JsonObject
+                            {
+                                ["id"] = "turn-active",
+                                ["status"] = "interrupted",
+                                ["items"] = new JsonArray(),
+                            },
+                        }));
+                    process.Complete();
+                    break;
+            }
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.ResumeThreadAsync("thread-1");
+        CodexTurn turn = await thread.AttachTurnAsync("turn-active");
+
+        await turn.SteerAsync("steer input");
+        await turn.InterruptAsync();
+
+        List<CodexThreadEvent> events = [];
+        await foreach (CodexThreadEvent evt in turn.StreamAsync())
+        {
+            events.Add(evt);
+        }
+
+        Assert.True(sawSteer);
+        Assert.True(sawInterrupt);
+        Assert.Contains(events, evt => evt is CodexTurnCompletedEvent completed
+            && completed.Turn.Id == "turn-active"
+            && completed.Turn.Status == CodexTurnStatus.Interrupted);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0304")]
+    public async Task AttachTurnAsync_RejectsTerminalTurn()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (!request.TryGetPropertyValue("id", out JsonNode? idNode) || idNode is null)
+            {
+                return;
+            }
+
+            if (!request.TryGetPropertyValue("method", out JsonNode? methodNode) || methodNode is not JsonValue methodValue)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            switch (methodValue.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["userAgent"] = "codex-app-server/1.2.3",
+                            ["platformFamily"] = "Unix",
+                            ["platformOs"] = "Linux",
+                        }));
+                    break;
+                case "thread/resume":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["thread"] = CreateThreadSnapshotWithTurn("thread-1", "turn-completed", "completed"),
+                        }));
+                    break;
+            }
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.ResumeThreadAsync("thread-1");
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => thread.AttachTurnAsync("turn-completed"));
+        Assert.Contains("is not active", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0304")]
+    public async Task AttachTurnAsync_RejectsMissingTurn()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (!request.TryGetPropertyValue("id", out JsonNode? idNode) || idNode is null)
+            {
+                return;
+            }
+
+            if (!request.TryGetPropertyValue("method", out JsonNode? methodNode) || methodNode is not JsonValue methodValue)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            switch (methodValue.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["userAgent"] = "codex-app-server/1.2.3",
+                            ["platformFamily"] = "Unix",
+                            ["platformOs"] = "Linux",
+                        }));
+                    break;
+                case "thread/resume":
+                    process.EnqueueStdout(TestJson.Response(
+                        id,
+                        new JsonObject
+                        {
+                            ["thread"] = CreateThreadSnapshotWithTurn("thread-1", "other-turn", "inProgress"),
+                        }));
+                    break;
+            }
+        };
+
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.ResumeThreadAsync("thread-1");
+
+        CodexInvalidRequestException exception = await Assert.ThrowsAsync<CodexInvalidRequestException>(() => thread.AttachTurnAsync("missing-turn"));
+        Assert.Contains("was not found", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2494,6 +2949,40 @@ public sealed class CodexAppServerTransportTests
         return snapshot;
     }
 
+    private static JsonObject CreateThreadSnapshotWithTurn(string threadId, string turnId, string turnStatus)
+    {
+        JsonObject snapshot = CreateThreadSummary(threadId);
+        snapshot["status"] = turnStatus == "inProgress"
+            ? new JsonObject
+            {
+                ["type"] = "active",
+                ["activeFlags"] = new JsonArray(),
+            }
+            : new JsonObject
+            {
+                ["type"] = "idle",
+            };
+        snapshot["turns"] = new JsonArray
+        {
+            new JsonObject
+            {
+                ["id"] = turnId,
+                ["status"] = turnStatus,
+                ["items"] = new JsonArray(),
+            },
+        };
+        return snapshot;
+    }
+
+    private static JsonObject CreateAgentMessageItem(string id, string text)
+        => new()
+        {
+            ["type"] = "agentMessage",
+            ["id"] = id,
+            ["phase"] = "finalAnswer",
+            ["text"] = text,
+        };
+
     private static JsonObject CreateModel(string id, string model)
         => new()
         {
@@ -2518,4 +3007,53 @@ public sealed class CodexAppServerTransportTests
             ["createdAt"] = 1778076000L,
             ["updatedAt"] = 1778076060L,
         };
+
+    private sealed class RecordingObserver<T> : IObserver<T>
+    {
+        private readonly object _gate = new();
+        private readonly List<T> _events = [];
+        private readonly Func<T, bool> _completionFilter;
+        private readonly TaskCompletionSource<T> _matchingEvent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public RecordingObserver(Func<T, bool> completionFilter)
+        {
+            _completionFilter = completionFilter;
+        }
+
+        public Task<T> MatchingEvent => _matchingEvent.Task;
+
+        public IReadOnlyList<T> Events
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _events.ToArray();
+                }
+            }
+        }
+
+        public void OnNext(T value)
+        {
+            lock (_gate)
+            {
+                _events.Add(value);
+            }
+
+            if (_completionFilter(value))
+            {
+                _matchingEvent.TrySetResult(value);
+            }
+        }
+
+        public void OnError(Exception error)
+        {
+            _matchingEvent.TrySetException(error);
+        }
+
+        public void OnCompleted()
+        {
+            _matchingEvent.TrySetException(new InvalidOperationException("The observable completed before the expected event was observed."));
+        }
+    }
 }

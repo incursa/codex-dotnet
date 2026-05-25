@@ -252,6 +252,10 @@ internal sealed class CodexTurnSession
                     _threadId = started.Thread.Id;
                     break;
                 case CodexTurnStartedEvent startedTurn when !string.IsNullOrWhiteSpace(startedTurn.Turn.Id):
+                    if (!string.IsNullOrWhiteSpace(startedTurn.ThreadId))
+                    {
+                        _threadId = startedTurn.ThreadId;
+                    }
                     _id = startedTurn.Turn.Id;
                     _status = CodexTurnStatus.InProgress;
                     break;
@@ -259,6 +263,10 @@ internal sealed class CodexTurnSession
                     _items.Add(completed.Item);
                     break;
                 case CodexTurnCompletedEvent completedTurn:
+                    if (!string.IsNullOrWhiteSpace(completedTurn.ThreadId))
+                    {
+                        _threadId = completedTurn.ThreadId;
+                    }
                     if (!string.IsNullOrWhiteSpace(completedTurn.Turn.Id))
                     {
                         _id = completedTurn.Turn.Id;
@@ -273,6 +281,10 @@ internal sealed class CodexTurnSession
                     }
                     break;
                 case CodexTurnFailedEvent failedTurn:
+                    if (!string.IsNullOrWhiteSpace(failedTurn.ThreadId))
+                    {
+                        _threadId = failedTurn.ThreadId;
+                    }
                     if (!string.IsNullOrWhiteSpace(failedTurn.Turn.Id))
                     {
                         _id = failedTurn.Turn.Id;
@@ -313,6 +325,28 @@ internal sealed class CodexTurnSession
                 Error = _error,
                 Usage = _usage,
             };
+        }
+    }
+
+    public void SeedTurnRecord(CodexTurnRecord turn)
+    {
+        ArgumentNullException.ThrowIfNull(turn);
+
+        lock (_gate)
+        {
+            if (!string.IsNullOrWhiteSpace(turn.Id))
+            {
+                _id = turn.Id;
+            }
+
+            _status = turn.Status;
+            _usage = turn.Usage;
+            _error = turn.Error;
+            if (turn.Items.Count > 0)
+            {
+                _items.Clear();
+                _items.AddRange(turn.Items);
+            }
         }
     }
 
