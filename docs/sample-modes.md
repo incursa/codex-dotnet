@@ -1,3 +1,7 @@
+---
+title: "Sample Modes"
+---
+
 # Sample Modes
 
 The runnable sample in `samples/Incursa.OpenAI.Codex.Sample` is a single console app with mode-based scenarios. It still expects Codex to be installed locally and authenticated on the machine running the sample.

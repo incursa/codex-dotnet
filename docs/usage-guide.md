@@ -1,3 +1,7 @@
+---
+title: "Usage Guide"
+---
+
 # Usage Guide
 
 `Incursa.OpenAI.Codex` is an async-only .NET client for the local Codex runtime. It launches the `codex` executable as a subprocess, so the machine running your app must already have Codex installed and authenticated.

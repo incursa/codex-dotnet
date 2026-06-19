@@ -1,0 +1,8 @@
+{
+  "slug": "codex-dotnet",
+  "title": "Incursa.OpenAI.Codex",
+  "section": "open-source",
+  "sourcePath": "docs",
+  "targetPath": "src/content/docs/open-source/codex-dotnet",
+  "publish": true
+}

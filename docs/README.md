@@ -1,3 +1,7 @@
+---
+title: "Documentation"
+---
+
 # Documentation
 
 This directory contains maintainer-facing and operator-facing documentation for `Incursa.OpenAI.Codex`.

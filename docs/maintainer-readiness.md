@@ -1,3 +1,7 @@
+---
+title: "Maintainer Readiness"
+---
+
 # Maintainer Readiness
 
 This guide is for maintainers and operators validating `codex-dotnet` from a local checkout. It does not rely on GitHub Actions as proof.
