@@ -44,7 +44,7 @@ Run the sample app from source:
 
 ```powershell
 dotnet run --project samples\Incursa.OpenAI.Codex.Sample -- --help
-dotnet run --project samples\Incursa.OpenAI.Codex.Sample -- quickstart --skip-git-repo-check
+dotnet run --project samples\Incursa.OpenAI.Codex.Sample -- --mode quickstart --prompt "Summarize this repository."
 ```
 
 Keep real local settings in user secrets, environment variables, or another secret store. Do not commit OpenAI keys, Codex auth state, private transcripts, local repository paths, or sample output copied from private repositories.
@@ -72,8 +72,9 @@ Fast local checks:
 ```powershell
 dotnet build Incursa.OpenAI.Codex.slnx -c Release
 dotnet test tests\Incursa.OpenAI.Codex.Tests\Incursa.OpenAI.Codex.Tests.csproj -c Release --no-build
-dotnet format Incursa.OpenAI.Codex.slnx --verify-no-changes --no-restore
 ```
+
+Formatter cleanup is tracked separately from the normal build/test gate. `dotnet format Incursa.OpenAI.Codex.slnx --verify-no-changes --no-restore` reports existing analyzer and formatting findings across source and tests; do not mix that broad cleanup into an unrelated feature, documentation, or release-prep change.
 
 Full package-oriented gate:
 

@@ -98,6 +98,7 @@ See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Cod
 - [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Codex.Sample/README.md)
 - [`src/Incursa.OpenAI.Codex/README.md`](src/Incursa.OpenAI.Codex/README.md)
 - [`src/Incursa.OpenAI.Codex.Extensions/README.md`](src/Incursa.OpenAI.Codex.Extensions/README.md)
+- [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md)
 - [`tests/Incursa.OpenAI.Codex.Tests/README.md`](tests/Incursa.OpenAI.Codex.Tests/README.md)
 - [`fuzz/README.md`](fuzz/README.md)
 - [`benchmarks/README.md`](benchmarks/README.md)
