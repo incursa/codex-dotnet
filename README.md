@@ -2,6 +2,8 @@
 
 `Incursa.OpenAI.Codex` is an async-only .NET client for the local Codex runtime. It launches the `codex` executable as a subprocess, so the machine running your app must already have Codex installed and authenticated.
 
+Source documentation lives in `docs/` and is mirrored into `incursa-docs` for publication. Edit the source repository docs only; do not edit the mirrored output.
+
 The public package is young, but the code comes from day-to-day Incursa Codex automation work rather than a throwaway wrapper. Incursa has processed more than 10,000 Codex messages while hardening local subprocess orchestration, streamed events, typed results, and failure handling around this SDK family.
 
 It provides:
@@ -44,6 +46,21 @@ That example assumes the Codex runtime is installed locally and can authenticate
 `CodexRunResult.FinalResponse` can be `null` when a turn completes with commentary only and never emits a final-answer or phase-less assistant message.
 
 If you need DI, install [`Incursa.OpenAI.Codex.Extensions`](src/Incursa.OpenAI.Codex.Extensions/README.md) and register [`CodexClient`](src/Incursa.OpenAI.Codex/CodexClient.cs) with [`AddCodex(...)`](src/Incursa.OpenAI.Codex.Extensions/CodexServiceCollectionExtensions.cs).
+
+## Validation
+
+Use these commands from the repository root:
+
+```powershell
+dotnet restore Incursa.OpenAI.Codex.slnx
+dotnet build Incursa.OpenAI.Codex.slnx -c Release --no-restore
+dotnet test Incursa.OpenAI.Codex.slnx -c Release --no-build -v minimal
+dotnet pack src/Incursa.OpenAI.Codex/Incursa.OpenAI.Codex.csproj -c Release --no-build --output artifacts/packages /p:ContinuousIntegrationBuild=true
+dotnet pack src/Incursa.OpenAI.Codex.Extensions/Incursa.OpenAI.Codex.Extensions.csproj -c Release --no-build --output artifacts/packages /p:ContinuousIntegrationBuild=true
+git diff --check
+```
+
+See [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md) for the focused test matrix, live-test opt-in commands, and release-floor details.
 
 ## Which Backend Should I Use?
 
@@ -91,6 +108,13 @@ The runnable sample in `samples/Incursa.OpenAI.Codex.Sample` demonstrates:
 
 See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Codex.Sample/README.md) for the sample overview and [`docs/sample-modes.md`](docs/sample-modes.md) for the mode-by-mode commands.
 
+## Release And Versioning
+
+- Package versioning and shared NuGet metadata live in `Directory.Build.props`.
+- Release cuts are driven by [`scripts/release.ps1`](scripts/release.ps1).
+- Public API compatibility is tracked through `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` in each package project.
+- See [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md) for the release and pack flow.
+
 ## Deeper Docs
 
 - [`docs/usage-guide.md`](docs/usage-guide.md)
@@ -110,6 +134,20 @@ See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Cod
 - Contributions are accepted under [CONTRIBUTOR-AGREEMENT.md](CONTRIBUTOR-AGREEMENT.md).
 - Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) in project spaces.
 - Report vulnerabilities through [SECURITY.md](SECURITY.md), not public issues.
+- Do not commit secrets, local auth state, private transcripts, or repository paths from private worktrees.
+
+## Documentation Ownership
+
+- `docs/` is the source-authored documentation tree for this repository.
+- Mirrored content in `incursa-docs` is generated from the source tree and should not be edited directly.
+- Package-level consumer notes live under `src/<PackageName>/` and are part of the source documentation set.
+
+## Known Gaps
+
+- Live behavior depends on the installed `codex` executable, local Codex authentication, and upstream runtime behavior.
+- `Exec` intentionally lacks app-server-only lifecycle and control capabilities.
+- Upstream Python and TypeScript Codex SDK parity must be refreshed when upstream behavior changes.
+- The repo still has maintenance items called out in [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md).
 
 ## License
 
