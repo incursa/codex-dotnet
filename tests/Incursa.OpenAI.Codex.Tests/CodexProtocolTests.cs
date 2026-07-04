@@ -910,6 +910,7 @@ public sealed class CodexProtocolTests
             ["result"] = new JsonObject
             {
                 ["content"] = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = "ok" } },
+                ["_meta"] = new JsonObject { ["traceId"] = "trace-1" },
                 ["structuredContent"] = new JsonObject { ["beta"] = true },
             },
             ["server"] = "server",
@@ -918,6 +919,7 @@ public sealed class CodexProtocolTests
         }));
         Assert.Equal("app://resource", mcpToolCall.McpAppResourceUri);
         Assert.Single(mcpToolCall.Result!.Content);
+        Assert.Equal("trace-1", mcpToolCall.Result.Meta!["traceId"]!.GetValue<string>());
 
         CodexDynamicToolCallItem dynamicToolCall = Assert.IsType<CodexDynamicToolCallItem>(CodexProtocol.ParseThreadItem(new JsonObject
         {
@@ -1679,6 +1681,53 @@ public sealed class CodexProtocolTests
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1778421600L), bucket.Secondary.ResetsAt);
         Assert.Equal(10080, bucket.Secondary.WindowDurationMinutes);
         Assert.Same(bucket, result.RateLimitsByLimitId["codex"]);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-API-0218")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public void ParseLoginAndAccountResults_MapsCurrentUpstreamShapes()
+    {
+        CodexChatGptLoginResult chatGpt = Assert.IsType<CodexChatGptLoginResult>(CodexProtocol.ParseLoginResult(new JsonObject
+        {
+            ["type"] = "chatgpt",
+            ["loginId"] = "login-1",
+            ["authUrl"] = "https://auth.example",
+        }));
+        Assert.Equal("login-1", chatGpt.LoginId);
+        Assert.Equal("https://auth.example", chatGpt.AuthUrl);
+
+        CodexChatGptDeviceCodeLoginResult device = Assert.IsType<CodexChatGptDeviceCodeLoginResult>(CodexProtocol.ParseLoginResult(new JsonObject
+        {
+            ["type"] = "chatgptDeviceCode",
+            ["loginId"] = "login-2",
+            ["verificationUrl"] = "https://device.example",
+            ["userCode"] = "ABCD-EFGH",
+        }));
+        Assert.Equal("login-2", device.LoginId);
+        Assert.Equal("https://device.example", device.VerificationUrl);
+        Assert.Equal("ABCD-EFGH", device.UserCode);
+
+        CodexAccountReadResult account = CodexProtocol.ParseAccountReadResult(new JsonObject
+        {
+            ["requiresOpenaiAuth"] = false,
+            ["account"] = new JsonObject
+            {
+                ["type"] = "chatgpt",
+                ["email"] = "user@example.com",
+                ["planType"] = "plus",
+            },
+        });
+        Assert.False(account.RequiresOpenAIAuth);
+        Assert.Equal(CodexAuthMode.Chatgpt, account.Account!.AuthMode);
+        Assert.Equal("user@example.com", account.Account.Email);
+        Assert.Equal(CodexPlanType.Plus, account.Account.PlanType);
+
+        CodexCancelLoginResult canceled = CodexProtocol.ParseCancelLoginResult(new JsonObject
+        {
+            ["status"] = "canceled",
+        });
+        Assert.Equal(CodexLoginCancelStatus.Canceled, canceled.Status);
     }
 
     [Fact]

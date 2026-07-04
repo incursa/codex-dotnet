@@ -577,6 +577,91 @@ public sealed class CodexAppServerTransportTests
                             },
                         }));
                     break;
+                case "account/login/start":
+                    {
+                        JsonObject payload = request["params"]!.AsObject();
+                        string type = payload["type"]!.GetValue<string>();
+                        if (type == "apiKey")
+                        {
+                            Assert.Equal("sk-sdk-login-test", payload["apiKey"]!.GetValue<string>());
+                            process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["type"] = "apiKey" }));
+                            break;
+                        }
+
+                        if (type == "chatgpt")
+                        {
+                            Assert.True(payload["codexStreamlinedLogin"]!.GetValue<bool>());
+                            process.EnqueueStdout(TestJson.Response(
+                                id,
+                                new JsonObject
+                                {
+                                    ["type"] = "chatgpt",
+                                    ["loginId"] = "login-1",
+                                    ["authUrl"] = "https://auth.example",
+                                }));
+                            process.EnqueueStdout(TestJson.Notification(
+                                "account/login/completed",
+                                new JsonObject
+                                {
+                                    ["loginId"] = "login-1",
+                                    ["success"] = true,
+                                }));
+                            break;
+                        }
+
+                        if (type == "chatgptDeviceCode")
+                        {
+                            process.EnqueueStdout(TestJson.Response(
+                                id,
+                                new JsonObject
+                                {
+                                    ["type"] = "chatgptDeviceCode",
+                                    ["loginId"] = "login-2",
+                                    ["verificationUrl"] = "https://device.example",
+                                    ["userCode"] = "ABCD-EFGH",
+                                }));
+                            break;
+                        }
+
+                        if (type == "chatgptAuthTokens")
+                        {
+                            Assert.Equal("token-1", payload["accessToken"]!.GetValue<string>());
+                            Assert.Equal("acct-1", payload["chatgptAccountId"]!.GetValue<string>());
+                            Assert.Equal("plus", payload["chatgptPlanType"]!.GetValue<string>());
+                            process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["type"] = "chatgptAuthTokens" }));
+                            break;
+                        }
+
+                        throw new InvalidOperationException($"Unexpected login type: {type}");
+                    }
+                case "account/login/cancel":
+                    {
+                        JsonObject payload = request["params"]!.AsObject();
+                        Assert.Equal("login-2", payload["loginId"]!.GetValue<string>());
+                        process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["status"] = "canceled" }));
+                        break;
+                    }
+                case "account/read":
+                    {
+                        JsonObject payload = request["params"]!.AsObject();
+                        Assert.True(payload["refreshToken"]!.GetValue<bool>());
+                        process.EnqueueStdout(TestJson.Response(
+                            id,
+                            new JsonObject
+                            {
+                                ["requiresOpenaiAuth"] = false,
+                                ["account"] = new JsonObject
+                                {
+                                    ["type"] = "chatgpt",
+                                    ["email"] = "user@example.com",
+                                    ["planType"] = "plus",
+                                },
+                            }));
+                        break;
+                    }
+                case "account/logout":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject()));
+                    break;
             }
         };
 
@@ -683,6 +768,33 @@ public sealed class CodexAppServerTransportTests
         Assert.Equal(42, rateLimit.Secondary!.UsedPercent);
         Assert.Equal(10080, rateLimit.Secondary.WindowDurationMinutes);
         Assert.Same(rateLimit, rateLimits.RateLimitsByLimitId["codex"]);
+
+        CodexLoginResult apiKeyLogin = await client.LoginWithApiKeyAsync("sk-sdk-login-test");
+        Assert.IsType<CodexApiKeyLoginResult>(apiKeyLogin);
+
+        CodexLoginResult tokenLogin = await client.LoginWithChatGptAuthTokensAsync("token-1", "acct-1", "plus");
+        Assert.IsType<CodexChatGptAuthTokensLoginResult>(tokenLogin);
+
+        CodexChatGptLoginHandle chatGptLogin = await client.StartChatGptLoginAsync(codexStreamlinedLogin: true);
+        Assert.Equal("login-1", chatGptLogin.LoginId);
+        Assert.Equal("https://auth.example", chatGptLogin.AuthUrl);
+        CodexAccountLoginCompletedEvent completedLogin = await chatGptLogin.WaitAsync();
+        Assert.True(completedLogin.Success);
+        Assert.Equal("login-1", completedLogin.LoginId);
+
+        CodexChatGptDeviceCodeLoginHandle deviceLogin = await client.StartChatGptDeviceCodeLoginAsync();
+        Assert.Equal("login-2", deviceLogin.LoginId);
+        Assert.Equal("https://device.example", deviceLogin.VerificationUrl);
+        Assert.Equal("ABCD-EFGH", deviceLogin.UserCode);
+        CodexCancelLoginResult canceledLogin = await deviceLogin.CancelAsync();
+        Assert.Equal(CodexLoginCancelStatus.Canceled, canceledLogin.Status);
+
+        CodexAccountReadResult account = await client.GetAccountAsync(refreshToken: true);
+        Assert.False(account.RequiresOpenAIAuth);
+        Assert.Equal("user@example.com", account.Account!.Email);
+        Assert.Equal(CodexPlanType.Plus, account.Account.PlanType);
+
+        await client.LogoutAsync();
     }
 
     [Fact]

@@ -4,27 +4,34 @@ Status: current after the latest Python and TypeScript upstream comparison.
 
 ## Current Read
 
-- The TypeScript SDK remains the smaller `codex exec` surface. The .NET SDK now covers that launch path plus the structured plan and fast-mode work.
-- The Python SDK is the broader app-server surface. The reviewed notification, thread-management, metadata, model, and realtime surfaces are now covered in this branch.
+- Upstream repo: `C:\shared\src\openai\codex`
+- Reviewed baseline commit: `319d03056e9b345fe9d129873c3a808c5df783df`
+- Upstream head commit: `319d03056e9b345fe9d129873c3a808c5df783df`
+- The Python SDK is the primary source of truth for this comparison.
+- The TypeScript SDK is still checked because both SDKs live in the same upstream monorepo.
 
-## Covered Surfaces
+## Compared Paths
 
-- Structured turn-plan events: `turn.plan.updated` and `item.plan.delta`
-- Fast-mode service-tier mapping
-- Typed account and rate-limit plan handling
-- Model service-tier metadata and related model fields
-- Core thread start/resume/fork/read/archive/unarchive/name/compact/goal flows
-- Thread rollback, unsubscribe, metadata update, and shell-command flows
-- Thread session-origin metadata and list filters
-- Core turn start/steer/interrupt flows
-- Thread lifecycle, diagnostics, model, operational, and realtime notifications
-- `serverRequest.resolved`
-- `item.autoApprovalReview.started` and `item.autoApprovalReview.completed`
-- Expanded thread-item parsing for the upstream thread item set
-- Thread-item deltas for agent messages, command output, file changes, MCP tool calls, and reasoning
-- Thread summary and list metadata for `cwd`, `sessionId`, `forkedFromId`, `source`, `threadSource`, `sessionStartSource`, `backwardsCursor`, `sortDirection`, `useStateDbOnly`, and list `cwd` arrays
+### Python SDK
+
+- Tracked path: `sdk/python`
+- Baseline commit: `319d03056e9b345fe9d129873c3a808c5df783df`
+- Latest commit range: `319d03056e9b345fe9d129873c3a808c5df783df..319d03056e9b345fe9d129873c3a808c5df783df`
+- Commit count: 0
+- Changed file count: 0
+
+### TypeScript SDK
+
+- Tracked path: `sdk/typescript`
+- Baseline commit: `319d03056e9b345fe9d129873c3a808c5df783df`
+- Latest commit range: `319d03056e9b345fe9d129873c3a808c5df783df..319d03056e9b345fe9d129873c3a808c5df783df`
+- Commit count: 0
+- Changed file count: 0
 
 ## Notes
 
-- The .NET fallback path still preserves unknown thread events and thread items, so the SDK remains usable if upstream adds new shapes later.
-- The current local API keeps a backward-compatibility `UpdateMetadataAsync(CodexGitInfo?)` overload, but the patch-wrapper overload now matches the upstream wire shape.
+- No upstream SDK changes are pending relative to the recorded baseline.
+- The Python SDK account/login additions are covered by .NET API-key login, ChatGPT browser login, ChatGPT device-code login, ChatGPT auth-token handoff, account read, logout, and login cancel/wait handles.
+- The Python `TurnResult` collection behavior was rechecked against the existing .NET `CodexRunResult` and `CodexTurnResult` behavior; no response-selection change was needed because commentary-only turns already preserve nullable final responses and final-answer phase selection.
+- The TypeScript MCP result metadata update is covered by preserving upstream `_meta` on `CodexMcpToolCallResult.Meta`.
+- Keep the Python SDK as the primary review source when the next upstream delta lands.

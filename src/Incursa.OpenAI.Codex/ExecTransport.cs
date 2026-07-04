@@ -19,6 +19,9 @@ internal sealed class CodexExecTransport : ICodexTransport
         SupportsTurnInterruption = false,
         SupportsListModels = false,
         SupportsAccountRateLimits = false,
+        SupportsAccountLogin = false,
+        SupportsAccountRead = false,
+        SupportsAccountLogout = false,
         SupportsListThreads = false,
         SupportsReadThread = false,
         SupportsForkThread = false,
@@ -117,6 +120,34 @@ internal sealed class CodexExecTransport : ICodexTransport
 
     public Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken)
         => Task.FromException<CodexAccountRateLimitsResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.GetAccountRateLimitsAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexLoginResult> LoginWithApiKeyAsync(string apiKey, CancellationToken cancellationToken)
+        => Task.FromException<CodexLoginResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.LoginWithApiKeyAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexLoginResult> LoginWithChatGptAuthTokensAsync(
+        string accessToken,
+        string chatGptAccountId,
+        string? chatGptPlanType,
+        CancellationToken cancellationToken)
+        => Task.FromException<CodexLoginResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.LoginWithChatGptAuthTokensAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexChatGptLoginResult> StartChatGptLoginAsync(bool? codexStreamlinedLogin, CancellationToken cancellationToken)
+        => Task.FromException<CodexChatGptLoginResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.StartChatGptLoginAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexChatGptDeviceCodeLoginResult> StartChatGptDeviceCodeLoginAsync(CancellationToken cancellationToken)
+        => Task.FromException<CodexChatGptDeviceCodeLoginResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.StartChatGptDeviceCodeLoginAsync), CodexBackendSelection.Exec));
+
+    public Task<CodexAccountLoginCompletedEvent> WaitForLoginCompletionAsync(string loginId, CancellationToken cancellationToken)
+        => Task.FromException<CodexAccountLoginCompletedEvent>(new CodexCapabilityNotSupportedException("account login completion", CodexBackendSelection.Exec));
+
+    public Task<CodexCancelLoginResult> CancelLoginAsync(string loginId, CancellationToken cancellationToken)
+        => Task.FromException<CodexCancelLoginResult>(new CodexCapabilityNotSupportedException("account login cancellation", CodexBackendSelection.Exec));
+
+    public Task<CodexAccountReadResult> GetAccountAsync(bool refreshToken, CancellationToken cancellationToken)
+        => Task.FromException<CodexAccountReadResult>(new CodexCapabilityNotSupportedException(nameof(CodexClient.GetAccountAsync), CodexBackendSelection.Exec));
+
+    public Task LogoutAsync(CancellationToken cancellationToken)
+        => Task.FromException(new CodexCapabilityNotSupportedException(nameof(CodexClient.LogoutAsync), CodexBackendSelection.Exec));
 
     public Task<CodexThreadSnapshot> SetThreadNameAsync(string threadId, string name, CancellationToken cancellationToken)
         => Task.FromException<CodexThreadSnapshot>(new CodexCapabilityNotSupportedException(nameof(CodexThread.SetNameAsync), CodexBackendSelection.Exec));

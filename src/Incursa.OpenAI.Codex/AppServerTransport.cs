@@ -17,6 +17,9 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         SupportsTurnInterruption = true,
         SupportsListModels = true,
         SupportsAccountRateLimits = true,
+        SupportsAccountLogin = true,
+        SupportsAccountRead = true,
+        SupportsAccountLogout = true,
         SupportsListThreads = true,
         SupportsReadThread = true,
         SupportsForkThread = true,
@@ -33,10 +36,13 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     private readonly CodexBroadcastObservable<CodexThreadEvent> _events = new();
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private readonly object _sessionGate = new();
+    private readonly object _loginGate = new();
     private readonly List<CodexTurnSession> _activeSessions = [];
     private readonly Dictionary<string, CodexTurnSession> _sessionsByTurnId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CodexTurnSession> _sessionsByThreadId = new(StringComparer.Ordinal);
     private readonly List<PendingNotification> _pendingNotifications = [];
+    private readonly Dictionary<string, List<TaskCompletionSource<CodexAccountLoginCompletedEvent>>> _loginWaiters = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CodexAccountLoginCompletedEvent> _completedLogins = new(StringComparer.Ordinal);
     private int _sessionRegistrationsInFlight;
     private JsonRpcConnection? _connection;
     private ICodexProcess? _process;
@@ -163,6 +169,96 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         JsonObject payload = await RequestObjectAsync("account/rateLimits/read", new JsonObject(), cancellationToken).ConfigureAwait(false);
         return CodexProtocol.ParseAccountRateLimitsResult(payload);
+    }
+
+    public async Task<CodexLoginResult> LoginWithApiKeyAsync(string apiKey, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("account/login/start", CodexProtocol.BuildApiKeyLoginParams(apiKey), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseLoginResult(payload);
+    }
+
+    public async Task<CodexLoginResult> LoginWithChatGptAuthTokensAsync(
+        string accessToken,
+        string chatGptAccountId,
+        string? chatGptPlanType,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync(
+            "account/login/start",
+            CodexProtocol.BuildChatGptAuthTokensLoginParams(accessToken, chatGptAccountId, chatGptPlanType),
+            cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseLoginResult(payload);
+    }
+
+    public async Task<CodexChatGptLoginResult> StartChatGptLoginAsync(bool? codexStreamlinedLogin, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("account/login/start", CodexProtocol.BuildChatGptLoginParams(codexStreamlinedLogin), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseLoginResult(payload) as CodexChatGptLoginResult
+            ?? throw new CodexInvalidRequestException("account/login/start response must be a ChatGPT login result.");
+    }
+
+    public async Task<CodexChatGptDeviceCodeLoginResult> StartChatGptDeviceCodeLoginAsync(CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("account/login/start", CodexProtocol.BuildChatGptDeviceCodeLoginParams(), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseLoginResult(payload) as CodexChatGptDeviceCodeLoginResult
+            ?? throw new CodexInvalidRequestException("account/login/start response must be a ChatGPT device-code login result.");
+    }
+
+    public async Task<CodexAccountLoginCompletedEvent> WaitForLoginCompletionAsync(string loginId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        TaskCompletionSource<CodexAccountLoginCompletedEvent> waiter = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_loginGate)
+        {
+            if (_completedLogins.TryGetValue(loginId, out CodexAccountLoginCompletedEvent? completed))
+            {
+                return completed;
+            }
+
+            if (!_loginWaiters.TryGetValue(loginId, out List<TaskCompletionSource<CodexAccountLoginCompletedEvent>>? waiters))
+            {
+                waiters = [];
+                _loginWaiters[loginId] = waiters;
+            }
+
+            waiters.Add(waiter);
+        }
+
+        try
+        {
+            using CancellationTokenRegistration registration = cancellationToken.Register(() => waiter.TrySetCanceled(cancellationToken));
+            return await waiter.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            RemoveLoginWaiter(loginId, waiter);
+        }
+    }
+
+    public async Task<CodexCancelLoginResult> CancelLoginAsync(string loginId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("account/login/cancel", CodexProtocol.BuildCancelLoginParams(loginId), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseCancelLoginResult(payload);
+    }
+
+    public async Task<CodexAccountReadResult> GetAccountAsync(bool refreshToken, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        JsonObject payload = await RequestObjectAsync("account/read", CodexProtocol.BuildAccountReadParams(refreshToken), cancellationToken).ConfigureAwait(false);
+        return CodexProtocol.ParseAccountReadResult(payload);
+    }
+
+    public async Task LogoutAsync(CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        await RequestAsync("account/logout", parameters: null, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<CodexThreadSnapshot> SetThreadNameAsync(string threadId, string name, CancellationToken cancellationToken)
@@ -389,6 +485,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         _disposed = true;
         _initializeGate.Dispose();
         await DisposeConnectionAsync().ConfigureAwait(false);
+        FailLoginWaiters(new CodexTransportClosedException());
         _events.Complete();
     }
 
@@ -416,12 +513,18 @@ internal sealed class CodexAppServerTransport : ICodexTransport
                 JsonObject message = await connection.NextNotificationAsync(CancellationToken.None).ConfigureAwait(false);
                 CodexThreadEvent evt = CodexProtocol.ParseThreadEvent(message);
                 _events.Publish(evt);
+                if (evt is CodexAccountLoginCompletedEvent loginCompleted)
+                {
+                    CompleteLogin(loginCompleted);
+                }
+
                 DispatchNotification(evt);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             FailActiveSessions(exception);
+            FailLoginWaiters(exception);
             _events.Complete(_disposed ? null : exception);
         }
     }
@@ -562,6 +665,46 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         session.CompleteWriter();
     }
 
+    private void CompleteLogin(CodexAccountLoginCompletedEvent evt)
+    {
+        if (string.IsNullOrWhiteSpace(evt.LoginId))
+        {
+            return;
+        }
+
+        List<TaskCompletionSource<CodexAccountLoginCompletedEvent>> waiters = [];
+        lock (_loginGate)
+        {
+            _completedLogins[evt.LoginId] = evt;
+            if (_loginWaiters.Remove(evt.LoginId, out List<TaskCompletionSource<CodexAccountLoginCompletedEvent>>? existing))
+            {
+                waiters.AddRange(existing);
+            }
+        }
+
+        foreach (TaskCompletionSource<CodexAccountLoginCompletedEvent> waiter in waiters)
+        {
+            waiter.TrySetResult(evt);
+        }
+    }
+
+    private void RemoveLoginWaiter(string loginId, TaskCompletionSource<CodexAccountLoginCompletedEvent> waiter)
+    {
+        lock (_loginGate)
+        {
+            if (!_loginWaiters.TryGetValue(loginId, out List<TaskCompletionSource<CodexAccountLoginCompletedEvent>>? waiters))
+            {
+                return;
+            }
+
+            waiters.Remove(waiter);
+            if (waiters.Count == 0)
+            {
+                _loginWaiters.Remove(loginId);
+            }
+        }
+    }
+
     private static void RemoveSessionMappingsLocked(
         Dictionary<string, CodexTurnSession> sessions,
         CodexTurnSession session,
@@ -612,6 +755,25 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         }
     }
 
+    private void FailLoginWaiters(Exception exception)
+    {
+        List<TaskCompletionSource<CodexAccountLoginCompletedEvent>> waiters = [];
+        lock (_loginGate)
+        {
+            foreach (List<TaskCompletionSource<CodexAccountLoginCompletedEvent>> loginWaiters in _loginWaiters.Values)
+            {
+                waiters.AddRange(loginWaiters);
+            }
+
+            _loginWaiters.Clear();
+        }
+
+        foreach (TaskCompletionSource<CodexAccountLoginCompletedEvent> waiter in waiters)
+        {
+            waiter.TrySetException(exception);
+        }
+    }
+
     private CodexRuntimeMetadata ParseRuntimeMetadata(JsonObject response)
     {
         CodexServerInfo? serverInfo = null;
@@ -633,7 +795,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         };
     }
 
-    private async Task<JsonNode?> RequestAsync(string method, JsonObject parameters, CancellationToken cancellationToken)
+    private async Task<JsonNode?> RequestAsync(string method, JsonObject? parameters, CancellationToken cancellationToken)
     {
         if (_connection is null)
         {

@@ -62,6 +62,44 @@ public sealed class CodexTurnOutcomeTests
     [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
     [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0300")]
+    public async Task RunAsync_ReturnsWhenTerminalEventArrivesEvenIfStreamRemainsOpen()
+    {
+        await using CodexClient client = new();
+        CodexTurnSession session = CreateSession();
+        session.AppendEvent(CreateStartedEvent());
+        session.AppendEvent(CreateCompletedEvent("Final answer."));
+
+        CodexRunResult result = await new CodexTurn(client, session)
+            .RunAsync()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("Final answer.", result.FinalResponse);
+        Assert.Single(result.Items);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0300")]
+    public async Task RunToResultAsync_ReturnsWhenTerminalEventArrivesEvenIfStreamRemainsOpen()
+    {
+        await using CodexClient client = new();
+        CodexTurnSession session = CreateSession();
+        session.AppendEvent(CreateStartedEvent());
+        session.AppendEvent(CreateCompletedEvent("Final answer."));
+
+        CodexTurnResult result = await new CodexTurn(client, session)
+            .RunToResultAsync()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(CodexTurnTerminalState.Completed, result.TerminalState);
+        Assert.True(result.TerminalEventSeen);
+        Assert.Equal("Final answer.", result.FinalResponseText);
+        Assert.Single(result.Items);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0300")]
     public async Task RunToResultAsync_UsesAssistantDeltasAndMarksIncompleteWhenTerminalIsMissing()
     {
         await using CodexClient client = new();

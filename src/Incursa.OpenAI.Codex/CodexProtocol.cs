@@ -190,6 +190,53 @@ internal static class CodexProtocol
     public static JsonObject BuildModelListParams(CodexModelListOptions? options)
         => new() { ["includeHidden"] = options?.IncludeHidden ?? false };
 
+    public static JsonObject BuildApiKeyLoginParams(string apiKey)
+        => new()
+        {
+            ["type"] = "apiKey",
+            ["apiKey"] = apiKey,
+        };
+
+    public static JsonObject BuildChatGptLoginParams(bool? codexStreamlinedLogin)
+    {
+        JsonObject payload = new() { ["type"] = "chatgpt" };
+        if (codexStreamlinedLogin.HasValue)
+        {
+            payload["codexStreamlinedLogin"] = codexStreamlinedLogin.Value;
+        }
+
+        return payload;
+    }
+
+    public static JsonObject BuildChatGptDeviceCodeLoginParams()
+        => new() { ["type"] = "chatgptDeviceCode" };
+
+    public static JsonObject BuildChatGptAuthTokensLoginParams(
+        string accessToken,
+        string chatGptAccountId,
+        string? chatGptPlanType)
+    {
+        JsonObject payload = new()
+        {
+            ["type"] = "chatgptAuthTokens",
+            ["accessToken"] = accessToken,
+            ["chatgptAccountId"] = chatGptAccountId,
+        };
+
+        if (!string.IsNullOrWhiteSpace(chatGptPlanType))
+        {
+            payload["chatgptPlanType"] = chatGptPlanType;
+        }
+
+        return payload;
+    }
+
+    public static JsonObject BuildCancelLoginParams(string loginId)
+        => new() { ["loginId"] = loginId };
+
+    public static JsonObject BuildAccountReadParams(bool refreshToken)
+        => new() { ["refreshToken"] = refreshToken };
+
     public static JsonObject BuildTurnStartParams(
         string? threadId,
         IReadOnlyList<CodexInputItem> input,
@@ -763,6 +810,58 @@ internal static class CodexProtocol
         {
             Models = models,
             NextCursor = GetString(payload, "nextCursor"),
+        };
+    }
+
+    public static CodexLoginResult ParseLoginResult(JsonNode? node)
+    {
+        if (node is not JsonObject payload)
+        {
+            return new CodexUnknownLoginResult("unknown");
+        }
+
+        string type = GetString(payload, "type") ?? "unknown";
+        return type switch
+        {
+            "apiKey" => new CodexApiKeyLoginResult(),
+            "chatgpt" => new CodexChatGptLoginResult
+            {
+                LoginId = GetString(payload, "loginId") ?? string.Empty,
+                AuthUrl = GetString(payload, "authUrl") ?? string.Empty,
+            },
+            "chatgptDeviceCode" => new CodexChatGptDeviceCodeLoginResult
+            {
+                LoginId = GetString(payload, "loginId") ?? string.Empty,
+                VerificationUrl = GetString(payload, "verificationUrl") ?? string.Empty,
+                UserCode = GetString(payload, "userCode") ?? string.Empty,
+            },
+            "chatgptAuthTokens" => new CodexChatGptAuthTokensLoginResult(),
+            _ => new CodexUnknownLoginResult(type)
+            {
+                RawPayload = payload.DeepClone().AsObject(),
+            },
+        };
+    }
+
+    public static CodexCancelLoginResult ParseCancelLoginResult(JsonNode? node)
+        => new()
+        {
+            Status = node is JsonObject payload
+                ? ParseLoginCancelStatus(GetString(payload, "status"))
+                : CodexLoginCancelStatus.Unknown,
+        };
+
+    public static CodexAccountReadResult ParseAccountReadResult(JsonNode? node)
+    {
+        if (node is not JsonObject payload)
+        {
+            return new CodexAccountReadResult();
+        }
+
+        return new CodexAccountReadResult
+        {
+            Account = ParseAccount(GetObject(payload, "account")),
+            RequiresOpenAIAuth = GetBool(payload, "requiresOpenaiAuth") ?? false,
         };
     }
 
@@ -1623,7 +1722,26 @@ internal static class CodexProtocol
         return new CodexMcpToolCallResult
         {
             Content = content,
-            StructuredContent = GetNode(payload, "structuredContent"),
+            Meta = GetNode(payload, "_meta")?.DeepClone(),
+            StructuredContent = GetNodeAny(payload, "structuredContent", "structured_content")?.DeepClone(),
+        };
+    }
+
+    private static CodexAccount? ParseAccount(JsonObject? payload)
+    {
+        if (payload is null)
+        {
+            return null;
+        }
+
+        string type = GetString(payload, "type") ?? string.Empty;
+        return new CodexAccount
+        {
+            Type = type,
+            AuthMode = ParseAccountTypeAsAuthMode(type),
+            Email = GetString(payload, "email"),
+            PlanType = ParsePlanType(GetString(payload, "planType")),
+            RawPayload = payload.DeepClone().AsObject(),
         };
     }
 
@@ -2093,6 +2211,23 @@ internal static class CodexProtocol
             "chatgptAuthTokens" => CodexAuthMode.ChatgptAuthTokens,
             "agentIdentity" => CodexAuthMode.AgentIdentity,
             _ => CodexAuthMode.Unknown,
+        };
+
+    private static CodexAuthMode ParseAccountTypeAsAuthMode(string? value)
+        => value switch
+        {
+            "apiKey" => CodexAuthMode.ApiKey,
+            "chatgpt" => CodexAuthMode.Chatgpt,
+            "chatgptAuthTokens" => CodexAuthMode.ChatgptAuthTokens,
+            _ => CodexAuthMode.Unknown,
+        };
+
+    private static CodexLoginCancelStatus ParseLoginCancelStatus(string? value)
+        => value switch
+        {
+            "canceled" => CodexLoginCancelStatus.Canceled,
+            "notFound" => CodexLoginCancelStatus.NotFound,
+            _ => CodexLoginCancelStatus.Unknown,
         };
 
     private static CodexProcessOutputStream ParseProcessOutputStream(string? value)

@@ -255,6 +255,107 @@ public sealed class CodexClient : IAsyncDisposable
     }
 
     /// <summary>
+    /// Authenticates the app-server backend with an OpenAI API key.
+    /// </summary>
+    /// <param name="apiKey">The API key to hand to the Codex runtime.</param>
+    /// <param name="cancellationToken">A token that cancels the login request.</param>
+    /// <returns>The login result returned by the runtime.</returns>
+    public async Task<CodexLoginResult> LoginWithApiKeyAsync(string apiKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new ArgumentException("API key must not be empty.", nameof(apiKey));
+        }
+
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogin == true, nameof(LoginWithApiKeyAsync));
+        return await _transport.LoginWithApiKeyAsync(apiKey, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Authenticates the app-server backend with externally supplied ChatGPT auth tokens.
+    /// </summary>
+    /// <param name="accessToken">The ChatGPT access token.</param>
+    /// <param name="chatGptAccountId">The ChatGPT account or workspace identifier.</param>
+    /// <param name="chatGptPlanType">Optional ChatGPT plan type supplied by the caller.</param>
+    /// <param name="cancellationToken">A token that cancels the login request.</param>
+    /// <returns>The login result returned by the runtime.</returns>
+    public async Task<CodexLoginResult> LoginWithChatGptAuthTokensAsync(
+        string accessToken,
+        string chatGptAccountId,
+        string? chatGptPlanType = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ArgumentException("Access token must not be empty.", nameof(accessToken));
+        }
+
+        if (string.IsNullOrWhiteSpace(chatGptAccountId))
+        {
+            throw new ArgumentException("ChatGPT account id must not be empty.", nameof(chatGptAccountId));
+        }
+
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogin == true, nameof(LoginWithChatGptAuthTokensAsync));
+        return await _transport.LoginWithChatGptAuthTokensAsync(accessToken, chatGptAccountId, chatGptPlanType, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Starts browser-based ChatGPT login and returns a handle for the live attempt.
+    /// </summary>
+    /// <param name="codexStreamlinedLogin">Optional streamlined-login preference sent to the runtime.</param>
+    /// <param name="cancellationToken">A token that cancels the login-start request.</param>
+    /// <returns>A handle that can wait for completion or cancel the login attempt.</returns>
+    public async Task<CodexChatGptLoginHandle> StartChatGptLoginAsync(
+        bool? codexStreamlinedLogin = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogin == true, nameof(StartChatGptLoginAsync));
+        CodexChatGptLoginResult result = await _transport.StartChatGptLoginAsync(codexStreamlinedLogin, cancellationToken).ConfigureAwait(false);
+        return new CodexChatGptLoginHandle(this, result.LoginId, result.AuthUrl);
+    }
+
+    /// <summary>
+    /// Starts ChatGPT device-code login and returns a handle for the live attempt.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the login-start request.</param>
+    /// <returns>A handle that can wait for completion or cancel the login attempt.</returns>
+    public async Task<CodexChatGptDeviceCodeLoginHandle> StartChatGptDeviceCodeLoginAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogin == true, nameof(StartChatGptDeviceCodeLoginAsync));
+        CodexChatGptDeviceCodeLoginResult result = await _transport.StartChatGptDeviceCodeLoginAsync(cancellationToken).ConfigureAwait(false);
+        return new CodexChatGptDeviceCodeLoginHandle(this, result.LoginId, result.VerificationUrl, result.UserCode);
+    }
+
+    /// <summary>
+    /// Reads the current app-server account state.
+    /// </summary>
+    /// <param name="refreshToken">Whether to ask the runtime to refresh tokens before returning account state.</param>
+    /// <param name="cancellationToken">A token that cancels the account-read request.</param>
+    /// <returns>The current account state.</returns>
+    public async Task<CodexAccountReadResult> GetAccountAsync(bool refreshToken = false, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountRead == true, nameof(GetAccountAsync));
+        return await _transport.GetAccountAsync(refreshToken, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Clears the current app-server account session.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the logout request.</param>
+    /// <returns>A task that completes when the logout request has finished.</returns>
+    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogout == true, nameof(LogoutAsync));
+        await _transport.LogoutAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Releases resources held by the selected Codex transport.
     /// </summary>
     /// <returns>A task-like value that completes when disposal has finished.</returns>
@@ -420,6 +521,20 @@ public sealed class CodexClient : IAsyncDisposable
         return await _transport.AttachTurnAsync(threadId, turnId, threadOptions, options, cancellationToken).ConfigureAwait(false);
     }
 
+    internal async Task<CodexAccountLoginCompletedEvent> WaitForLoginCompletionAsync(string loginId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogin == true, "account login completion");
+        return await _transport.WaitForLoginCompletionAsync(loginId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<CodexCancelLoginResult> CancelLoginAsync(string loginId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        EnsureCapability(Capabilities?.SupportsAccountLogin == true, "account login cancellation");
+        return await _transport.CancelLoginAsync(loginId, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
@@ -449,6 +564,100 @@ public sealed class CodexClient : IAsyncDisposable
             throw new CodexTransportClosedException();
         }
     }
+}
+
+/// <summary>
+/// Represents a live browser-based ChatGPT login attempt.
+/// </summary>
+public sealed class CodexChatGptLoginHandle
+{
+    internal CodexChatGptLoginHandle(CodexClient client, string loginId, string authUrl)
+    {
+        Client = client;
+        LoginId = loginId;
+        AuthUrl = authUrl;
+    }
+
+    /// <summary>
+    /// Gets the client that owns this login attempt.
+    /// </summary>
+    public CodexClient Client { get; }
+
+    /// <summary>
+    /// Gets the login attempt identifier.
+    /// </summary>
+    public string LoginId { get; }
+
+    /// <summary>
+    /// Gets the URL the caller should open in a browser.
+    /// </summary>
+    public string AuthUrl { get; }
+
+    /// <summary>
+    /// Waits for the runtime to report that this login attempt completed.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the wait.</param>
+    /// <returns>The login completion notification.</returns>
+    public async Task<CodexAccountLoginCompletedEvent> WaitAsync(CancellationToken cancellationToken = default)
+        => await Client.WaitForLoginCompletionAsync(LoginId, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Cancels this login attempt.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the cancel request.</param>
+    /// <returns>The cancellation result.</returns>
+    public async Task<CodexCancelLoginResult> CancelAsync(CancellationToken cancellationToken = default)
+        => await Client.CancelLoginAsync(LoginId, cancellationToken).ConfigureAwait(false);
+}
+
+/// <summary>
+/// Represents a live ChatGPT device-code login attempt.
+/// </summary>
+public sealed class CodexChatGptDeviceCodeLoginHandle
+{
+    internal CodexChatGptDeviceCodeLoginHandle(CodexClient client, string loginId, string verificationUrl, string userCode)
+    {
+        Client = client;
+        LoginId = loginId;
+        VerificationUrl = verificationUrl;
+        UserCode = userCode;
+    }
+
+    /// <summary>
+    /// Gets the client that owns this login attempt.
+    /// </summary>
+    public CodexClient Client { get; }
+
+    /// <summary>
+    /// Gets the login attempt identifier.
+    /// </summary>
+    public string LoginId { get; }
+
+    /// <summary>
+    /// Gets the URL where the user enters the device code.
+    /// </summary>
+    public string VerificationUrl { get; }
+
+    /// <summary>
+    /// Gets the one-time device code.
+    /// </summary>
+    public string UserCode { get; }
+
+    /// <summary>
+    /// Waits for the runtime to report that this login attempt completed.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the wait.</param>
+    /// <returns>The login completion notification.</returns>
+    public async Task<CodexAccountLoginCompletedEvent> WaitAsync(CancellationToken cancellationToken = default)
+        => await Client.WaitForLoginCompletionAsync(LoginId, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Cancels this login attempt.
+    /// </summary>
+    /// <param name="cancellationToken">A token that cancels the cancel request.</param>
+    /// <returns>The cancellation result.</returns>
+    public async Task<CodexCancelLoginResult> CancelAsync(CancellationToken cancellationToken = default)
+        => await Client.CancelLoginAsync(LoginId, cancellationToken).ConfigureAwait(false);
 }
 
 /// <summary>
@@ -538,6 +747,10 @@ public sealed class CodexThread
         await foreach (CodexThreadEvent item in turn.StreamAsync(cancellationToken).ConfigureAwait(false))
         {
             yield return item;
+            if (CodexTurnEventHelpers.IsTerminalTurnEvent(item))
+            {
+                yield break;
+            }
         }
     }
 
@@ -919,6 +1132,10 @@ public sealed class CodexTurn
             await foreach (CodexThreadEvent item in StreamAsync(cancellationToken).ConfigureAwait(false))
             {
                 outcomeBuilder.Process(item);
+                if (CodexTurnEventHelpers.IsTerminalTurnEvent(item))
+                {
+                    break;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -941,27 +1158,23 @@ public sealed class CodexTurn
     /// <returns>The completed turn result.</returns>
     public async Task<CodexRunResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        CodexRunResult? completedResult = null;
-
         await foreach (CodexThreadEvent evt in StreamAsync(cancellationToken).ConfigureAwait(false))
         {
             switch (evt)
             {
                 case CodexTurnCompletedEvent completed:
-                    completedResult = new CodexRunResult
+                    return new CodexRunResult
                     {
                         Items = _session.Items,
                         Usage = completed.Turn.Usage ?? _session.Usage,
                         FinalResponse = CodexResultHelpers.SelectFinalResponse(_session.Items),
                     };
-                    break;
                 case CodexTurnFailedEvent failed:
                     throw CodexResultHelpers.ToException(failed.Turn);
             }
         }
 
-        return completedResult
-            ?? throw new CodexInvalidRequestException($"Turn '{Id}' on thread '{ThreadId}' did not complete successfully.");
+        throw new CodexInvalidRequestException($"Turn '{Id}' on thread '{ThreadId}' did not complete successfully.");
     }
 
     /// <summary>
@@ -996,4 +1209,10 @@ public sealed class CodexTurn
 
     private CodexTurnOutcomeBuilder CreateOutcomeBuilder()
         => new(ThreadId, Id, _session.Options?.WorkingDirectory);
+}
+
+internal static class CodexTurnEventHelpers
+{
+    public static bool IsTerminalTurnEvent(CodexThreadEvent evt)
+        => evt is CodexTurnCompletedEvent or CodexTurnFailedEvent;
 }

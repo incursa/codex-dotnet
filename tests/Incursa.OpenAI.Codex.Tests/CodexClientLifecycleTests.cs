@@ -15,6 +15,12 @@ public sealed class CodexClientLifecycleTests
         yield return [nameof(CodexClient.UnarchiveThreadAsync), new Func<CodexClient, Task>(async client => await client.UnarchiveThreadAsync("thread-1"))];
         yield return [nameof(CodexClient.ListModelsAsync), new Func<CodexClient, Task>(async client => await client.ListModelsAsync())];
         yield return [nameof(CodexClient.GetAccountRateLimitsAsync), new Func<CodexClient, Task>(async client => await client.GetAccountRateLimitsAsync())];
+        yield return [nameof(CodexClient.LoginWithApiKeyAsync), new Func<CodexClient, Task>(async client => await client.LoginWithApiKeyAsync("sk-test"))];
+        yield return [nameof(CodexClient.LoginWithChatGptAuthTokensAsync), new Func<CodexClient, Task>(async client => await client.LoginWithChatGptAuthTokensAsync("token", "account"))];
+        yield return [nameof(CodexClient.StartChatGptLoginAsync), new Func<CodexClient, Task>(async client => await client.StartChatGptLoginAsync())];
+        yield return [nameof(CodexClient.StartChatGptDeviceCodeLoginAsync), new Func<CodexClient, Task>(async client => await client.StartChatGptDeviceCodeLoginAsync())];
+        yield return [nameof(CodexClient.GetAccountAsync), new Func<CodexClient, Task>(async client => await client.GetAccountAsync())];
+        yield return [nameof(CodexClient.LogoutAsync), new Func<CodexClient, Task>(async client => await client.LogoutAsync())];
     }
 
     [Theory]

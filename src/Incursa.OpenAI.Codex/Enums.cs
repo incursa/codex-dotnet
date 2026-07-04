@@ -543,6 +543,19 @@ public enum CodexAuthMode
     AgentIdentity,
 }
 
+/// <summary>Tracks the result of canceling an account-login attempt.</summary>
+public enum CodexLoginCancelStatus
+{
+    /// <summary>The cancel status could not be identified.</summary>
+    Unknown,
+
+    /// <summary>The login attempt was canceled.</summary>
+    Canceled,
+
+    /// <summary>The requested login attempt was not found.</summary>
+    NotFound,
+}
+
 /// <summary>Identifies a process output stream.</summary>
 public enum CodexProcessOutputStream
 {

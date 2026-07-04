@@ -1,15 +1,30 @@
 [CmdletBinding()]
 param(
     [string]$UpstreamRepoPath,
-    [string]$ParityStatePath = (Join-Path $PSScriptRoot '..\quality\upstream-parity.json'),
-    [string]$ReportPath = (Join-Path $PSScriptRoot '..\quality\upstream-parity-gaps.md'),
+    [string]$ParityStatePath,
+    [string]$ReportPath,
     [switch]$WriteReport
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$scriptRoot = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+else {
+    $PSScriptRoot
+}
+
+$repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
+
+if ([string]::IsNullOrWhiteSpace($ParityStatePath)) {
+    $ParityStatePath = Join-Path $repoRoot 'quality\upstream-parity.json'
+}
+
+if ([string]::IsNullOrWhiteSpace($ReportPath)) {
+    $ReportPath = Join-Path $repoRoot 'quality\upstream-parity-gaps.md'
+}
 
 if ([string]::IsNullOrWhiteSpace($UpstreamRepoPath)) {
     $UpstreamRepoPath = $env:CODEX_UPSTREAM_REPO_PATH
@@ -198,9 +213,11 @@ if ($WriteReport) {
 }
 
 if ($env:GITHUB_OUTPUT) {
-    "status=$($hasUpdates ? 'updates-found' : 'current')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+    $outputStatus = if ($hasUpdates) { 'updates-found' } else { 'current' }
+    "status=$outputStatus" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     "upstream_head=$upstreamHead" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     "report_path=$ReportPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 }
 
-Write-Host "Upstream parity review status: $($hasUpdates ? 'updates-found' : 'current')"
+$status = if ($hasUpdates) { 'updates-found' } else { 'current' }
+Write-Host "Upstream parity review status: $status"

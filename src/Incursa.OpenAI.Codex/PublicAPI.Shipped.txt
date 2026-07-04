@@ -1,3 +1,17 @@
+T:Incursa.OpenAI.Codex.CodexAccount
+C:Incursa.OpenAI.Codex.CodexAccount()
+P:Incursa.OpenAI.Codex.CodexAccount.AuthMode:Incursa.OpenAI.Codex.CodexAuthMode get; set;
+P:Incursa.OpenAI.Codex.CodexAccount.Email:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexAccount.PlanType:Incursa.OpenAI.Codex.CodexPlanType get; set;
+P:Incursa.OpenAI.Codex.CodexAccount.RawPayload:System.Text.Json.Nodes.JsonObject get; set;
+P:Incursa.OpenAI.Codex.CodexAccount.Type:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexAccount.Equals(Incursa.OpenAI.Codex.CodexAccount other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccount.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccount.op_Equality(Incursa.OpenAI.Codex.CodexAccount left, Incursa.OpenAI.Codex.CodexAccount right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccount.op_Inequality(Incursa.OpenAI.Codex.CodexAccount left, Incursa.OpenAI.Codex.CodexAccount right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccount.<Clone>$():Incursa.OpenAI.Codex.CodexAccount
+M:Incursa.OpenAI.Codex.CodexAccount.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexAccount.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexAccountLoginCompletedEvent
 C:Incursa.OpenAI.Codex.CodexAccountLoginCompletedEvent()
 P:Incursa.OpenAI.Codex.CodexAccountLoginCompletedEvent.Error:System.String get; set;
@@ -33,6 +47,17 @@ M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.op_Inequality(Incursa.
 M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.<Clone>$():Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent
 M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexAccountRateLimitsUpdatedEvent.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexAccountReadResult
+C:Incursa.OpenAI.Codex.CodexAccountReadResult()
+P:Incursa.OpenAI.Codex.CodexAccountReadResult.Account:Incursa.OpenAI.Codex.CodexAccount get; set;
+P:Incursa.OpenAI.Codex.CodexAccountReadResult.RequiresOpenAIAuth:System.Boolean get; set;
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.Equals(Incursa.OpenAI.Codex.CodexAccountReadResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.op_Equality(Incursa.OpenAI.Codex.CodexAccountReadResult left, Incursa.OpenAI.Codex.CodexAccountReadResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.op_Inequality(Incursa.OpenAI.Codex.CodexAccountReadResult left, Incursa.OpenAI.Codex.CodexAccountReadResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.<Clone>$():Incursa.OpenAI.Codex.CodexAccountReadResult
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexAccountReadResult.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexAccountUpdatedEvent
 C:Incursa.OpenAI.Codex.CodexAccountUpdatedEvent()
 P:Incursa.OpenAI.Codex.CodexAccountUpdatedEvent.AuthMode:Incursa.OpenAI.Codex.CodexAuthMode get; set;
@@ -83,6 +108,16 @@ M:Incursa.OpenAI.Codex.CodexAgentMessageItem.op_Inequality(Incursa.OpenAI.Codex.
 M:Incursa.OpenAI.Codex.CodexAgentMessageItem.<Clone>$():Incursa.OpenAI.Codex.CodexAgentMessageItem
 M:Incursa.OpenAI.Codex.CodexAgentMessageItem.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexAgentMessageItem.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexApiKeyLoginResult
+C:Incursa.OpenAI.Codex.CodexApiKeyLoginResult()
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.Equals(Incursa.OpenAI.Codex.CodexApiKeyLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.Equals(Incursa.OpenAI.Codex.CodexLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexApiKeyLoginResult left, Incursa.OpenAI.Codex.CodexApiKeyLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexApiKeyLoginResult left, Incursa.OpenAI.Codex.CodexApiKeyLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexApiKeyLoginResult
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexApiKeyLoginResult.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent
 C:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent()
 P:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent.Data:System.Collections.Generic.IReadOnlyList<System.Text.Json.Nodes.JsonObject> get; set;
@@ -140,10 +175,68 @@ T:Incursa.OpenAI.Codex.CodexBackendSelection
 F:Incursa.OpenAI.Codex.CodexBackendSelection.AppServer:Incursa.OpenAI.Codex.CodexBackendSelection
 F:Incursa.OpenAI.Codex.CodexBackendSelection.Exec:Incursa.OpenAI.Codex.CodexBackendSelection
 F:Incursa.OpenAI.Codex.CodexBackendSelection.value__:System.Int32
+T:Incursa.OpenAI.Codex.CodexCancelLoginResult
+C:Incursa.OpenAI.Codex.CodexCancelLoginResult()
+P:Incursa.OpenAI.Codex.CodexCancelLoginResult.Status:Incursa.OpenAI.Codex.CodexLoginCancelStatus get; set;
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.Equals(Incursa.OpenAI.Codex.CodexCancelLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexCancelLoginResult left, Incursa.OpenAI.Codex.CodexCancelLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexCancelLoginResult left, Incursa.OpenAI.Codex.CodexCancelLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexCancelLoginResult
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexCancelLoginResult.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexCapabilityNotSupportedException
 C:Incursa.OpenAI.Codex.CodexCapabilityNotSupportedException(System.String operation = optional, Incursa.OpenAI.Codex.CodexBackendSelection backendSelection = optional, System.String message = optional, System.Exception innerException = optional)
 P:Incursa.OpenAI.Codex.CodexCapabilityNotSupportedException.BackendSelection:Incursa.OpenAI.Codex.CodexBackendSelection get;
 P:Incursa.OpenAI.Codex.CodexCapabilityNotSupportedException.Operation:System.String get;
+T:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult
+C:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult()
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.Equals(Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.Equals(Incursa.OpenAI.Codex.CodexLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult left, Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult left, Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexChatGptAuthTokensLoginResult.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle.Client:Incursa.OpenAI.Codex.CodexClient get;
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle.LoginId:System.String get;
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle.UserCode:System.String get;
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle.VerificationUrl:System.String get;
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle.WaitAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexAccountLoginCompletedEvent>
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle.CancelAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexCancelLoginResult>
+T:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult
+C:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult()
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.LoginId:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.UserCode:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.VerificationUrl:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.Equals(Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.Equals(Incursa.OpenAI.Codex.CodexLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult left, Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult left, Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginResult.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexChatGptLoginHandle
+P:Incursa.OpenAI.Codex.CodexChatGptLoginHandle.AuthUrl:System.String get;
+P:Incursa.OpenAI.Codex.CodexChatGptLoginHandle.Client:Incursa.OpenAI.Codex.CodexClient get;
+P:Incursa.OpenAI.Codex.CodexChatGptLoginHandle.LoginId:System.String get;
+M:Incursa.OpenAI.Codex.CodexChatGptLoginHandle.WaitAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexAccountLoginCompletedEvent>
+M:Incursa.OpenAI.Codex.CodexChatGptLoginHandle.CancelAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexCancelLoginResult>
+T:Incursa.OpenAI.Codex.CodexChatGptLoginResult
+C:Incursa.OpenAI.Codex.CodexChatGptLoginResult()
+P:Incursa.OpenAI.Codex.CodexChatGptLoginResult.AuthUrl:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexChatGptLoginResult.LoginId:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.Equals(Incursa.OpenAI.Codex.CodexChatGptLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.Equals(Incursa.OpenAI.Codex.CodexLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexChatGptLoginResult left, Incursa.OpenAI.Codex.CodexChatGptLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexChatGptLoginResult left, Incursa.OpenAI.Codex.CodexChatGptLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexChatGptLoginResult
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexChatGptLoginResult.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexClient
 C:Incursa.OpenAI.Codex.CodexClient()
 C:Incursa.OpenAI.Codex.CodexClient(Incursa.OpenAI.Codex.CodexClientOptions options)
@@ -152,7 +245,13 @@ P:Incursa.OpenAI.Codex.CodexClient.Metadata:Incursa.OpenAI.Codex.CodexRuntimeMet
 P:Incursa.OpenAI.Codex.CodexClient.Options:Incursa.OpenAI.Codex.CodexClientOptions get;
 M:Incursa.OpenAI.Codex.CodexClient.ObserveEventsAsync():System.IObservable<Incursa.OpenAI.Codex.CodexThreadEvent>
 M:Incursa.OpenAI.Codex.CodexClient.ArchiveThreadAsync(System.String threadId, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task
+M:Incursa.OpenAI.Codex.CodexClient.LogoutAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task
 M:Incursa.OpenAI.Codex.CodexClient.GetAccountRateLimitsAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexAccountRateLimitsResult>
+M:Incursa.OpenAI.Codex.CodexClient.GetAccountAsync(System.Boolean refreshToken = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexAccountReadResult>
+M:Incursa.OpenAI.Codex.CodexClient.StartChatGptDeviceCodeLoginAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexChatGptDeviceCodeLoginHandle>
+M:Incursa.OpenAI.Codex.CodexClient.StartChatGptLoginAsync(System.Nullable<System.Boolean> codexStreamlinedLogin = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexChatGptLoginHandle>
+M:Incursa.OpenAI.Codex.CodexClient.LoginWithApiKeyAsync(System.String apiKey, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexLoginResult>
+M:Incursa.OpenAI.Codex.CodexClient.LoginWithChatGptAuthTokensAsync(System.String accessToken, System.String chatGptAccountId, System.String chatGptPlanType = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexLoginResult>
 M:Incursa.OpenAI.Codex.CodexClient.ListModelsAsync(Incursa.OpenAI.Codex.CodexModelListOptions options = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexModelListResult>
 M:Incursa.OpenAI.Codex.CodexClient.InitializeAsync(System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexRuntimeMetadata>
 M:Incursa.OpenAI.Codex.CodexClient.ListThreadsAsync(Incursa.OpenAI.Codex.CodexThreadListOptions options = optional, System.Threading.CancellationToken cancellationToken = optional):System.Threading.Tasks.Task<Incursa.OpenAI.Codex.CodexThreadListResult>
@@ -1048,6 +1147,21 @@ M:Incursa.OpenAI.Codex.CodexLocalImageInput.op_Inequality(Incursa.OpenAI.Codex.C
 M:Incursa.OpenAI.Codex.CodexLocalImageInput.<Clone>$():Incursa.OpenAI.Codex.CodexLocalImageInput
 M:Incursa.OpenAI.Codex.CodexLocalImageInput.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexLocalImageInput.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexLoginCancelStatus
+F:Incursa.OpenAI.Codex.CodexLoginCancelStatus.Canceled:Incursa.OpenAI.Codex.CodexLoginCancelStatus
+F:Incursa.OpenAI.Codex.CodexLoginCancelStatus.NotFound:Incursa.OpenAI.Codex.CodexLoginCancelStatus
+F:Incursa.OpenAI.Codex.CodexLoginCancelStatus.Unknown:Incursa.OpenAI.Codex.CodexLoginCancelStatus
+F:Incursa.OpenAI.Codex.CodexLoginCancelStatus.value__:System.Int32
+T:Incursa.OpenAI.Codex.CodexLoginResult
+P:Incursa.OpenAI.Codex.CodexLoginResult.Type:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexLoginResult.Equals(Incursa.OpenAI.Codex.CodexLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexLoginResult left, Incursa.OpenAI.Codex.CodexLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexLoginResult left, Incursa.OpenAI.Codex.CodexLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexLoginResult
+M:Incursa.OpenAI.Codex.CodexLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexLoginResult.ToString():System.String
+M:Incursa.OpenAI.Codex.CodexLoginResult.Deconstruct(out System.String Type):System.Void
 T:Incursa.OpenAI.Codex.CodexMcpServerOauthLoginCompletedEvent
 C:Incursa.OpenAI.Codex.CodexMcpServerOauthLoginCompletedEvent()
 P:Incursa.OpenAI.Codex.CodexMcpServerOauthLoginCompletedEvent.Error:System.String get; set;
@@ -1126,6 +1240,7 @@ M:Incursa.OpenAI.Codex.CodexMcpToolCallProgressEvent.ToString():System.String
 T:Incursa.OpenAI.Codex.CodexMcpToolCallResult
 C:Incursa.OpenAI.Codex.CodexMcpToolCallResult()
 P:Incursa.OpenAI.Codex.CodexMcpToolCallResult.Content:System.Collections.Generic.IReadOnlyList<System.Text.Json.Nodes.JsonNode> get; set;
+P:Incursa.OpenAI.Codex.CodexMcpToolCallResult.Meta:System.Text.Json.Nodes.JsonNode get; set;
 P:Incursa.OpenAI.Codex.CodexMcpToolCallResult.StructuredContent:System.Text.Json.Nodes.JsonNode get; set;
 M:Incursa.OpenAI.Codex.CodexMcpToolCallResult.Equals(Incursa.OpenAI.Codex.CodexMcpToolCallResult other):System.Boolean
 M:Incursa.OpenAI.Codex.CodexMcpToolCallResult.Equals(System.Object obj):System.Boolean
@@ -1659,7 +1774,10 @@ C:Incursa.OpenAI.Codex.CodexRuntimeCapabilities()
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.BackendSelection:Incursa.OpenAI.Codex.CodexBackendSelection get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.ExperimentalApi:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.OptOutNotificationMethods:System.Collections.Generic.IReadOnlyList<System.String> get; set;
+P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsAccountLogin:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsAccountLogout:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsAccountRateLimits:System.Boolean get; set;
+P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsAccountRead:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsArchiveThread:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsCompactThread:System.Boolean get; set;
 P:Incursa.OpenAI.Codex.CodexRuntimeCapabilities.SupportsForkThread:System.Boolean get; set;
@@ -2740,6 +2858,19 @@ M:Incursa.OpenAI.Codex.CodexUnknownInputItem.<Clone>$():Incursa.OpenAI.Codex.Cod
 M:Incursa.OpenAI.Codex.CodexUnknownInputItem.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexUnknownInputItem.ToString():System.String
 M:Incursa.OpenAI.Codex.CodexUnknownInputItem.Deconstruct(out System.String UnknownType):System.Void
+T:Incursa.OpenAI.Codex.CodexUnknownLoginResult
+C:Incursa.OpenAI.Codex.CodexUnknownLoginResult(System.String UnknownType)
+P:Incursa.OpenAI.Codex.CodexUnknownLoginResult.RawPayload:System.Text.Json.Nodes.JsonObject get; set;
+P:Incursa.OpenAI.Codex.CodexUnknownLoginResult.UnknownType:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.Equals(Incursa.OpenAI.Codex.CodexLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.Equals(Incursa.OpenAI.Codex.CodexUnknownLoginResult other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.op_Equality(Incursa.OpenAI.Codex.CodexUnknownLoginResult left, Incursa.OpenAI.Codex.CodexUnknownLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.op_Inequality(Incursa.OpenAI.Codex.CodexUnknownLoginResult left, Incursa.OpenAI.Codex.CodexUnknownLoginResult right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.<Clone>$():Incursa.OpenAI.Codex.CodexUnknownLoginResult
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.ToString():System.String
+M:Incursa.OpenAI.Codex.CodexUnknownLoginResult.Deconstruct(out System.String UnknownType):System.Void
 T:Incursa.OpenAI.Codex.CodexUnknownThreadEvent
 C:Incursa.OpenAI.Codex.CodexUnknownThreadEvent(System.String UnknownType)
 P:Incursa.OpenAI.Codex.CodexUnknownThreadEvent.RawPayload:System.Text.Json.Nodes.JsonObject get; set;

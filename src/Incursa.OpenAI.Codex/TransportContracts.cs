@@ -28,6 +28,26 @@ internal interface ICodexTransport : IAsyncDisposable
 
     Task<CodexAccountRateLimitsResult> GetAccountRateLimitsAsync(CancellationToken cancellationToken);
 
+    Task<CodexLoginResult> LoginWithApiKeyAsync(string apiKey, CancellationToken cancellationToken);
+
+    Task<CodexLoginResult> LoginWithChatGptAuthTokensAsync(
+        string accessToken,
+        string chatGptAccountId,
+        string? chatGptPlanType,
+        CancellationToken cancellationToken);
+
+    Task<CodexChatGptLoginResult> StartChatGptLoginAsync(bool? codexStreamlinedLogin, CancellationToken cancellationToken);
+
+    Task<CodexChatGptDeviceCodeLoginResult> StartChatGptDeviceCodeLoginAsync(CancellationToken cancellationToken);
+
+    Task<CodexAccountLoginCompletedEvent> WaitForLoginCompletionAsync(string loginId, CancellationToken cancellationToken);
+
+    Task<CodexCancelLoginResult> CancelLoginAsync(string loginId, CancellationToken cancellationToken);
+
+    Task<CodexAccountReadResult> GetAccountAsync(bool refreshToken, CancellationToken cancellationToken);
+
+    Task LogoutAsync(CancellationToken cancellationToken);
+
     Task<CodexThreadSnapshot> SetThreadNameAsync(string threadId, string name, CancellationToken cancellationToken);
 
     Task CompactThreadAsync(string threadId, CancellationToken cancellationToken);

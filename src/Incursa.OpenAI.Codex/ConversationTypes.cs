@@ -295,6 +295,11 @@ public sealed record CodexMcpToolCallResult
     public IReadOnlyList<JsonNode> Content { get; init; } = [];
 
     /// <summary>
+    /// Gets or sets MCP result metadata serialized by upstream as <c>_meta</c>.
+    /// </summary>
+    public JsonNode? Meta { get; init; }
+
+    /// <summary>
     /// Gets or sets the structured content, if provided.
     /// </summary>
     public JsonNode? StructuredContent { get; init; }

@@ -284,6 +284,9 @@ public sealed class CodexHelperTypeTests
             BackendSelection = CodexBackendSelection.AppServer,
             ExperimentalApi = true,
             SupportsAccountRateLimits = true,
+            SupportsAccountLogin = true,
+            SupportsAccountRead = true,
+            SupportsAccountLogout = true,
             SupportsArchiveThread = true,
             SupportsCompactThread = true,
             SupportsForkThread = true,
@@ -299,6 +302,9 @@ public sealed class CodexHelperTypeTests
             SupportsUnarchiveThread = true,
         };
         Assert.True(capabilities.SupportsAccountRateLimits);
+        Assert.True(capabilities.SupportsAccountLogin);
+        Assert.True(capabilities.SupportsAccountRead);
+        Assert.True(capabilities.SupportsAccountLogout);
         Assert.True(capabilities.SupportsTurnSteering);
 
         CodexAccountRateLimitsResult rateLimits = new()
@@ -318,6 +324,26 @@ public sealed class CodexHelperTypeTests
             ],
         };
         Assert.Equal("codex", rateLimits.RateLimits[0].LimitId);
+
+        CodexAccountReadResult accountRead = new()
+        {
+            RequiresOpenAIAuth = false,
+            Account = new CodexAccount
+            {
+                Type = "chatgpt",
+                AuthMode = CodexAuthMode.Chatgpt,
+                Email = "user@example.com",
+                PlanType = CodexPlanType.Plus,
+            },
+        };
+        Assert.Equal("user@example.com", accountRead.Account!.Email);
+
+        CodexChatGptLoginResult loginResult = new()
+        {
+            LoginId = "login-1",
+            AuthUrl = "https://auth.example",
+        };
+        Assert.Equal("login-1", loginResult.LoginId);
 
         CodexThreadMetadataGitInfoUpdate metadataUpdate = new()
         {

@@ -126,6 +126,9 @@ public sealed class CodexContractTypeTests
             BackendSelection = CodexBackendSelection.AppServer,
             ExperimentalApi = true,
             SupportsAccountRateLimits = true,
+            SupportsAccountLogin = true,
+            SupportsAccountRead = true,
+            SupportsAccountLogout = true,
             SupportsArchiveThread = true,
             SupportsCompactThread = true,
             SupportsForkThread = true,
@@ -145,6 +148,9 @@ public sealed class CodexContractTypeTests
         Assert.NotSame(capabilities, capabilities with { });
         Assert.Equal(capabilities, capabilities with { });
         Assert.True(capabilities.SupportsAccountRateLimits);
+        Assert.True(capabilities.SupportsAccountLogin);
+        Assert.True(capabilities.SupportsAccountRead);
+        Assert.True(capabilities.SupportsAccountLogout);
         Assert.True(capabilities.SupportsThreadGoals);
         Assert.True(capabilities.SupportsTurnSteering);
         Assert.Contains("turn.completed", capabilities.OptOutNotificationMethods);
@@ -226,6 +232,19 @@ public sealed class CodexContractTypeTests
         Assert.Equal(42, accountRateLimits.RateLimitsByLimitId["codex"].Primary!.UsedPercent);
         Assert.Equal(10080, accountRateLimits.RateLimitsByLimitId["codex"].Secondary!.WindowDurationMinutes);
         Assert.True(accountRateLimits.RateLimitsByLimitId["codex"].Credits!.HasCredits);
+
+        CodexAccountReadResult accountRead = new()
+        {
+            RequiresOpenAIAuth = false,
+            Account = new CodexAccount
+            {
+                Type = "chatgpt",
+                AuthMode = CodexAuthMode.Chatgpt,
+                Email = "user@example.com",
+                PlanType = CodexPlanType.Plus,
+            },
+        };
+        Assert.Equal(CodexPlanType.Plus, accountRead.Account!.PlanType);
 
         CodexThreadGoal goal = new()
         {
@@ -434,6 +453,9 @@ public sealed class CodexContractTypeTests
         Assert.Equal(CodexBackendSelection.Exec, capabilities.BackendSelection);
         Assert.False(capabilities.ExperimentalApi);
         Assert.False(capabilities.SupportsAccountRateLimits);
+        Assert.False(capabilities.SupportsAccountLogin);
+        Assert.False(capabilities.SupportsAccountRead);
+        Assert.False(capabilities.SupportsAccountLogout);
         Assert.False(capabilities.SupportsArchiveThread);
         Assert.False(capabilities.SupportsCompactThread);
         Assert.False(capabilities.SupportsForkThread);
@@ -466,6 +488,10 @@ public sealed class CodexContractTypeTests
         CodexAccountRateLimitsResult accountRateLimits = new();
         Assert.Empty(accountRateLimits.RateLimits);
         Assert.Empty(accountRateLimits.RateLimitsByLimitId);
+
+        CodexAccountReadResult accountRead = new();
+        Assert.Null(accountRead.Account);
+        Assert.False(accountRead.RequiresOpenAIAuth);
 
         CodexThreadGoal goal = new();
         Assert.Equal(string.Empty, goal.ThreadId);

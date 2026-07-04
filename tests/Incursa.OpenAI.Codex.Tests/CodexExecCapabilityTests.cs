@@ -19,6 +19,24 @@ public sealed class CodexExecCapabilityTests
             nameof(CodexClient.GetAccountRateLimitsAsync),
             new Func<CodexClient, Task>(async client => await client.GetAccountRateLimitsAsync())];
         yield return [
+            nameof(CodexClient.LoginWithApiKeyAsync),
+            new Func<CodexClient, Task>(async client => await client.LoginWithApiKeyAsync("sk-test"))];
+        yield return [
+            nameof(CodexClient.LoginWithChatGptAuthTokensAsync),
+            new Func<CodexClient, Task>(async client => await client.LoginWithChatGptAuthTokensAsync("token", "account"))];
+        yield return [
+            nameof(CodexClient.StartChatGptLoginAsync),
+            new Func<CodexClient, Task>(async client => await client.StartChatGptLoginAsync())];
+        yield return [
+            nameof(CodexClient.StartChatGptDeviceCodeLoginAsync),
+            new Func<CodexClient, Task>(async client => await client.StartChatGptDeviceCodeLoginAsync())];
+        yield return [
+            nameof(CodexClient.GetAccountAsync),
+            new Func<CodexClient, Task>(async client => await client.GetAccountAsync())];
+        yield return [
+            nameof(CodexClient.LogoutAsync),
+            new Func<CodexClient, Task>(async client => await client.LogoutAsync())];
+        yield return [
             nameof(CodexClient.ListThreadsAsync),
             new Func<CodexClient, Task>(async client => await client.ListThreadsAsync())];
         yield return [

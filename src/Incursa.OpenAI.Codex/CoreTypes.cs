@@ -391,6 +391,129 @@ public sealed record CodexAccountRateLimitsResult
 }
 
 /// <summary>
+/// Represents the current Codex account state returned by the app-server backend.
+/// </summary>
+public sealed record CodexAccountReadResult
+{
+    /// <summary>
+    /// Gets the active account, if one is configured.
+    /// </summary>
+    public CodexAccount? Account { get; init; }
+
+    /// <summary>
+    /// Gets whether the runtime requires OpenAI authentication before model requests can run.
+    /// </summary>
+    public bool RequiresOpenAIAuth { get; init; }
+}
+
+/// <summary>
+/// Represents one configured Codex account.
+/// </summary>
+public sealed record CodexAccount
+{
+    /// <summary>
+    /// Gets the account discriminator reported by the runtime.
+    /// </summary>
+    public string Type { get; init; } = "";
+
+    /// <summary>
+    /// Gets the auth mode inferred from the account discriminator.
+    /// </summary>
+    public CodexAuthMode AuthMode { get; init; } = CodexAuthMode.Unknown;
+
+    /// <summary>
+    /// Gets the account email when reported by ChatGPT auth.
+    /// </summary>
+    public string? Email { get; init; }
+
+    /// <summary>
+    /// Gets the account plan type when reported by ChatGPT auth.
+    /// </summary>
+    public CodexPlanType PlanType { get; init; } = CodexPlanType.Unknown;
+
+    /// <summary>
+    /// Gets the raw account payload for fields not modeled by this SDK version.
+    /// </summary>
+    public JsonObject? RawPayload { get; init; }
+}
+
+/// <summary>
+/// Base type for account-login start results.
+/// </summary>
+/// <param name="Type">The login result discriminator.</param>
+public abstract record CodexLoginResult(string Type);
+
+/// <summary>
+/// Login result returned after API-key authentication starts.
+/// </summary>
+public sealed record CodexApiKeyLoginResult() : CodexLoginResult("apiKey");
+
+/// <summary>
+/// Login result returned after ChatGPT browser authentication starts.
+/// </summary>
+public sealed record CodexChatGptLoginResult() : CodexLoginResult("chatgpt")
+{
+    /// <summary>
+    /// Gets the login attempt identifier.
+    /// </summary>
+    public string LoginId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the URL the caller should open in a browser.
+    /// </summary>
+    public string AuthUrl { get; init; } = "";
+}
+
+/// <summary>
+/// Login result returned after ChatGPT device-code authentication starts.
+/// </summary>
+public sealed record CodexChatGptDeviceCodeLoginResult() : CodexLoginResult("chatgptDeviceCode")
+{
+    /// <summary>
+    /// Gets the login attempt identifier.
+    /// </summary>
+    public string LoginId { get; init; } = "";
+
+    /// <summary>
+    /// Gets the URL where the user enters the device code.
+    /// </summary>
+    public string VerificationUrl { get; init; } = "";
+
+    /// <summary>
+    /// Gets the one-time device code.
+    /// </summary>
+    public string UserCode { get; init; } = "";
+}
+
+/// <summary>
+/// Login result returned after ChatGPT token handoff authentication starts.
+/// </summary>
+public sealed record CodexChatGptAuthTokensLoginResult() : CodexLoginResult("chatgptAuthTokens");
+
+/// <summary>
+/// Fallback login result for unrecognized runtime payloads.
+/// </summary>
+/// <param name="UnknownType">The unrecognized login result discriminator.</param>
+public sealed record CodexUnknownLoginResult(string UnknownType) : CodexLoginResult(UnknownType)
+{
+    /// <summary>
+    /// Gets the raw response payload.
+    /// </summary>
+    public JsonObject? RawPayload { get; init; }
+}
+
+/// <summary>
+/// Result returned when canceling an account-login attempt.
+/// </summary>
+public sealed record CodexCancelLoginResult
+{
+    /// <summary>
+    /// Gets the cancellation status.
+    /// </summary>
+    public CodexLoginCancelStatus Status { get; init; }
+}
+
+/// <summary>
 /// Represents the current state of one Codex rate-limit bucket.
 /// </summary>
 public sealed record CodexRateLimitSnapshot
@@ -710,6 +833,15 @@ public sealed record CodexRuntimeCapabilities
 
     /// <summary>Whether reading account rate limits is supported.</summary>
     public bool SupportsAccountRateLimits { get; init; }
+
+    /// <summary>Whether account login operations are supported.</summary>
+    public bool SupportsAccountLogin { get; init; }
+
+    /// <summary>Whether account read operations are supported.</summary>
+    public bool SupportsAccountRead { get; init; }
+
+    /// <summary>Whether account logout operations are supported.</summary>
+    public bool SupportsAccountLogout { get; init; }
 
     /// <summary>Whether archiving threads is supported.</summary>
     public bool SupportsArchiveThread { get; init; }

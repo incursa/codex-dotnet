@@ -7,7 +7,7 @@ This package is DI-agnostic and exposes the runtime API:
 - [`CodexClient`](CodexClient.cs)
 - [`CodexThread`](CodexClient.cs)
 - [`CodexTurn`](CodexClient.cs)
-- typed options, event, item, result, and exception models such as [`CodexClientOptions`](Options.cs), [`CodexPlanModeOptions`](Options.cs), [`CodexThreadOptions`](Options.cs), [`CodexTurnOptions`](Options.cs), [`CodexInputItem`](ConversationTypes.cs), [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs)
+- typed options, event, item, result, and exception models such as [`CodexClientOptions`](Options.cs), [`CodexPlanModeOptions`](Options.cs), [`CodexThreadOptions`](Options.cs), [`CodexTurnOptions`](Options.cs), [`CodexInputItem`](ConversationTypes.cs), [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountReadResult`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs)
 
 ## When To Use This Package
 
@@ -47,20 +47,20 @@ If you need DI registration, use [`Incursa.OpenAI.Codex.Extensions`](../Incursa.
 
 The API supports both backend modes:
 
-- [`AppServer`](Enums.cs) (`codex app-server --listen stdio://`) for the full JSON-RPC surface, thread lifecycle operations, thread goals, model listing, account rate-limit reads, and turn steering or interruption
+- [`AppServer`](Enums.cs) (`codex app-server --listen stdio://`) for the full JSON-RPC surface, thread lifecycle operations, thread goals, model listing, account login/read/logout, account rate-limit reads, and turn steering or interruption
 - [`Exec`](Enums.cs) (`codex exec --experimental-json`) for the CLI-backed run and stream flow
 
 Use [`AppServer`](Enums.cs) when you need long-lived conversations, [`CodexThread`](CodexClient.cs) management, or turn control. Use [`Exec`](Enums.cs) when you only need prompt-in, response-out behavior.
 
 ## Major API Surfaces
 
-- [`CodexClient`](CodexClient.cs): the root entry point for runtime startup, thread management, model discovery, client-wide raw event observation, account rate-limit reads, and `IsCodexAvailableAsync()` for an executable preflight
+- [`CodexClient`](CodexClient.cs): the root entry point for runtime startup, thread management, model discovery, client-wide raw event observation, account login/read/logout, account rate-limit reads, and `IsCodexAvailableAsync()` for an executable preflight
 - [`CodexThread`](CodexClient.cs): a stateful conversation handle with `RunAsync`, `RunStreamedAsync`, `StartTurnAsync`, `ReadAsync`, `SetNameAsync`, `CompactAsync`, `GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, `ClearGoalAsync`, `RollbackAsync`, `UnsubscribeAsync`, `UpdateMetadataAsync`, and `ShellCommandAsync`
 - [`CodexTurn`](CodexClient.cs): a single-turn handle with `StreamAsync`, `StreamNormalizedAsync`, `ObserveEventsAsync`, `ObserveNormalizedEventsAsync`, `RunAsync`, `RunToResultAsync`, `SteerAsync`, and `InterruptAsync`
 - [`CodexClientOptions`](Options.cs): backend selection, executable path override, API key, configuration, plan-mode defaults, environment, and approval handler
 - [`CodexThreadOptions`](Options.cs), [`CodexThreadListOptions`](Options.cs), and [`CodexTurnOptions`](Options.cs): working directory, thread origin metadata, sandbox, approval, model, Fast mode service tier, output schema, sort, and list-filter settings
 - [`CodexInputItem`](ConversationTypes.cs) and the typed input union for text, remote image, local image, skill, and mention inputs
-- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexTurnEvent`](TurnExecutionTypes.cs), [`CodexTurnResult`](TurnExecutionTypes.cs), [`CodexThreadGoal`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexTurnPlanUpdatedEvent`](ConversationTypes.cs), [`CodexAccountRateLimitsUpdatedEvent`](ConversationTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
+- [`CodexThreadEvent`](ConversationTypes.cs), [`CodexThreadItem`](ConversationTypes.cs), [`CodexRunResult`](CoreTypes.cs), [`CodexTurnEvent`](TurnExecutionTypes.cs), [`CodexTurnResult`](TurnExecutionTypes.cs), [`CodexThreadGoal`](CoreTypes.cs), [`CodexThreadSnapshot`](CoreTypes.cs), [`CodexAccountReadResult`](CoreTypes.cs), [`CodexAccountRateLimitsResult`](CoreTypes.cs), [`CodexTurnPlanUpdatedEvent`](ConversationTypes.cs), [`CodexAccountRateLimitsUpdatedEvent`](ConversationTypes.cs), [`CodexRuntimeCapabilities`](CoreTypes.cs), [`CodexRuntimeMetadata`](CoreTypes.cs), and [`CodexException`](Exceptions.cs) for streamed data, results, and diagnostics. `CodexRunResult.FinalResponse` stays nullable for commentary-only turns.
 
 Use `CodexClient.ObserveEventsAsync()` as the exhaustive raw event channel across the client. Use `CodexTurn.StreamNormalizedAsync()`, `CodexTurn.ObserveNormalizedEventsAsync()`, or `CodexTurn.RunToResultAsync()` for UI clients that must distinguish Codex completion from transport or delivery behavior. `CodexTurn.ObserveEventsAsync()` and `CodexTurn.ObserveNormalizedEventsAsync()` expose turn-scoped observable streams that fan out from one underlying Codex reader and replay observed events to later subscribers. Consumers can add `System.Reactive` in their own app when they want Rx operators over these `IObservable<T>` surfaces; the core package stays dependency-free. The detailed result exposes `TerminalEventSeen`, `TerminalEventType`, `TerminalState`, `FinalResponseText`, `FinalResponseSource`, and assistant output character counts so callers do not need to infer completion from silence.
 
