@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   review-upstream:
@@ -34,20 +33,16 @@ jobs:
         shell: pwsh
         run: ./scripts/Invoke-UpstreamParityReview.ps1 -UpstreamRepoPath "$env:GITHUB_WORKSPACE/.upstream/openai-codex" -WriteReport
 
-      - name: Create parity handoff pull request
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: bot/codex-upstream-parity-review
-          delete-branch: true
-          commit-message: "chore: refresh upstream parity handoff"
-          title: "Codex upstream parity handoff"
-          body: |
-            Automated parity review detected a new upstream Codex SDK comparison state.
-
-            The generated report in `quality/upstream-parity-gaps.md` captures the review baseline,
-            the current upstream head, and the commit/file deltas for the Python and TypeScript SDKs.
-
-            Review the Python SDK first, then update the .NET implementation and tests.
-          add-paths: |
-            quality/upstream-parity-gaps.md
+      - name: Commit parity handoff directly to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$(git status --porcelain -- quality/upstream-parity-gaps.md)" ]]; then
+            echo "No parity report changes to publish."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- quality/upstream-parity-gaps.md
+          git commit -m "chore: refresh upstream parity handoff"
+          git push origin HEAD:main
