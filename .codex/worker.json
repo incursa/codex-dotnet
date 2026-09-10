@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "name": "codex-dotnet",
+  "platform": { "os": "debian", "majorVersion": 13 },
+  "workingDirectory": ".",
+  "dependencies": {
+    "aptPackages": [],
+    "requiredCommands": [],
+    "dotnet": { "globalJson": "global.json", "installExactSdk": true },
+    "codexCli": { "install": true, "updateOnBootstrap": true }
+  },
+  "commands": {
+    "bootstrap": [
+      { "file": "dotnet", "args": ["restore", "Incursa.OpenAI.Codex.slnx"] },
+      { "file": "dotnet", "args": ["build", "Incursa.OpenAI.Codex.slnx", "--configuration", "Release", "--no-restore"] }
+    ],
+    "test": [
+      { "file": "dotnet", "args": ["test", "Incursa.OpenAI.Codex.slnx", "--configuration", "Release", "--no-build", "--verbosity", "minimal"] }
+    ]
+  },
+  "readiness": { "codexAuthenticationRequired": true }
+}
