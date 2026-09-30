@@ -643,6 +643,9 @@ public sealed record CodexTurnRecord
     /// <summary>The turn identifier.</summary>
     public string Id { get; init; } = "";
 
+    /// <summary>The source attribution for the event that initiated this turn, if supplied.</summary>
+    public string? Source { get; init; }
+
     /// <summary>The terminal status for the turn.</summary>
     public CodexTurnStatus Status { get; init; }
 

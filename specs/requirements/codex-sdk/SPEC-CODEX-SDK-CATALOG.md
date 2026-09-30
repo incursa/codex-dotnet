@@ -125,7 +125,7 @@ Trace:
 ## Inputs and Items
 
 ## REQ-CODEX-SDK-CATALOG-0306 Expose the async input, event, and item record families
-The SDK MUST expose `CodexInputItem`, `CodexTextInput`, `CodexImageInput`, `CodexLocalImageInput`, `CodexSkillInput`, `CodexMentionInput`, `CodexThreadEvent`, and `CodexThreadItem` as record-based families that preserve wire discriminators, structured plan updates, plan deltas, and unknown fallback payloads.
+The SDK MUST expose `CodexInputItem`, `CodexTextInput`, `CodexImageInput`, `CodexLocalImageInput`, `CodexSkillInput`, `CodexMentionInput`, `CodexExternalMessageInput`, `CodexThreadEvent`, and `CodexThreadItem` as record-based families that preserve wire discriminators, structured plan updates, plan deltas, and unknown fallback payloads. External-message inputs retain tool name, namespace, and content and remain lower-authority context than direct user/developer instructions.
 
 Trace:
 - Satisfied By:
@@ -142,7 +142,7 @@ Trace:
 ## Results, Metadata, and Capability
 
 ## REQ-CODEX-SDK-CATALOG-0307 Expose the async result, metadata, capability, and token-usage records
-The SDK MUST expose `CodexRunResult`, `CodexTurnRecord`, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModelListResult`, `CodexModel`, `CodexModelServiceTier`, `CodexUsage`, `CodexTokenUsageBreakdown`, `CodexThreadError`, `CodexServerInfo`, `CodexRuntimeMetadata`, and `CodexRuntimeCapabilities`.
+The SDK MUST expose `CodexRunResult`, `CodexTurnRecord` with optional source attribution, `CodexThreadGoal`, `CodexThreadListResult`, `CodexThreadSummary`, `CodexThreadSnapshot`, `CodexModelListResult`, `CodexModel`, `CodexModelServiceTier`, `CodexUsage`, `CodexTokenUsageBreakdown`, `CodexThreadError`, `CodexServerInfo`, `CodexRuntimeMetadata`, and `CodexRuntimeCapabilities`.
 
 Trace:
 - Satisfied By:

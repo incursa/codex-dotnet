@@ -594,6 +594,8 @@ internal sealed class CodexExecTransport : ICodexTransport
                 case CodexMentionInput mention:
                     textParts.Add($"[{mention.Name}] {mention.Path}");
                     break;
+                case CodexExternalMessageInput:
+                    throw new CodexCapabilityNotSupportedException("external message input", CodexBackendSelection.Exec);
             }
         }
 
@@ -629,6 +631,7 @@ internal sealed class CodexExecTransport : ICodexTransport
             CodexReasoningEffort.Medium => "medium",
             CodexReasoningEffort.High => "high",
             CodexReasoningEffort.XHigh => "xhigh",
+            CodexReasoningEffort.Max => "max",
             _ => "medium",
         };
 

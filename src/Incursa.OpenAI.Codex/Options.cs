@@ -167,6 +167,9 @@ public record CodexThreadOptions
     /// Gets additional directories made available to the thread.
     /// </summary>
     public IReadOnlyList<string>? AdditionalDirectories { get; init; }
+
+    /// <summary>Gets a value indicating whether resumed or forked threads should include their turn history.</summary>
+    public bool? IncludeTurns { get; init; }
 }
 
 /// <summary>
@@ -228,6 +231,9 @@ public sealed record CodexTurnOptions
     /// Gets the working directory used by this turn.
     /// </summary>
     public string? WorkingDirectory { get; init; }
+
+    /// <summary>Gets the source that initiated this turn, for attribution in thread history.</summary>
+    public string? Source { get; init; }
 }
 
 /// <summary>
@@ -389,6 +395,9 @@ public sealed class CodexClientOptions
     /// Gets or sets the client version reported to the runtime.
     /// </summary>
     public string? ClientVersion { get; set; }
+
+    /// <summary>Gets or sets whether requests requiring Codex 0.151.0 features fail when the runtime version is unknown or too old.</summary>
+    public bool RequireCompatibleRuntime { get; set; }
 
     /// <summary>
     /// Gets or sets the callback used to handle runtime approval requests.

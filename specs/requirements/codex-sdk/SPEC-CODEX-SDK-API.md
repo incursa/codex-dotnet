@@ -178,7 +178,7 @@ Trace:
   - C:/src/openai/codex/sdk/typescript/src/thread.ts
 
 ## REQ-CODEX-SDK-API-0211 Capture per-turn overrides in dedicated options
-`CodexTurnOptions` MUST capture per-turn overrides such as structured output schema, model selection, sandbox policy, approval policy, service tier, and reasoning hints, while cancellation flows through standard `CancellationToken` parameters on the public methods. `CodexServiceTier.Fast` MUST serialize to the current upstream fast-mode request value while preserving the stable public enum name.
+`CodexTurnOptions` MUST capture per-turn overrides such as structured output schema, model selection, sandbox policy, approval policy, service tier, reasoning hints, and a source attribution string for the trigger that initiated the turn. The source attribution MUST be retained on the resulting turn record. Cancellation flows through standard `CancellationToken` parameters on the public methods. `CodexServiceTier.Fast` MUST serialize to the current upstream fast-mode request value while preserving the stable public enum name. Reasoning effort MUST include the `Max` value and serialize it as `max`.
 
 Trace:
 - Satisfied By:
@@ -193,7 +193,7 @@ Trace:
 ## Query Options
 
 ## REQ-CODEX-SDK-API-0212 Expose thread and model query payloads
-The SDK MUST expose immutable query payload types for thread listing, thread reading, thread forking, and model listing.
+The SDK MUST expose immutable query payload types for thread listing, thread reading, thread forking, and model listing. Thread options MUST allow callers to request turn history when resuming or forking a thread.
 
 Trace:
 - Satisfied By:
@@ -208,7 +208,7 @@ Trace:
 ## Inputs and Items
 
 ## REQ-CODEX-SDK-API-0213 Expose the combined Codex input union
-The SDK MUST expose the combined Codex input union, including text, remote image, local image, skill, and mention entries.
+The SDK MUST expose the combined Codex input union, including text, remote image, local image, skill, mention, and external-message entries. External messages MUST retain tool name, namespace, and content provenance, and MUST be represented as external context with less authority than direct user or developer instructions. A transport that cannot preserve this authority and provenance MUST reject an external message instead of flattening it into plain text.
 
 Trace:
 - Satisfied By:

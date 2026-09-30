@@ -155,6 +155,8 @@ Trace:
 ## REQ-CODEX-SDK-TRANSPORT-0239 Perform initialize and metadata normalization
 The app-server transport MUST perform the `initialize` and `initialized` handshake, normalize server metadata, and reject incomplete identity information unless the user-agent can supply the missing pieces.
 
+Requests using external messages, turn-source attribution, turn-history inclusion on resume/fork, or maximum reasoning effort MUST be checked against the runtime version before transmission. These features require runtime version 0.151.0 or newer; the client MUST expose a compatibility diagnostic and MUST be able to enforce rejection through client options. Unknown or newer runtime versions remain usable when protocol identity is valid.
+
 Trace:
 - Satisfied By:
   - ARC-CODEX-SDK-0001

@@ -53,21 +53,22 @@ internal static class CodexProtocol
     public static JsonObject BuildThreadStartParams(CodexThreadOptions? options)
     {
         JsonObject payload = new();
-        AddThreadOptions(payload, options, includeSessionSourceMetadata: true);
+        AddThreadOptions(payload, options, includeSessionSourceMetadata: true, includeTurns: false);
         return payload;
     }
 
     public static JsonObject BuildThreadResumeParams(string threadId, CodexThreadOptions? options)
     {
         JsonObject payload = new();
-        AddThreadOptions(payload, options, includeSessionSourceMetadata: false);
+        AddThreadOptions(payload, options, includeSessionSourceMetadata: false, includeTurns: true);
         payload["threadId"] = threadId;
         return payload;
     }
 
     public static JsonObject BuildThreadForkParams(string threadId, CodexThreadForkOptions? options)
     {
-        JsonObject payload = BuildThreadStartParams(options);
+        JsonObject payload = new();
+        AddThreadOptions(payload, options, includeSessionSourceMetadata: true, includeTurns: true);
         payload["threadId"] = threadId;
         return payload;
     }
@@ -279,6 +280,13 @@ internal static class CodexProtocol
                 CodexLocalImageInput localImage => new JsonObject { ["type"] = "localImage", ["path"] = localImage.Path },
                 CodexSkillInput skill => new JsonObject { ["type"] = "skill", ["name"] = skill.Name, ["path"] = skill.Path },
                 CodexMentionInput mention => new JsonObject { ["type"] = "mention", ["name"] = mention.Name, ["path"] = mention.Path },
+                CodexExternalMessageInput externalMessage => new JsonObject
+                {
+                    ["type"] = "externalMessage",
+                    ["toolName"] = externalMessage.ToolName,
+                    ["namespace"] = externalMessage.Namespace,
+                    ["content"] = externalMessage.Content,
+                },
                 _ => new JsonObject { ["type"] = item.Type },
             });
         }
@@ -949,6 +957,7 @@ internal static class CodexProtocol
         return new CodexTurnRecord
         {
             Id = GetString(payload, "id") ?? string.Empty,
+            Source = GetString(payload, "source"),
             Status = ParseTurnStatus(GetString(payload, "status")),
             Items = items,
             Error = ParseTurnError(GetObject(payload, "error")),
@@ -1206,7 +1215,7 @@ internal static class CodexProtocol
         };
     }
 
-    private static void AddThreadOptions(JsonObject payload, CodexThreadOptions? options, bool includeSessionSourceMetadata)
+    private static void AddThreadOptions(JsonObject payload, CodexThreadOptions? options, bool includeSessionSourceMetadata, bool includeTurns)
     {
         if (options is null)
         {
@@ -1241,6 +1250,8 @@ internal static class CodexProtocol
             payload["additionalDirectories"] = new JsonArray(options.AdditionalDirectories.Select(value => JsonValue.Create(value)).ToArray());
         }
 
+        if (includeTurns && options.IncludeTurns.HasValue) payload["includeTurns"] = options.IncludeTurns.Value;
+
         if (options.ApprovalPolicy is not null) payload["approvalPolicy"] = BuildApprovalPolicyPayload(options.ApprovalPolicy);
         if (options.ApprovalsReviewer is not null) payload["approvalsReviewer"] = MapApprovalsReviewer(options.ApprovalsReviewer.Value);
     }
@@ -1263,6 +1274,7 @@ internal static class CodexProtocol
         if (options.ServiceTier is not null) payload["serviceTier"] = MapServiceTier(options.ServiceTier.Value);
         if (options.Summary is not null) payload["summary"] = MapReasoningSummary(options.Summary.Value);
         if (!string.IsNullOrWhiteSpace(options.WorkingDirectory)) payload["workingDirectory"] = options.WorkingDirectory;
+        if (!string.IsNullOrWhiteSpace(options.Source)) payload["source"] = options.Source;
         return payload;
     }
 
@@ -1644,6 +1656,12 @@ internal static class CodexProtocol
                 Name = GetString(payload, "name") ?? string.Empty,
                 Path = GetString(payload, "path") ?? string.Empty,
             },
+            "externalMessage" => new CodexExternalMessageInput
+            {
+                ToolName = GetString(payload, "toolName") ?? string.Empty,
+                Namespace = GetString(payload, "namespace") ?? string.Empty,
+                Content = GetString(payload, "content") ?? string.Empty,
+            },
             _ => new CodexUnknownInputItem(type) { RawPayload = payload },
         };
     }
@@ -1657,6 +1675,7 @@ internal static class CodexProtocol
             "image" => "image",
             "skill" => "skill",
             "mention" => "mention",
+            "externalMessage" or "external_message" => "externalMessage",
             null or "" => "unknown",
             _ => value,
         };
@@ -1920,6 +1939,7 @@ internal static class CodexProtocol
             "medium" => CodexReasoningEffort.Medium,
             "high" => CodexReasoningEffort.High,
             "xhigh" => CodexReasoningEffort.XHigh,
+            "max" => CodexReasoningEffort.Max,
             _ => CodexReasoningEffort.Medium,
         };
 
@@ -2015,6 +2035,7 @@ internal static class CodexProtocol
             CodexReasoningEffort.Medium => "medium",
             CodexReasoningEffort.High => "high",
             CodexReasoningEffort.XHigh => "xhigh",
+            CodexReasoningEffort.Max => "max",
             _ => "medium",
         };
 

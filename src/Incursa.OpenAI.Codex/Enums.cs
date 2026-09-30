@@ -243,6 +243,9 @@ public enum CodexReasoningEffort
 
     /// <summary>Uses extra-high effort.</summary>
     XHigh,
+
+    /// <summary>Uses the maximum available effort.</summary>
+    Max,
 }
 
 /// <summary>Selects how much reasoning summary to return.</summary>

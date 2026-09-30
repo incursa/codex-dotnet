@@ -18,6 +18,7 @@ internal sealed class CodexTurnSession
     private CodexTurnStatus _status = CodexTurnStatus.InProgress;
     private CodexTurnError? _error;
     private CodexUsage? _usage;
+    private string? _source;
 
     public CodexTurnSession(
         string threadId,
@@ -32,6 +33,7 @@ internal sealed class CodexTurnSession
         _id = string.IsNullOrWhiteSpace(turnId) ? string.Empty : turnId;
         Input = input;
         Options = options;
+        _source = options?.Source;
         _consumerGate = consumerGate;
         _steerHandler = steerHandler;
         _interruptHandler = interruptHandler;
@@ -320,6 +322,7 @@ internal sealed class CodexTurnSession
             return new CodexTurnRecord
             {
                 Id = _id,
+                Source = _source,
                 Status = _status,
                 Items = _items.ToArray(),
                 Error = _error,
@@ -340,6 +343,7 @@ internal sealed class CodexTurnSession
             }
 
             _status = turn.Status;
+            _source = turn.Source ?? _source;
             _usage = turn.Usage;
             _error = turn.Error;
             if (turn.Items.Count > 0)

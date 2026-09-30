@@ -4,6 +4,55 @@ namespace Incursa.OpenAI.Codex.Tests;
 
 public sealed class CodexAppServerTransportTests
 {
+    [Theory]
+    [InlineData("start", "0.150.9")]
+    [InlineData("resume", "0.150.9")]
+    [InlineData("fork", "0.150.9")]
+    [InlineData("start", "unknown")]
+    [InlineData("resume", "unknown")]
+    [InlineData("fork", "unknown")]
+    public async Task ThreadLifecycle_RejectsMaxEffortOnOldOrUnknownRuntimeWhenStrict(string lifecycle, string runtimeVersion)
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["method"]?.GetValue<string>() == "initialize")
+            {
+                process.EnqueueStdout(TestJson.Response(
+                    request["id"]!.GetValue<string>(),
+                    new JsonObject
+                    {
+                        ["serverInfo"] = new JsonObject { ["name"] = "codex-app-server", ["version"] = runtimeVersion },
+                    }));
+            }
+        };
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher, options => options.RequireCompatibleRuntime = true);
+        CodexThreadOptions threadOptions = new() { ModelReasoningEffort = CodexReasoningEffort.Max };
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            switch (lifecycle)
+            {
+                case "start":
+                    await client.StartThreadAsync(threadOptions);
+                    break;
+                case "resume":
+                    await client.ResumeThreadAsync("thread-1", threadOptions);
+                    break;
+                case "fork":
+                    await client.ForkThreadAsync("thread-1", new CodexThreadForkOptions { ModelReasoningEffort = CodexReasoningEffort.Max });
+                    break;
+            }
+        });
+
+        Assert.Contains("max reasoning effort", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(process.StdIn.Lines.Select(line => JsonNode.Parse(line)!.AsObject()),
+            request => request["method"]?.GetValue<string>() is "thread/start" or "thread/resume" or "thread/fork");
+    }
+
     [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0238")]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0239")]
@@ -2702,6 +2751,7 @@ public sealed class CodexAppServerTransportTests
                             Assert.Equal("on-request", payload["approvalPolicy"]!["value"]!.GetValue<string>());
                             Assert.Equal("dangerFullAccess", payload["sandboxPolicy"]!["type"]!.GetValue<string>());
                             Assert.Equal("high", payload["effort"]!.GetValue<string>());
+                            Assert.Equal("public-start:task-42", payload["source"]!.GetValue<string>());
                             process.EnqueueStdout(TestJson.Response(
                                 id,
                                 new JsonObject
@@ -2767,9 +2817,10 @@ public sealed class CodexAppServerTransportTests
             string prompt,
             string turnId,
             string messageId,
-            bool completeProcess = false)
+            bool completeProcess = false,
+            CodexTurnOptions? options = null)
         {
-            CodexTurn turn = await thread.StartTurnAsync(prompt);
+            CodexTurn turn = await thread.StartTurnAsync(prompt, options);
             process.EnqueueStdout(TestJson.Notification(
                 "turn.started",
                 new JsonObject
@@ -2829,7 +2880,12 @@ public sealed class CodexAppServerTransportTests
             ModelReasoningEffort = CodexReasoningEffort.High,
         });
 
-        CodexRunResult startedResult = await RunCompletedTurnAsync(startedThread, "start defaults", "turn-start", "message-start");
+        CodexRunResult startedResult = await RunCompletedTurnAsync(
+            startedThread,
+            "start defaults",
+            "turn-start",
+            "message-start",
+            options: new CodexTurnOptions { Source = "public-start:task-42" });
         Assert.Equal("Echo: start defaults", startedResult.FinalResponse);
 
         CodexThread resumedThread = await client.ResumeThreadAsync(startedThread.Id!, new CodexThreadOptions

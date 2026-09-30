@@ -54,6 +54,9 @@ public sealed class CodexClient : IAsyncDisposable
     /// </summary>
     public CodexRuntimeCapabilities? Capabilities { get; private set; }
 
+    /// <summary>Gets the most recent diagnostic about runtime compatibility for a requested feature.</summary>
+    public string? RuntimeCompatibilityDiagnostic { get; private set; }
+
     /// <summary>
     /// Observes all runtime events received by this client after subscription.
     /// </summary>
@@ -121,6 +124,7 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        ValidateRuntimeCompatibility(options?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
         EnsureCapability(Capabilities?.SupportsStartThread == true, nameof(StartThreadAsync));
 
         if (Options.BackendSelection == CodexBackendSelection.Exec)
@@ -145,6 +149,9 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        ValidateRuntimeCompatibility(
+            options?.IncludeTurns == true ? "includeTurns" : null,
+            options?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
         EnsureCapability(Capabilities?.SupportsResumeThread == true, nameof(ResumeThreadAsync));
 
         if (Options.BackendSelection == CodexBackendSelection.Exec)
@@ -168,6 +175,10 @@ public sealed class CodexClient : IAsyncDisposable
         CodexThreadForkOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        ValidateRuntimeCompatibility(
+            options?.IncludeTurns == true ? "includeTurns" : null,
+            options?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
         CodexThreadHandleState handle = await ForkThreadHandleAsync(threadId, options, cancellationToken).ConfigureAwait(false);
         return new CodexThread(this, handle.Defaults ?? options, handle.Snapshot.Id, started: true);
     }
@@ -396,6 +407,7 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        ValidateRuntimeCompatibility(options?.IncludeTurns == true ? "includeTurns" : null);
         EnsureCapability(Capabilities?.SupportsForkThread == true, nameof(ForkThreadAsync));
         return await _transport.ForkThreadAsync(threadId, options, cancellationToken).ConfigureAwait(false);
     }
@@ -504,6 +516,10 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        ValidateRuntimeCompatibility(
+            input.Any(item => item is CodexExternalMessageInput) ? "externalMessage" : null,
+            !string.IsNullOrWhiteSpace(options?.Source) ? "turn source attribution" : null,
+            options?.Effort == CodexReasoningEffort.Max || threadOptions?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
         EnsureCapability(Capabilities?.SupportsThreadStreaming == true, nameof(CodexThread.StartTurnAsync));
         return await _transport.StartTurnAsync(threadId, input, threadOptions, options, cancellationToken).ConfigureAwait(false);
     }
@@ -555,6 +571,41 @@ public sealed class CodexClient : IAsyncDisposable
         }
 
         throw new CodexCapabilityNotSupportedException(operation, Options.BackendSelection);
+    }
+
+    private void ValidateRuntimeCompatibility(params string?[] features)
+    {
+        string[] requestedFeatures = features.Where(feature => feature is not null).Cast<string>().Distinct(StringComparer.Ordinal).ToArray();
+        if (requestedFeatures.Length == 0)
+        {
+            return;
+        }
+
+        string? versionText = Options.BackendSelection == CodexBackendSelection.Exec ? null : Metadata?.ServerInfo?.Version;
+        RuntimeCompatibilityDiagnostic = ValidateRuntimeCompatibility(versionText, requestedFeatures, Options.RequireCompatibleRuntime);
+    }
+
+    internal static string? ValidateRuntimeCompatibility(string? versionText, IReadOnlyList<string> requestedFeatures, bool requireCompatibleRuntime)
+    {
+        if (requestedFeatures.Count == 0) return null;
+        Version? version = null;
+        if (!string.IsNullOrWhiteSpace(versionText))
+        {
+            string versionWithoutBuild = versionText.Split('+')[0];
+            bool isPrerelease = versionWithoutBuild.Contains('-', StringComparison.Ordinal);
+            string numericVersion = versionWithoutBuild.Split('-')[0];
+            if (numericVersion.Count(character => character == '.') == 1) numericVersion += ".0";
+            Version.TryParse(numericVersion, out version);
+            if (isPrerelease && version == new Version(0, 151, 0)) version = new Version(0, 150, 999);
+        }
+
+        if (version is not null && version >= new Version(0, 151, 0)) return null;
+        string reason = version is null
+            ? $"Runtime version '{versionText ?? "unknown"}' could not be validated."
+            : $"Runtime version '{versionText}' is older than 0.151.0.";
+        string diagnostic = $"Requested {string.Join(", ", requestedFeatures)} requires Codex runtime 0.151.0 or newer. {reason}";
+        if (requireCompatibleRuntime) throw new InvalidOperationException(diagnostic);
+        return diagnostic;
     }
 
     private void ThrowIfDisposed()
@@ -1021,6 +1072,7 @@ public sealed class CodexThread
             SandboxPolicy = options?.SandboxPolicy ?? defaults.Sandbox,
             ServiceTier = options?.ServiceTier ?? defaults.ServiceTier,
             Summary = options?.Summary,
+            Source = options?.Source,
             WorkingDirectory = options?.WorkingDirectory ?? defaults.WorkingDirectory,
         };
     }

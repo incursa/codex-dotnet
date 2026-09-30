@@ -86,6 +86,7 @@ public sealed class CodexProtocolTests
         Assert.True(payload["skipGitRepoCheck"]!.GetValue<bool>());
         Assert.Equal("guardian_subagent", payload["approvalsReviewer"]!.GetValue<string>());
         Assert.Equal("on-failure", payload["approvalPolicy"]!["value"]!.GetValue<string>());
+        Assert.False(payload.ContainsKey("includeTurns"));
 
         JsonArray additionalDirectories = payload["additionalDirectories"]!.AsArray();
         Assert.Equal(@"C:\extra-one", additionalDirectories[0]!.GetValue<string>());
@@ -139,16 +140,19 @@ public sealed class CodexProtocolTests
         {
             WorkingDirectory = "/work",
             Model = "gpt-5",
+            IncludeTurns = true,
         });
         Assert.Equal("thread-1", resume["threadId"]!.GetValue<string>());
         Assert.Equal("/work", resume["cwd"]!.GetValue<string>());
         Assert.Equal("gpt-5", resume["model"]!.GetValue<string>());
+        Assert.True(resume["includeTurns"]!.GetValue<bool>());
         Assert.False(resume.ContainsKey("sessionStartSource"));
         Assert.False(resume.ContainsKey("threadSource"));
 
         JsonObject fork = CodexProtocol.BuildThreadForkParams("thread-2", new CodexThreadForkOptions
         {
             WorkingDirectory = "/fork",
+            IncludeTurns = true,
             SessionStartSource = CodexThreadStartSource.Clear,
             ThreadSource = CodexThreadSource.User,
         });
@@ -156,6 +160,7 @@ public sealed class CodexProtocolTests
         Assert.Equal("/fork", fork["cwd"]!.GetValue<string>());
         Assert.Equal("clear", fork["sessionStartSource"]!.GetValue<string>());
         Assert.Equal("user", fork["threadSource"]!.GetValue<string>());
+        Assert.True(fork["includeTurns"]!.GetValue<bool>());
 
         JsonObject read = CodexProtocol.BuildThreadReadParams("thread-3", new CodexThreadReadOptions
         {
@@ -246,6 +251,147 @@ public sealed class CodexProtocolTests
         Assert.Equal("turn-17", steer["expectedTurnId"]!.GetValue<string>());
         Assert.Equal("thread-18", interrupt["threadId"]!.GetValue<string>());
         Assert.Equal("turn-19", interrupt["turnId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BuildInputPayload_PreservesExternalMessageAuthorityAndProvenance()
+    {
+        JsonArray payload = CodexProtocol.BuildInputPayload(
+        [
+            new CodexTextInput { Text = "Direct instruction" },
+            new CodexExternalMessageInput
+            {
+                ToolName = "clickup",
+                Namespace = "incursa-project-manager",
+                Content = "Please inspect this issue",
+            },
+        ]);
+
+        Assert.Equal("text", payload[0]!["type"]!.GetValue<string>());
+        Assert.Equal("externalMessage", payload[1]!["type"]!.GetValue<string>());
+        Assert.Equal("clickup", payload[1]!["toolName"]!.GetValue<string>());
+        Assert.Equal("incursa-project-manager", payload[1]!["namespace"]!.GetValue<string>());
+        Assert.Equal("Please inspect this issue", payload[1]!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void ParseThreadItem_PreservesExternalMessageAuthorityAndProvenance()
+    {
+        CodexUserMessageItem message = Assert.IsType<CodexUserMessageItem>(CodexProtocol.ParseThreadItem(new JsonObject
+        {
+            ["type"] = "userMessage",
+            ["id"] = "item-1",
+            ["content"] = new JsonArray(new JsonObject
+            {
+                ["type"] = "externalMessage",
+                ["toolName"] = "clickup",
+                ["namespace"] = "incursa-project-manager",
+                ["content"] = "Please inspect this issue",
+            }),
+        }));
+
+        CodexExternalMessageInput external = Assert.IsType<CodexExternalMessageInput>(Assert.Single(message.Content));
+        Assert.Equal("clickup", external.ToolName);
+        Assert.Equal("incursa-project-manager", external.Namespace);
+        Assert.Equal("Please inspect this issue", external.Content);
+    }
+
+    [Fact]
+    public void BuildTurnStartParams_EmitsSourceAndMaxEffort()
+    {
+        JsonObject payload = CodexProtocol.BuildTurnStartParams(
+            "thread-1",
+            [new CodexExternalMessageInput { ToolName = "clickup", Namespace = "incursa-project-manager", Content = "Review" }],
+            new CodexTurnOptions { Source = "clickup:task-42", Effort = CodexReasoningEffort.Max });
+
+        Assert.Equal("clickup:task-42", payload["source"]!.GetValue<string>());
+        Assert.Equal("max", payload["effort"]!.GetValue<string>());
+        Assert.Equal("externalMessage", payload["input"]![0]!["type"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("0.150.9", true)]
+    [InlineData("0.151.0-preview.1", true)]
+    [InlineData("0.151.0+build.1", false)]
+    [InlineData("not-a-version", true)]
+    [InlineData("0.151.0", false)]
+    [InlineData("0.159.2", false)]
+    [InlineData("0.200.0", false)]
+    public void RuntimeCompatibilityDiagnostic_RequiresFeatureMinimumWithoutRejectingNewerVersions(string version, bool diagnosticExpected)
+    {
+        string? diagnostic = CodexClient.ValidateRuntimeCompatibility(version, ["externalMessage"], requireCompatibleRuntime: false);
+
+        Assert.Equal(diagnosticExpected, diagnostic is not null);
+    }
+
+    [Theory]
+    [InlineData("0.150.0")]
+    [InlineData("unknown")]
+    [InlineData("0.151.0-rc.1")]
+    public void RuntimeCompatibilityValidation_CanBeEnforced(string version)
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => CodexClient.ValidateRuntimeCompatibility(version, ["externalMessage"], requireCompatibleRuntime: true));
+
+        Assert.Contains("0.151.0 or newer", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ParseTurnRecord_PreservesSourceAttribution()
+    {
+        CodexTurnRecord turn = CodexProtocol.ParseTurnRecord(new JsonObject
+        {
+            ["id"] = "turn-1",
+            ["source"] = "clickup:task-42",
+            ["status"] = "completed",
+        });
+
+        Assert.Equal("clickup:task-42", turn.Source);
+    }
+
+    [Fact]
+    public void TurnSession_RecordKeepsRequestedSourceAttribution()
+    {
+        CodexTurnSession session = new(
+            "thread-1",
+            "turn-1",
+            [],
+            new CodexTurnOptions { Source = "clickup:task-42" },
+            (_, _, _) => Task.CompletedTask,
+            (_, _) => Task.CompletedTask);
+
+        session.SeedTurnRecord(new CodexTurnRecord
+        {
+            Id = "turn-1",
+            Status = CodexTurnStatus.InProgress,
+        });
+
+        Assert.Equal("clickup:task-42", session.ToRecord().Source);
+    }
+
+    [Fact]
+    public async Task ExecBackend_RejectsExternalMessageInsteadOfFlatteningAuthority()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        await using CodexClient client = new(new CodexClientOptions
+        {
+            BackendSelection = CodexBackendSelection.Exec,
+            CodexPathOverride = "codex",
+            ProcessLauncher = launcher,
+        });
+        await client.InitializeAsync();
+        CodexThread thread = await client.StartThreadAsync();
+
+        await Assert.ThrowsAsync<CodexCapabilityNotSupportedException>(() => thread.RunAsync(
+        [
+            new CodexExternalMessageInput
+            {
+                ToolName = "clickup",
+                Namespace = "incursa-project-manager",
+                Content = "Review issue",
+            },
+        ]));
+        Assert.Empty(launcher.StartInfos);
     }
 
     [Fact]
@@ -1258,7 +1404,7 @@ public sealed class CodexProtocolTests
             {
                 ["loginId"] = "login-1",
                 ["success"] = true,
-        })));
+            })));
         Assert.True(loginCompleted.Success);
         Assert.Equal("login-1", loginCompleted.LoginId);
 
@@ -1394,7 +1540,7 @@ public sealed class CodexProtocolTests
                         ["score"] = 91,
                     },
                 },
-        })));
+            })));
         Assert.Equal("trace", fuzzyUpdated.Query);
         Assert.Equal(1, fuzzyUpdated.Files[0].Indices![0]);
         Assert.Equal(5, fuzzyUpdated.Files[0].Indices![1]);

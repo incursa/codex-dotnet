@@ -76,6 +76,22 @@ public sealed record CodexMentionInput() : CodexInputItem("mention")
 }
 
 /// <summary>
+/// Content relayed from an external tool or application. The runtime treats this as external context,
+/// below direct user and developer instructions in authority.
+/// </summary>
+public sealed record CodexExternalMessageInput() : CodexInputItem("externalMessage")
+{
+    /// <summary>Gets the name of the tool or application that supplied the content.</summary>
+    public string ToolName { get; init; } = "";
+
+    /// <summary>Gets the namespace that identifies the source integration.</summary>
+    public string Namespace { get; init; } = "";
+
+    /// <summary>Gets the relayed content.</summary>
+    public string Content { get; init; } = "";
+}
+
+/// <summary>
 /// Fallback conversation input item for unrecognized payloads.
 /// </summary>
 /// <param name="UnknownType">Original input item type string.</param>
