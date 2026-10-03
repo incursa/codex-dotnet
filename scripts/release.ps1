@@ -2,11 +2,17 @@
 param(
     [switch]$DryRun,
     [switch]$NoPush,
-    [switch]$RunLiveTests
+    [switch]$RunLiveTests,
+    [switch]$PrepareOnly,
+    [switch]$Finalize
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($PrepareOnly -and $Finalize) {
+    throw 'PrepareOnly and Finalize cannot be combined.'
+}
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $versionFile = Join-Path $repoRoot 'Directory.Build.props'
@@ -17,7 +23,37 @@ function Invoke-Release {
         $latestTag = Get-LatestReleaseTag
         $currentVersion = Get-CurrentVersion -Path $versionFile
         $releaseKind = Get-PublicApiReleaseKind -BaselineTag $latestTag
-        $nextVersion = Get-NextVersion -CurrentVersion $currentVersion -ReleaseKind $releaseKind
+        if ($PrepareOnly -and $currentVersion -ne $latestTag.Substring(1)) {
+            throw 'A release version is already prepared. Merge it and use Finalize instead of bumping again.'
+        }
+
+        if (-not $Finalize) {
+            $currentBranch = (& git branch --show-current).Trim()
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($currentBranch)) {
+                throw 'Release preparation requires a checked-out branch.'
+            }
+        }
+
+        $versionBasis = if ($Finalize) { $latestTag.Substring(1) } else { $currentVersion }
+        $nextVersion = Get-NextVersion -CurrentVersion $versionBasis -ReleaseKind $releaseKind
+
+        if ($Finalize) {
+            if ($currentVersion -ne $nextVersion) {
+                throw "Release blocked: prepared version '$currentVersion' does not match expected version '$nextVersion'."
+            }
+
+            $workingTreeChanges = & git status --porcelain
+            if ($LASTEXITCODE -ne 0 -or $workingTreeChanges) {
+                throw 'Release finalization requires a clean working tree.'
+            }
+
+            $headCommit = (& git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve HEAD.' }
+            $mainCommit = (& git rev-parse refs/remotes/origin/main).Trim()
+            if ($LASTEXITCODE -ne 0 -or $headCommit -ne $mainCommit) {
+                throw 'Fetch origin/main and check out its current commit before finalizing the release.'
+            }
+        }
 
         Write-Host "Latest release tag: $latestTag"
         Write-Host "Current version: $currentVersion"
@@ -29,7 +65,9 @@ function Invoke-Release {
             return
         }
 
-        Set-Version -Path $versionFile -Version $nextVersion
+        if (-not $Finalize) {
+            Set-Version -Path $versionFile -Version $nextVersion
+        }
 
         $previousLiveTests = $env:CODEX_LIVE_TESTS
         try {
@@ -49,20 +87,33 @@ function Invoke-Release {
         }
 
         Invoke-CheckedCommand git @('diff', '--check')
-        Invoke-CheckedCommand git @('add', '-A')
-        Invoke-CheckedCommand git @('commit', '-m', "Bump version to $nextVersion")
-        Invoke-CheckedCommand git @('tag', '-a', "v$nextVersion", '-m', "v$nextVersion")
+        if (-not $Finalize) {
+            Invoke-CheckedCommand git @('add', '-A')
+            Invoke-CheckedCommand git @('commit', '-m', "Bump version to $nextVersion")
+        }
 
-        $currentBranch = (& git branch --show-current).Trim()
-        if ([string]::IsNullOrWhiteSpace($currentBranch)) {
-            throw 'The release script requires a checked-out branch.'
+        if (-not $PrepareOnly) {
+            Invoke-CheckedCommand git @('tag', '-a', "v$nextVersion", '-m', "v$nextVersion")
         }
 
         if (-not $NoPush) {
-            Invoke-CheckedCommand git @('push', 'origin', $currentBranch, "v$nextVersion")
+            if ($Finalize) {
+                Invoke-CheckedCommand git @('push', 'origin', "v$nextVersion")
+            }
+            elseif ($PrepareOnly) {
+                Invoke-CheckedCommand git @('push', 'origin', $currentBranch)
+            }
+            else {
+                Invoke-CheckedCommand git @('push', 'origin', $currentBranch, "v$nextVersion")
+            }
         }
 
-        Write-Host "Release $nextVersion completed."
+        if ($PrepareOnly) {
+            Write-Host "Release $nextVersion prepared. Merge the branch, fetch origin/main, then run -Finalize from that commit."
+        }
+        else {
+            Write-Host "Release $nextVersion completed."
+        }
     }
     finally {
         Pop-Location

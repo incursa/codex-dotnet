@@ -53,14 +53,14 @@ internal static class CodexProtocol
     public static JsonObject BuildThreadStartParams(CodexThreadOptions? options)
     {
         JsonObject payload = new();
-        AddThreadOptions(payload, options, includeSessionSourceMetadata: true, includeTurns: false);
+        AddThreadOptions(payload, options, includeSessionStartSource: true, includeThreadSource: true, includePersonality: true, includeServiceName: true, includeHistorySelection: false);
         return payload;
     }
 
     public static JsonObject BuildThreadResumeParams(string threadId, CodexThreadOptions? options)
     {
         JsonObject payload = new();
-        AddThreadOptions(payload, options, includeSessionSourceMetadata: false, includeTurns: true);
+        AddThreadOptions(payload, options, includeSessionStartSource: false, includeThreadSource: false, includePersonality: true, includeServiceName: false, includeHistorySelection: true);
         payload["threadId"] = threadId;
         return payload;
     }
@@ -68,7 +68,7 @@ internal static class CodexProtocol
     public static JsonObject BuildThreadForkParams(string threadId, CodexThreadForkOptions? options)
     {
         JsonObject payload = new();
-        AddThreadOptions(payload, options, includeSessionSourceMetadata: true, includeTurns: true);
+        AddThreadOptions(payload, options, includeSessionStartSource: false, includeThreadSource: true, includePersonality: false, includeServiceName: false, includeHistorySelection: true);
         payload["threadId"] = threadId;
         return payload;
     }
@@ -99,6 +99,7 @@ internal static class CodexProtocol
         if (options.SortDirection is not null) payload["sortDirection"] = MapThreadSortDirection(options.SortDirection.Value);
         if (options.SourceKinds is { Count: > 0 }) payload["sourceKinds"] = new JsonArray(options.SourceKinds.Select(value => JsonValue.Create(MapThreadSourceKind(value))).ToArray());
         if (options.UseStateDbOnly.HasValue) payload["useStateDbOnly"] = options.UseStateDbOnly.Value;
+        if (!string.IsNullOrWhiteSpace(options.SectionId)) payload["sectionId"] = options.SectionId;
         return payload;
     }
 
@@ -249,7 +250,36 @@ internal static class CodexProtocol
             payload["threadId"] = threadId;
         }
 
-        payload["input"] = BuildInputPayload(input);
+        CodexExternalMessageInput[] externalMessages = input.OfType<CodexExternalMessageInput>().ToArray();
+        if (externalMessages.Length > 1)
+        {
+            throw new NotSupportedException("A turn/start request supports at most one external tool output.");
+        }
+
+        if (externalMessages.Length == 1 && input.Count != 1)
+        {
+            throw new NotSupportedException("External tool output must be the complete turn input.");
+        }
+
+        if (externalMessages is [{ } externalMessage])
+        {
+            if (string.IsNullOrWhiteSpace(externalMessage.ToolName))
+            {
+                throw new ArgumentException("External message tool name must not be empty.", nameof(input));
+            }
+
+            payload["toolOutput"] = new JsonObject
+            {
+                ["name"] = externalMessage.ToolName,
+                ["namespace"] = string.IsNullOrWhiteSpace(externalMessage.Namespace) ? null : externalMessage.Namespace,
+                ["output"] = externalMessage.StructuredContent?.DeepClone() ?? JsonValue.Create(externalMessage.Content),
+            };
+            payload["input"] = BuildInputPayload(input.Where(item => item is not CodexExternalMessageInput).ToArray());
+        }
+        else
+        {
+            payload["input"] = BuildInputPayload(input);
+        }
         return payload;
     }
 
@@ -280,13 +310,7 @@ internal static class CodexProtocol
                 CodexLocalImageInput localImage => new JsonObject { ["type"] = "localImage", ["path"] = localImage.Path },
                 CodexSkillInput skill => new JsonObject { ["type"] = "skill", ["name"] = skill.Name, ["path"] = skill.Path },
                 CodexMentionInput mention => new JsonObject { ["type"] = "mention", ["name"] = mention.Name, ["path"] = mention.Path },
-                CodexExternalMessageInput externalMessage => new JsonObject
-                {
-                    ["type"] = "externalMessage",
-                    ["toolName"] = externalMessage.ToolName,
-                    ["namespace"] = externalMessage.Namespace,
-                    ["content"] = externalMessage.Content,
-                },
+                CodexExternalMessageInput => throw new NotSupportedException("External messages are serialized as turn/start.toolOutput."),
                 _ => new JsonObject { ["type"] = item.Type },
             });
         }
@@ -333,12 +357,12 @@ internal static class CodexProtocol
             "turn.completed" => new CodexTurnCompletedEvent
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
-                Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload),
+                Turn = ParseTerminalTurnRecord(payload, CodexTurnStatus.Completed),
             },
             "turn.failed" => new CodexTurnFailedEvent
             {
                 ThreadId = GetString(payload, "threadId") ?? string.Empty,
-                Turn = ParseTurnRecord(GetObject(payload, "turn") ?? payload),
+                Turn = ParseTerminalTurnRecord(payload, CodexTurnStatus.Failed),
             },
             "item.started" => new CodexItemStartedEvent
             {
@@ -965,6 +989,15 @@ internal static class CodexProtocol
         };
     }
 
+    private static CodexTurnRecord ParseTerminalTurnRecord(JsonObject payload, CodexTurnStatus statusIfMissing)
+    {
+        JsonObject turnPayload = GetObject(payload, "turn") ?? payload;
+        CodexTurnRecord turn = ParseTurnRecord(turnPayload);
+        return turnPayload.ContainsKey("status")
+            ? turn
+            : turn with { Status = statusIfMissing };
+    }
+
     public static CodexTurnError ParseTurnError(JsonObject? payload)
     {
         if (payload is null)
@@ -987,13 +1020,38 @@ internal static class CodexProtocol
             return null;
         }
 
+        JsonObject? last = GetObject(payload, "last");
+        JsonObject? total = GetObject(payload, "total");
+        if (last is null && total is null && HasTokenUsageFields(payload))
+        {
+            // The exec JSON stream reports one flat per-turn Usage object. Keep the
+            // public Last/Total shape useful to callers by exposing that same
+            // per-turn breakdown in both slots.
+            CodexTokenUsageBreakdown flat = ParseTokenUsageBreakdown(payload);
+            return new CodexUsage
+            {
+                Last = flat,
+                ModelContextWindow = GetIntAny(payload, "modelContextWindow", "model_context_window"),
+                Total = flat,
+            };
+        }
+
         return new CodexUsage
         {
-            Last = ParseTokenUsageBreakdown(GetObject(payload, "last")),
-            ModelContextWindow = GetInt(payload, "modelContextWindow"),
-            Total = ParseTokenUsageBreakdown(GetObject(payload, "total")),
+            Last = ParseTokenUsageBreakdown(last),
+            ModelContextWindow = GetIntAny(payload, "modelContextWindow", "model_context_window"),
+            Total = ParseTokenUsageBreakdown(total),
         };
     }
+
+    private static bool HasTokenUsageFields(JsonObject payload)
+        => payload.Any(pair => pair.Key is
+            "cachedInputTokens" or "cached_input_tokens"
+            or "cacheWriteInputTokens" or "cache_write_input_tokens"
+            or "inputTokens" or "input_tokens"
+            or "outputTokens" or "output_tokens"
+            or "reasoningOutputTokens" or "reasoning_output_tokens"
+            or "totalTokens" or "total_tokens");
 
     public static CodexTokenUsageBreakdown ParseTokenUsageBreakdown(JsonObject? payload)
     {
@@ -1004,11 +1062,12 @@ internal static class CodexProtocol
 
         return new CodexTokenUsageBreakdown
         {
-            CachedInputTokens = GetInt(payload, "cachedInputTokens") ?? 0,
-            InputTokens = GetInt(payload, "inputTokens") ?? 0,
-            OutputTokens = GetInt(payload, "outputTokens") ?? 0,
-            ReasoningOutputTokens = GetInt(payload, "reasoningOutputTokens") ?? 0,
-            TotalTokens = GetInt(payload, "totalTokens") ?? 0,
+            CachedInputTokens = GetIntAny(payload, "cachedInputTokens", "cached_input_tokens") ?? 0,
+            CacheWriteInputTokens = GetIntAny(payload, "cacheWriteInputTokens", "cache_write_input_tokens") ?? 0,
+            InputTokens = GetIntAny(payload, "inputTokens", "input_tokens") ?? 0,
+            OutputTokens = GetIntAny(payload, "outputTokens", "output_tokens") ?? 0,
+            ReasoningOutputTokens = GetIntAny(payload, "reasoningOutputTokens", "reasoning_output_tokens") ?? 0,
+            TotalTokens = GetIntAny(payload, "totalTokens", "total_tokens") ?? 0,
         };
     }
 
@@ -1215,16 +1274,25 @@ internal static class CodexProtocol
         };
     }
 
-    private static void AddThreadOptions(JsonObject payload, CodexThreadOptions? options, bool includeSessionSourceMetadata, bool includeTurns)
+    private static void AddThreadOptions(
+        JsonObject payload,
+        CodexThreadOptions? options,
+        bool includeSessionStartSource,
+        bool includeThreadSource,
+        bool includePersonality,
+        bool includeServiceName,
+        bool includeHistorySelection)
     {
         if (options is null)
         {
             return;
         }
 
-        if (options.Config is not null)
+        ValidateThreadSandboxConfiguration(options);
+        JsonObject config = BuildThreadConfigPayload(options);
+        if (config.Count > 0)
         {
-            payload["config"] = BuildConfigPayload(options.Config);
+            payload["config"] = config;
         }
 
         if (!string.IsNullOrWhiteSpace(options.BaseInstructions)) payload["baseInstructions"] = options.BaseInstructions;
@@ -1232,28 +1300,95 @@ internal static class CodexProtocol
         if (options.Ephemeral.HasValue) payload["ephemeral"] = options.Ephemeral.Value;
         if (!string.IsNullOrWhiteSpace(options.Model)) payload["model"] = options.Model;
         if (!string.IsNullOrWhiteSpace(options.ModelProvider)) payload["modelProvider"] = options.ModelProvider;
-        if (options.Personality is not null) payload["personality"] = MapPersonality(options.Personality.Value);
-        if (options.Sandbox is not null) payload["sandbox"] = BuildSandboxPolicyPayload(options.Sandbox);
+        if (includePersonality && options.Personality is not null) payload["personality"] = MapPersonality(options.Personality.Value);
+        if (options.Sandbox is not null) payload["sandbox"] = BuildThreadSandboxMode(options.Sandbox);
         if (options.ServiceTier is not null) payload["serviceTier"] = MapServiceTier(options.ServiceTier.Value);
         if (!string.IsNullOrWhiteSpace(options.WorkingDirectory)) payload["cwd"] = options.WorkingDirectory;
-        if (!string.IsNullOrWhiteSpace(options.ServiceName)) payload["serviceName"] = options.ServiceName;
-        if (includeSessionSourceMetadata && options.SessionStartSource is not null) payload["sessionStartSource"] = MapThreadStartSource(options.SessionStartSource.Value);
-        if (includeSessionSourceMetadata && options.ThreadSource is not null) payload["threadSource"] = MapThreadSource(options.ThreadSource.Value);
-        if (options.ModelReasoningEffort is not null) payload["modelReasoningEffort"] = MapReasoningEffort(options.ModelReasoningEffort.Value);
-        if (options.NetworkAccessEnabled.HasValue) payload["networkAccessEnabled"] = options.NetworkAccessEnabled.Value;
-        if (options.WebSearchMode is not null) payload["webSearchMode"] = MapWebSearchMode(options.WebSearchMode.Value);
-        if (options.WebSearchEnabled.HasValue) payload["webSearchEnabled"] = options.WebSearchEnabled.Value;
-        if (options.SkipGitRepoCheck.HasValue) payload["skipGitRepoCheck"] = options.SkipGitRepoCheck.Value;
+        if (includeServiceName && !string.IsNullOrWhiteSpace(options.ServiceName)) payload["serviceName"] = options.ServiceName;
+        if (includeSessionStartSource && options.SessionStartSource is not null) payload["sessionStartSource"] = MapThreadStartSource(options.SessionStartSource.Value);
+        if (includeThreadSource && options.ThreadSource is not null) payload["threadSource"] = MapThreadSource(options.ThreadSource.Value);
 
-        if (options.AdditionalDirectories is { Count: > 0 })
+        if (includeHistorySelection && options.IncludeTurns.HasValue)
         {
-            payload["additionalDirectories"] = new JsonArray(options.AdditionalDirectories.Select(value => JsonValue.Create(value)).ToArray());
+            payload["excludeTurns"] = !options.IncludeTurns.Value;
         }
-
-        if (includeTurns && options.IncludeTurns.HasValue) payload["includeTurns"] = options.IncludeTurns.Value;
 
         if (options.ApprovalPolicy is not null) payload["approvalPolicy"] = BuildApprovalPolicyPayload(options.ApprovalPolicy);
         if (options.ApprovalsReviewer is not null) payload["approvalsReviewer"] = MapApprovalsReviewer(options.ApprovalsReviewer.Value);
+    }
+
+    private static JsonObject BuildThreadConfigPayload(CodexThreadOptions options)
+    {
+        JsonObject config = BuildConfigPayload(options.Config);
+
+        if (options.ModelReasoningEffort is not null)
+        {
+            config["model_reasoning_effort"] = MapReasoningEffort(options.ModelReasoningEffort.Value);
+        }
+
+        bool? networkAccessEnabled = options.NetworkAccessEnabled ?? GetThreadSandboxNetworkAccess(options.Sandbox);
+        JsonObject? workspaceWrite = null;
+        if (options.Sandbox is CodexWorkspaceWriteSandboxPolicy || networkAccessEnabled.HasValue || options.AdditionalDirectories is { Count: > 0 })
+        {
+            workspaceWrite = config["sandbox_workspace_write"] as JsonObject ?? new JsonObject();
+            config["sandbox_workspace_write"] = workspaceWrite;
+        }
+
+        if (networkAccessEnabled.HasValue)
+        {
+            workspaceWrite!["network_access"] = networkAccessEnabled.Value;
+        }
+
+        if (options.AdditionalDirectories is { Count: > 0 })
+        {
+            workspaceWrite!["writable_roots"] = new JsonArray(options.AdditionalDirectories.Select(value => JsonValue.Create(value)).ToArray());
+        }
+
+        if (options.Sandbox is CodexWorkspaceWriteSandboxPolicy workspacePolicy)
+        {
+            workspaceWrite!["exclude_slash_tmp"] = workspacePolicy.ExcludeSlashTmp;
+            workspaceWrite!["exclude_tmpdir_env_var"] = workspacePolicy.ExcludeTmpdirEnvVar;
+            if (options.AdditionalDirectories is not { Count: > 0 } && workspacePolicy.WritableRoots.Count > 0)
+            {
+                workspaceWrite["writable_roots"] = new JsonArray(workspacePolicy.WritableRoots.Select(value => JsonValue.Create(value)).ToArray());
+            }
+        }
+
+        if (options.WebSearchMode is not null)
+        {
+            config["web_search"] = MapWebSearchMode(options.WebSearchMode.Value);
+        }
+        else if (options.WebSearchEnabled.HasValue)
+        {
+            config["web_search"] = options.WebSearchEnabled.Value ? "live" : "disabled";
+        }
+
+        return config;
+    }
+
+    private static void ValidateThreadSandboxConfiguration(CodexThreadOptions options)
+    {
+        if (options.Sandbox is CodexReadOnlySandboxPolicy readOnly
+            && (readOnly.NetworkAccess || options.AdditionalDirectories is { Count: > 0 }))
+        {
+            throw new NotSupportedException(
+                "Thread-level app-server v2 read-only sandbox cannot represent network access or writable roots.");
+        }
+
+        if (options.Sandbox is CodexDangerFullAccessSandboxPolicy
+            && options.AdditionalDirectories is { Count: > 0 })
+        {
+            throw new NotSupportedException(
+                "Thread-level app-server v2 danger-full-access sandbox cannot represent additional writable roots.");
+        }
+
+        if (options.NetworkAccessEnabled.HasValue
+            && options.Sandbox is not null
+            && options.Sandbox is not CodexWorkspaceWriteSandboxPolicy)
+        {
+            throw new NotSupportedException(
+                "Thread-level app-server v2 network access configuration is supported only for workspace-write sandbox mode.");
+        }
     }
 
     private static JsonObject BuildTurnOptionsPayload(CodexTurnOptions? options)
@@ -1272,55 +1407,88 @@ internal static class CodexProtocol
         if (options.Personality is not null) payload["personality"] = MapPersonality(options.Personality.Value);
         if (options.SandboxPolicy is not null) payload["sandboxPolicy"] = BuildSandboxPolicyPayload(options.SandboxPolicy);
         if (options.ServiceTier is not null) payload["serviceTier"] = MapServiceTier(options.ServiceTier.Value);
+        if (options.ServiceTierForTurn is not null) payload["serviceTierForTurn"] = MapServiceTierForTurn(options.ServiceTierForTurn.Value);
         if (options.Summary is not null) payload["summary"] = MapReasoningSummary(options.Summary.Value);
-        if (!string.IsNullOrWhiteSpace(options.WorkingDirectory)) payload["workingDirectory"] = options.WorkingDirectory;
-        if (!string.IsNullOrWhiteSpace(options.Source)) payload["source"] = options.Source;
+        if (!string.IsNullOrWhiteSpace(options.WorkingDirectory)) payload["cwd"] = options.WorkingDirectory;
+        string? turnTrigger = string.IsNullOrWhiteSpace(options.TurnTrigger) ? options.Source : options.TurnTrigger;
+        if (!string.IsNullOrWhiteSpace(turnTrigger)) payload["turnTrigger"] = turnTrigger;
+        if (options.CyberAccessProgram is not null) payload["cyberAccessProgram"] = MapCyberAccessProgram(options.CyberAccessProgram.Value);
         return payload;
     }
 
-    private static JsonObject BuildApprovalPolicyPayload(CodexApprovalPolicy policy)
+    private static JsonNode BuildApprovalPolicyPayload(CodexApprovalPolicy policy)
     {
         return policy switch
         {
-            CodexApprovalModePolicy modePolicy => new JsonObject { ["value"] = MapApprovalMode(modePolicy.Mode) },
+            CodexApprovalModePolicy { Mode: CodexApprovalMode.OnFailure } => throw new NotSupportedException(
+                "The app-server v2 protocol no longer supports the on-failure approval mode."),
+            CodexApprovalModePolicy modePolicy => JsonValue.Create(MapApprovalMode(modePolicy.Mode))!,
             CodexGranularApprovalPolicy granularPolicy => new JsonObject
             {
                 ["granular"] = new JsonObject
                 {
-                    ["mcpElicitations"] = granularPolicy.Granular.McpElicitations,
-                    ["requestPermissions"] = granularPolicy.Granular.RequestPermissions,
+                    ["mcp_elicitations"] = granularPolicy.Granular.McpElicitations,
+                    ["request_permissions"] = granularPolicy.Granular.RequestPermissions,
                     ["rules"] = granularPolicy.Granular.Rules,
-                    ["sandboxApproval"] = granularPolicy.Granular.SandboxApproval,
-                    ["skillApproval"] = granularPolicy.Granular.SkillApproval,
+                    ["sandbox_approval"] = granularPolicy.Granular.SandboxApproval,
+                    ["skill_approval"] = granularPolicy.Granular.SkillApproval,
                 },
             },
-            _ => new JsonObject(),
+            _ => throw new NotSupportedException($"Approval policy type '{policy.GetType().Name}' is not supported by the app-server v2 protocol."),
         };
     }
 
-    private static JsonNode? BuildSandboxPolicyPayload(CodexSandboxPolicy policy)
+    private static string BuildThreadSandboxMode(CodexSandboxPolicy policy)
+        => policy switch
+        {
+            CodexDangerFullAccessSandboxPolicy => "danger-full-access",
+            CodexReadOnlySandboxPolicy readOnly when readOnly.Access is CodexFullAccessReadOnlyAccess => "read-only",
+            CodexWorkspaceWriteSandboxPolicy workspaceWrite
+                when workspaceWrite.ReadOnlyAccess is CodexFullAccessReadOnlyAccess => "workspace-write",
+            CodexReadOnlySandboxPolicy => throw new NotSupportedException(
+                "Thread-level app-server v2 sandbox mode cannot represent restricted read-only roots."),
+            CodexWorkspaceWriteSandboxPolicy => throw new NotSupportedException(
+                "Thread-level app-server v2 sandbox mode cannot represent custom workspace write roots or restrictions."),
+            CodexExternalSandboxPolicy => throw new NotSupportedException(
+                "Thread-level app-server v2 sandbox mode does not support external sandbox policies."),
+            _ => throw new NotSupportedException($"Sandbox policy type '{policy.GetType().Name}' is not supported by the app-server v2 protocol."),
+        };
+
+    private static bool? GetThreadSandboxNetworkAccess(CodexSandboxPolicy? policy)
+        => policy switch
+        {
+            CodexWorkspaceWriteSandboxPolicy workspaceWrite => workspaceWrite.NetworkAccess,
+            _ => null,
+        };
+
+    private static JsonNode BuildSandboxPolicyPayload(CodexSandboxPolicy policy)
     {
         return policy switch
         {
             CodexDangerFullAccessSandboxPolicy => new JsonObject { ["type"] = "dangerFullAccess" },
-            CodexReadOnlySandboxPolicy readOnly => new JsonObject
+            CodexReadOnlySandboxPolicy readOnly when readOnly.Access is CodexFullAccessReadOnlyAccess => new JsonObject
             {
                 ["type"] = "readOnly",
                 ["networkAccess"] = readOnly.NetworkAccess,
             },
+            CodexReadOnlySandboxPolicy => throw new NotSupportedException(
+                "turn/start sandboxPolicy cannot represent restricted read-only roots."),
             CodexExternalSandboxPolicy external => new JsonObject
             {
                 ["type"] = "externalSandbox",
                 ["networkAccess"] = MapNetworkAccess(external.NetworkAccess),
             },
-            CodexWorkspaceWriteSandboxPolicy workspaceWrite => new JsonObject
+            CodexWorkspaceWriteSandboxPolicy workspaceWrite when workspaceWrite.ReadOnlyAccess is CodexFullAccessReadOnlyAccess => new JsonObject
             {
                 ["type"] = "workspaceWrite",
                 ["excludeSlashTmp"] = workspaceWrite.ExcludeSlashTmp,
                 ["excludeTmpdirEnvVar"] = workspaceWrite.ExcludeTmpdirEnvVar,
                 ["networkAccess"] = workspaceWrite.NetworkAccess,
+                ["writableRoots"] = new JsonArray(workspaceWrite.WritableRoots.Select(value => JsonValue.Create(value)).ToArray()),
             },
-            _ => null,
+            CodexWorkspaceWriteSandboxPolicy => throw new NotSupportedException(
+                "turn/start sandboxPolicy cannot represent restricted read-only roots alongside workspace-write access."),
+            _ => throw new NotSupportedException($"Sandbox policy type '{policy.GetType().Name}' is not supported by the app-server v2 protocol."),
         };
     }
 
@@ -2021,7 +2189,31 @@ internal static class CodexProtocol
         };
 
     private static string MapServiceTier(CodexServiceTier serviceTier)
-        => serviceTier == CodexServiceTier.Flex ? "flex" : "priority";
+        => serviceTier switch
+        {
+            CodexServiceTier.Default => "default",
+            CodexServiceTier.Fast => "priority",
+            CodexServiceTier.Flex => "flex",
+            _ => throw new NotSupportedException($"Service tier '{serviceTier}' is not supported by the app-server v2 protocol."),
+        };
+
+    private static string MapServiceTierForTurn(CodexServiceTier serviceTier)
+        => serviceTier switch
+        {
+            CodexServiceTier.Default => "default",
+            CodexServiceTier.Fast => "priority",
+            CodexServiceTier.Flex => "flex",
+            _ => "default",
+        };
+
+    private static string MapCyberAccessProgram(CodexCyberAccessProgram program)
+        => program switch
+        {
+            CodexCyberAccessProgram.Standard => "standard",
+            CodexCyberAccessProgram.DaybreakBlue => "daybreakBlue",
+            CodexCyberAccessProgram.DaybreakRed => "daybreakRed",
+            _ => "standard",
+        };
 
     private static string MapNetworkAccess(CodexNetworkAccess networkAccess)
         => networkAccess == CodexNetworkAccess.Enabled ? "enabled" : "restricted";

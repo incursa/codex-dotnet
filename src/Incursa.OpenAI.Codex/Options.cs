@@ -223,6 +223,12 @@ public sealed record CodexTurnOptions
     public CodexServiceTier? ServiceTier { get; init; }
 
     /// <summary>
+    /// Gets the service tier used only for this new turn request. A null value inherits
+    /// the thread tier; <see cref="CodexServiceTier.Default"/> explicitly requests the standard tier.
+    /// </summary>
+    public CodexServiceTier? ServiceTierForTurn { get; init; }
+
+    /// <summary>
     /// Gets the reasoning-summary setting requested for this turn.
     /// </summary>
     public CodexReasoningSummary? Summary { get; init; }
@@ -234,6 +240,15 @@ public sealed record CodexTurnOptions
 
     /// <summary>Gets the source that initiated this turn, for attribution in thread history.</summary>
     public string? Source { get; init; }
+
+    /// <summary>
+    /// Gets the source classification for the caller that starts this turn.
+    /// The runtime ignores this value when the request steers an already active turn.
+    /// </summary>
+    public string? TurnTrigger { get; init; }
+
+    /// <summary>Gets the experimental cyber-access program for this turn.</summary>
+    public CodexCyberAccessProgram? CyberAccessProgram { get; init; }
 }
 
 /// <summary>
@@ -317,6 +332,11 @@ public sealed record CodexThreadListOptions
     /// Gets a value indicating whether the state database should be queried only.
     /// </summary>
     public bool? UseStateDbOnly { get; init; }
+
+    /// <summary>
+    /// Gets the optional section filter for listed threads.
+    /// </summary>
+    public string? SectionId { get; init; }
 }
 
 /// <summary>
@@ -370,6 +390,13 @@ public sealed class CodexClientOptions
     /// Gets or sets additional runtime configuration.
     /// </summary>
     public CodexConfigObject? Config { get; set; }
+
+    /// <summary>
+    /// Gets or sets raw <c>--config key=value</c> overrides passed unchanged to the Codex CLI.
+    /// Values are emitted as repeated <c>--config</c> arguments after structured configuration
+    /// and before SDK-managed overrides.
+    /// </summary>
+    public IReadOnlyList<string>? RawConfigOverrides { get; set; }
 
     /// <summary>
     /// Gets or sets plan-mode-specific defaults.

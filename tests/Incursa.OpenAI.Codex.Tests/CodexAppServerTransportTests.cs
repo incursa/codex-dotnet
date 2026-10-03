@@ -315,7 +315,7 @@ public sealed class CodexAppServerTransportTests
     [Trait("Requirement", "REQ-CODEX-SDK-DI-0263")]
     [Trait("Requirement", "REQ-CODEX-SDK-CATALOG-0309")]
     [CoverageType(RequirementCoverageType.Positive)]
-    public async Task StartThreadAsync_EmitsClientConfigAndGranularApprovalPolicy()
+    public async Task StartThreadAsync_EmitsClientConfigAndValidGranularApprovalPolicy()
     {
         ScriptedCodexProcessLauncher launcher = new();
         ScriptedCodexProcess process = new();
@@ -350,11 +350,11 @@ public sealed class CodexAppServerTransportTests
                 Assert.Equal("user", payload["approvalsReviewer"]!.GetValue<string>());
 
                 JsonObject granular = payload["approvalPolicy"]!["granular"]!.AsObject();
-                Assert.True(granular["mcpElicitations"]!.GetValue<bool>());
-                Assert.False(granular["requestPermissions"]!.GetValue<bool>());
+                Assert.True(granular["mcp_elicitations"]!.GetValue<bool>());
+                Assert.False(granular["request_permissions"]!.GetValue<bool>());
                 Assert.True(granular["rules"]!.GetValue<bool>());
-                Assert.False(granular["sandboxApproval"]!.GetValue<bool>());
-                Assert.True(granular["skillApproval"]!.GetValue<bool>());
+                Assert.False(granular["sandbox_approval"]!.GetValue<bool>());
+                Assert.True(granular["skill_approval"]!.GetValue<bool>());
 
                 process.EnqueueStdout(TestJson.Response(
                     idNode.GetValue<string>(),
@@ -387,6 +387,11 @@ public sealed class CodexAppServerTransportTests
             {
                 ReasoningEffort = CodexReasoningEffort.XHigh,
             };
+            options.RawConfigOverrides =
+            [
+                "raw.toml={\"enabled\"=true}",
+                "raw.literal=\"preserve = exact\"",
+            ];
         });
         CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
         {
@@ -417,8 +422,15 @@ public sealed class CodexAppServerTransportTests
         });
 
         Assert.Equal("thread-1", thread.Id);
-        Assert.Contains("client.feature=\"enabled\"", launcher.StartInfos.Single().Arguments);
-        Assert.Contains("plan_mode_reasoning_effort=\"xhigh\"", launcher.StartInfos.Single().Arguments);
+        List<string> launchArguments = launcher.StartInfos.Single().Arguments.ToList();
+        int structuredIndex = launchArguments.IndexOf("client.feature=\"enabled\"");
+        int rawIndex = launchArguments.IndexOf("raw.toml={\"enabled\"=true}");
+        int rawLiteralIndex = launchArguments.IndexOf("raw.literal=\"preserve = exact\"");
+        int planModeIndex = launchArguments.IndexOf("plan_mode_reasoning_effort=\"xhigh\"");
+        Assert.True(structuredIndex >= 0);
+        Assert.True(rawIndex > structuredIndex);
+        Assert.True(rawLiteralIndex > rawIndex);
+        Assert.True(planModeIndex > rawLiteralIndex);
     }
 
     [Fact]
@@ -2746,12 +2758,12 @@ public sealed class CodexAppServerTransportTests
                     {
                         case "start defaults":
                             Assert.Equal("thread-start", payload["threadId"]!.GetValue<string>());
-                            Assert.Equal("/start-dir", payload["workingDirectory"]!.GetValue<string>());
+                            Assert.Equal("/start-dir", payload["cwd"]!.GetValue<string>());
                             Assert.Equal("start-model", payload["model"]!.GetValue<string>());
-                            Assert.Equal("on-request", payload["approvalPolicy"]!["value"]!.GetValue<string>());
+                            Assert.Equal("on-request", payload["approvalPolicy"]!.GetValue<string>());
                             Assert.Equal("dangerFullAccess", payload["sandboxPolicy"]!["type"]!.GetValue<string>());
                             Assert.Equal("high", payload["effort"]!.GetValue<string>());
-                            Assert.Equal("public-start:task-42", payload["source"]!.GetValue<string>());
+                            Assert.Equal("public-start:task-42", payload["turnTrigger"]!.GetValue<string>());
                             process.EnqueueStdout(TestJson.Response(
                                 id,
                                 new JsonObject
@@ -2766,9 +2778,9 @@ public sealed class CodexAppServerTransportTests
                             return;
                         case "resume defaults":
                             Assert.Equal("thread-resumed", payload["threadId"]!.GetValue<string>());
-                            Assert.Equal("/resume-dir", payload["workingDirectory"]!.GetValue<string>());
+                            Assert.Equal("/resume-dir", payload["cwd"]!.GetValue<string>());
                             Assert.Equal("resume-model", payload["model"]!.GetValue<string>());
-                            Assert.Equal("on-failure", payload["approvalPolicy"]!["value"]!.GetValue<string>());
+                            Assert.Equal("untrusted", payload["approvalPolicy"]!.GetValue<string>());
                             Assert.Equal("readOnly", payload["sandboxPolicy"]!["type"]!.GetValue<string>());
                             Assert.Equal("low", payload["effort"]!.GetValue<string>());
                             process.EnqueueStdout(TestJson.Response(
@@ -2785,9 +2797,9 @@ public sealed class CodexAppServerTransportTests
                             return;
                         case "fork defaults":
                             Assert.Equal("thread-forked", payload["threadId"]!.GetValue<string>());
-                            Assert.Equal("/fork-dir", payload["workingDirectory"]!.GetValue<string>());
+                            Assert.Equal("/fork-dir", payload["cwd"]!.GetValue<string>());
                             Assert.Equal("fork-model", payload["model"]!.GetValue<string>());
-                            Assert.Equal("on-request", payload["approvalPolicy"]!["value"]!.GetValue<string>());
+                            Assert.Equal("on-request", payload["approvalPolicy"]!.GetValue<string>());
                             Assert.Equal("dangerFullAccess", payload["sandboxPolicy"]!["type"]!.GetValue<string>());
                             Assert.Equal("medium", payload["effort"]!.GetValue<string>());
                             process.EnqueueStdout(TestJson.Response(
@@ -2892,7 +2904,7 @@ public sealed class CodexAppServerTransportTests
         {
             WorkingDirectory = "/resume-dir",
             Model = "resume-model",
-            ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnFailure),
+            ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.Untrusted),
             Sandbox = new CodexReadOnlySandboxPolicy(),
             ModelReasoningEffort = CodexReasoningEffort.Low,
         });
@@ -3034,6 +3046,435 @@ public sealed class CodexAppServerTransportTests
             .Select(line => JsonNode.Parse(line)!.AsObject())
             .Single(message => message["id"]?.GetValue<string>() == "approval-1");
         Assert.Empty(approvalResponse["result"]!.AsObject());
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task AttachedTurnHandles_FanOutHistoryAndFutureEventsIndependently()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["id"] is not JsonValue idNode)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            switch (request["method"]?.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["serverInfo"] = new JsonObject { ["name"] = "codex-app-server", ["version"] = "1.2.3" },
+                    }));
+                    break;
+                case "thread/start":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshot("thread-join"),
+                    }));
+                    break;
+                case "turn/start":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["threadId"] = "thread-join",
+                        ["turn"] = new JsonObject { ["id"] = "turn-join", ["status"] = "inProgress" },
+                    }));
+                    break;
+                case "thread/resume":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshotWithTurn("thread-join", "turn-join", "inProgress"),
+                    }));
+                    break;
+            }
+        };
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.StartThreadAsync();
+        CodexTurn first = await thread.StartTurnAsync("join me");
+
+        List<CodexThreadEvent> firstEvents = [];
+        TaskCompletionSource firstStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenSource firstCancellation = new();
+        Task firstReader = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (CodexThreadEvent evt in first.StreamAsync(firstCancellation.Token))
+                {
+                    firstEvents.Add(evt);
+                    if (evt is CodexTurnStartedEvent)
+                    {
+                        firstStarted.TrySetResult();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation of one joined handle must not close the shared turn.
+            }
+        });
+
+        process.EnqueueStdout(TestJson.Notification(
+            "turn.started",
+            new JsonObject
+            {
+                ["threadId"] = "thread-join",
+                ["turn"] = new JsonObject { ["id"] = "turn-join", ["status"] = "inProgress" },
+            }));
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        CodexTurn second = await thread.AttachTurnAsync("turn-join");
+        List<CodexThreadEvent> secondEvents = [];
+        Task secondReader = Task.Run(async () =>
+        {
+            await foreach (CodexThreadEvent evt in second.StreamAsync())
+            {
+                secondEvents.Add(evt);
+            }
+        });
+
+        // Closing the first consumer must leave the attached handle subscribed.
+        firstCancellation.Cancel();
+        await firstReader.WaitAsync(TimeSpan.FromSeconds(5));
+
+        process.EnqueueStdout(TestJson.Notification(
+            "turn.completed",
+            new JsonObject
+            {
+                ["threadId"] = "thread-join",
+                ["turn"] = new JsonObject
+                {
+                    ["id"] = "turn-join",
+                    ["status"] = "completed",
+                    ["items"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["type"] = "agentMessage",
+                            ["id"] = "message-join",
+                            ["phase"] = "finalAnswer",
+                            ["text"] = "joined",
+                        },
+                    },
+                },
+            }));
+
+        await secondReader.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Contains(secondEvents, evt => evt is CodexTurnStartedEvent started && started.Turn.Id == "turn-join");
+        Assert.Contains(secondEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-join");
+        Assert.Contains(firstEvents, evt => evt is CodexTurnStartedEvent started && started.Turn.Id == "turn-join");
+
+        process.Complete();
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task AttachedTurnHandle_ReplaysTerminalNotificationThatRacesResumeResponse()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["id"] is not JsonValue idNode)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            switch (request["method"]?.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["serverInfo"] = new JsonObject { ["name"] = "codex-app-server", ["version"] = "1.2.3" },
+                    }));
+                    break;
+                case "thread/start":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshot("thread-race"),
+                    }));
+                    break;
+                case "turn/start":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["threadId"] = "thread-race",
+                        ["turn"] = new JsonObject { ["id"] = "turn-race", ["status"] = "inProgress" },
+                    }));
+                    break;
+                case "thread/resume":
+                    // The runtime can publish the terminal notification before the
+                    // resume response reaches the client. The new handle must still
+                    // receive the retained event history and close cleanly.
+                    process.EnqueueStdout(TestJson.Notification(
+                        "turn.completed",
+                        new JsonObject
+                        {
+                            ["threadId"] = "thread-race",
+                            ["turn"] = new JsonObject
+                            {
+                                ["id"] = "turn-race",
+                                ["status"] = "completed",
+                                ["items"] = new JsonArray(),
+                            },
+                        }));
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshotWithTurn("thread-race", "turn-race", "inProgress"),
+                    }));
+                    break;
+            }
+        };
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.StartThreadAsync();
+        _ = await thread.StartTurnAsync("race");
+        process.EnqueueStdout(TestJson.Notification(
+            "turn.started",
+            new JsonObject
+            {
+                ["threadId"] = "thread-race",
+                ["turn"] = new JsonObject { ["id"] = "turn-race", ["status"] = "inProgress" },
+            }));
+
+        CodexTurn attached = await thread.AttachTurnAsync("turn-race");
+        List<CodexThreadEvent> events = [];
+        await foreach (CodexThreadEvent evt in attached.StreamAsync())
+        {
+            events.Add(evt);
+        }
+
+        Assert.Contains(events, evt => evt is CodexTurnStartedEvent started && started.Turn.Id == "turn-race");
+        Assert.Contains(events, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-race");
+        process.Complete();
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [Trait("Requirement", "REQ-CODEX-SDK-LIFECYCLE-0290")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task StartTurnHandles_WithSameTurnIdStreamIndependently()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        int turnStarts = 0;
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["id"] is not JsonValue idNode)
+            {
+                return;
+            }
+
+            string id = idNode.GetValue<string>();
+            switch (request["method"]?.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["serverInfo"] = new JsonObject { ["name"] = "codex-app-server", ["version"] = "1.2.3" },
+                    }));
+                    break;
+                case "thread/start":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshot("thread-same-id"),
+                    }));
+                    break;
+                case "turn/start":
+                    turnStarts++;
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["threadId"] = "thread-same-id",
+                        ["turn"] = new JsonObject { ["id"] = "turn-same-id", ["status"] = "inProgress" },
+                    }));
+                    break;
+            }
+        };
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.StartThreadAsync();
+        CodexTurn first = await thread.StartTurnAsync("first request");
+        CodexTurn second = await thread.StartTurnAsync(
+        [
+            new CodexExternalMessageInput
+            {
+                ToolName = "external-tool",
+                Namespace = "test",
+                Content = "second request",
+            },
+        ]);
+
+        List<CodexThreadEvent> firstEvents = [];
+        List<CodexThreadEvent> secondEvents = [];
+        Task firstReader = Task.Run(async () =>
+        {
+            await foreach (CodexThreadEvent evt in first.StreamAsync())
+            {
+                firstEvents.Add(evt);
+            }
+        });
+        Task secondReader = Task.Run(async () =>
+        {
+            await foreach (CodexThreadEvent evt in second.StreamAsync())
+            {
+                secondEvents.Add(evt);
+            }
+        });
+
+        process.EnqueueStdout(TestJson.Notification(
+            "turn.completed",
+            new JsonObject
+            {
+                ["threadId"] = "thread-same-id",
+                ["turn"] = new JsonObject
+                {
+                    ["id"] = "turn-same-id",
+                    ["status"] = "completed",
+                    ["items"] = new JsonArray(),
+                },
+            }));
+
+        await Task.WhenAll(firstReader.WaitAsync(TimeSpan.FromSeconds(5)), secondReader.WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(2, turnStarts);
+        Assert.Contains(firstEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-same-id");
+        Assert.Contains(secondEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-same-id");
+        process.Complete();
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task StartingNextTurn_DoesNotReplayPriorTerminalHistoryOnSameThread()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        int turnStarts = 0;
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject request = JsonNode.Parse(line)!.AsObject();
+            if (request["id"] is not JsonValue idNode) return;
+            string id = idNode.GetValue<string>();
+            switch (request["method"]?.GetValue<string>())
+            {
+                case "initialize":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["serverInfo"] = new JsonObject { ["name"] = "codex-app-server", ["version"] = "1.2.3" },
+                    }));
+                    break;
+                case "thread/start":
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["thread"] = CreateThreadSnapshot("thread-next"),
+                    }));
+                    break;
+                case "turn/start":
+                    turnStarts++;
+                    if (turnStarts == 2)
+                    {
+                        // The prior turn completes while registration for the new
+                        // turn is in flight, before the new turn's response arrives.
+                        process.EnqueueStdout(TestJson.Notification("turn.completed", new JsonObject
+                        {
+                            ["threadId"] = "thread-next",
+                            ["turn"] = new JsonObject { ["id"] = "turn-old", ["status"] = "completed" },
+                        }));
+                    }
+
+                    process.EnqueueStdout(TestJson.Response(id, new JsonObject
+                    {
+                        ["threadId"] = "thread-next",
+                        ["turn"] = new JsonObject
+                        {
+                            ["id"] = turnStarts == 1 ? "turn-old" : "turn-new",
+                            ["status"] = "inProgress",
+                        },
+                    }));
+                    break;
+            }
+        };
+        launcher.Factory = _ => process;
+        await using CodexClient client = CreateAppServerClient(launcher);
+        CodexThread thread = await client.StartThreadAsync();
+        CodexTurn first = await thread.StartTurnAsync("first");
+        CodexTurn second = await thread.StartTurnAsync("second");
+        Assert.Equal("turn-new", second.Id);
+
+        process.EnqueueStdout(TestJson.Notification("turn.completed", new JsonObject
+        {
+            ["threadId"] = "thread-next",
+            ["turn"] = new JsonObject { ["id"] = "turn-new", ["status"] = "completed" },
+        }));
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
+        List<CodexThreadEvent> firstEvents = [];
+        await foreach (CodexThreadEvent evt in first.StreamAsync(timeout.Token)) firstEvents.Add(evt);
+        List<CodexThreadEvent> secondEvents = [];
+        await foreach (CodexThreadEvent evt in second.StreamAsync(timeout.Token)) secondEvents.Add(evt);
+
+        Assert.Contains(firstEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-old");
+        Assert.Contains(secondEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-new");
+        Assert.DoesNotContain(secondEvents, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-old");
+        process.Complete();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public async Task RegistrationAfterDispatcherClosure_ReplaysTerminalOrFailsWithoutHanging(bool terminalBuffered)
+    {
+        await using CodexAppServerTransport transport = new(new CodexClientOptions(), new CodexTurnConsumerGate());
+        CodexTurnSession session = new("thread-eof", "turn-eof", [], null,
+            (_, _, _) => Task.CompletedTask, (_, _) => Task.CompletedTask);
+
+        // Force the exact ordering otherwise governed by response continuations:
+        // successful response in flight, terminal/EOF dispatch, late registration.
+        void InvokeLifecycle(string method, params object[] arguments)
+            => typeof(CodexAppServerTransport).GetMethod(method,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(transport, arguments);
+
+        InvokeLifecycle("BeginSessionRegistration");
+        if (terminalBuffered)
+        {
+            InvokeLifecycle("DispatchNotification", new CodexTurnCompletedEvent
+            {
+                ThreadId = "thread-eof",
+                Turn = new CodexTurnRecord { Id = "turn-eof", Status = CodexTurnStatus.Completed },
+            });
+        }
+
+        InvokeLifecycle("FailActiveSessions", new CodexTransportClosedException());
+        InvokeLifecycle("RegisterTurnSession", session);
+        InvokeLifecycle("EndSessionRegistration");
+
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
+        List<CodexThreadEvent> events = [];
+        await foreach (CodexThreadEvent evt in session.Channel.Reader.ReadAllAsync(timeout.Token)) events.Add(evt);
+        CodexThreadEvent terminal = Assert.Single(events);
+        if (terminalBuffered)
+        {
+            Assert.Equal("turn-eof", Assert.IsType<CodexTurnCompletedEvent>(terminal).Turn.Id);
+        }
+        else
+        {
+            Assert.Equal("turn-eof", Assert.IsType<CodexTurnFailedEvent>(terminal).Turn.Id);
+        }
     }
 
     private static CodexClient CreateAppServerClient(

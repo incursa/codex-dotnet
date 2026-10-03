@@ -246,6 +246,12 @@ public enum CodexReasoningEffort
 
     /// <summary>Uses the maximum available effort.</summary>
     Max,
+
+    /// <summary>Uses an ultra-high reasoning budget.</summary>
+    Ultra,
+
+    /// <summary>Uses the persistent reasoning budget when supported by the selected model.</summary>
+    Persistent,
 }
 
 /// <summary>Selects how much reasoning summary to return.</summary>
@@ -285,6 +291,22 @@ public enum CodexServiceTier
 
     /// <summary>Uses the flex tier.</summary>
     Flex,
+
+    /// <summary>Uses the standard service tier for the request.</summary>
+    Default,
+}
+
+/// <summary>Selects the experimental cyber-access program for a turn.</summary>
+public enum CodexCyberAccessProgram
+{
+    /// <summary>Uses the standard cyber-access policy.</summary>
+    Standard,
+
+    /// <summary>Uses the Daybreak Blue cyber-access policy.</summary>
+    DaybreakBlue,
+
+    /// <summary>Uses the Daybreak Red cyber-access policy.</summary>
+    DaybreakRed,
 }
 
 /// <summary>Selects the direction used when sorting thread lists.</summary>

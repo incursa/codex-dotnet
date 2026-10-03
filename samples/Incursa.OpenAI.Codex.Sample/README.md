@@ -9,6 +9,9 @@ This console sample walks through the main SDK flows and assumes the machine run
 - `error-handling`
 - `turn-controls`
 
+The sample targets .NET 10. Install the Codex CLI and authenticate it before
+running a mode; the sample launches that local executable through the SDK.
+
 For a short explanation of each mode and the exact commands, see [`docs/sample-modes.md`](../../docs/sample-modes.md).
 
 If you are deciding where this fits, use this SDK for a local Codex subprocess workflow. Use the OpenAI SDK for direct API calls, ChatKit for a hosted chat UI, and the Agents SDK for higher-level orchestration.

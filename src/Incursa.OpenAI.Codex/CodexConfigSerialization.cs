@@ -157,6 +157,8 @@ internal static class CodexConfigSerialization
             CodexReasoningEffort.High => "high",
             CodexReasoningEffort.XHigh => "xhigh",
             CodexReasoningEffort.Max => "max",
+            CodexReasoningEffort.Ultra => "ultra",
+            CodexReasoningEffort.Persistent => "persistent",
             _ => "medium",
         };
     }

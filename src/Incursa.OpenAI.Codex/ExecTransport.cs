@@ -435,8 +435,9 @@ internal sealed class CodexExecTransport : ICodexTransport
         List<string> args = ["exec", "--experimental-json"];
         CodexTurnOptions effectiveTurnOptions = turnOptions ?? new CodexTurnOptions();
         AddConfigOverrides(args, _options.Config);
-        AddPlanModeOverrides(args, _options.PlanMode);
+        AddRawConfigOverrides(args, _options.RawConfigOverrides);
         AddConfigOverrides(args, threadOptions?.Config);
+        AddPlanModeOverrides(args, _options.PlanMode);
 
         if (!string.IsNullOrWhiteSpace(_options.BaseUrl))
         {
@@ -451,6 +452,14 @@ internal sealed class CodexExecTransport : ICodexTransport
         {
             args.Add("--model");
             args.Add(effectiveModel!);
+        }
+
+        // The CLI accepts --thread-source only while creating a thread. A resumed
+        // invocation must leave the source attached to the existing thread intact.
+        if (string.IsNullOrWhiteSpace(threadId) && threadOptions?.ThreadSource is not null)
+        {
+            args.Add("--thread-source");
+            args.Add(MapThreadSource(threadOptions.ThreadSource.Value));
         }
 
         if (effectiveTurnOptions.SandboxPolicy is not null || threadOptions?.Sandbox is not null)
@@ -493,11 +502,19 @@ internal sealed class CodexExecTransport : ICodexTransport
             args.Add($"model_reasoning_effort={JsonSerializer.Serialize(MapReasoningEffort(effectiveReasoningEffort.Value))}");
         }
 
-        CodexServiceTier? effectiveServiceTier = effectiveTurnOptions.ServiceTier ?? threadOptions?.ServiceTier;
+        CodexServiceTier? effectiveServiceTier = effectiveTurnOptions.ServiceTierForTurn
+            ?? effectiveTurnOptions.ServiceTier
+            ?? threadOptions?.ServiceTier;
         if (effectiveServiceTier is not null)
         {
             args.Add("--config");
             args.Add($"service_tier={JsonSerializer.Serialize(MapServiceTier(effectiveServiceTier.Value))}");
+        }
+
+        if (effectiveTurnOptions.CyberAccessProgram is not null)
+        {
+            args.Add("--cyber-access-program");
+            args.Add(MapCyberAccessProgram(effectiveTurnOptions.CyberAccessProgram.Value));
         }
 
         if (threadOptions?.NetworkAccessEnabled is not null)
@@ -556,6 +573,25 @@ internal sealed class CodexExecTransport : ICodexTransport
     {
         foreach (string overrideValue in CodexConfigSerialization.FlattenConfigOverrides(config))
         {
+            args.Add("--config");
+            args.Add(overrideValue);
+        }
+    }
+
+    private static void AddRawConfigOverrides(List<string> args, IReadOnlyList<string>? overrides)
+    {
+        if (overrides is null)
+        {
+            return;
+        }
+
+        foreach (string overrideValue in overrides)
+        {
+            if (overrideValue is null)
+            {
+                throw new ArgumentException("Raw config overrides must not contain null values.", nameof(overrides));
+            }
+
             args.Add("--config");
             args.Add(overrideValue);
         }
@@ -632,11 +668,34 @@ internal sealed class CodexExecTransport : ICodexTransport
             CodexReasoningEffort.High => "high",
             CodexReasoningEffort.XHigh => "xhigh",
             CodexReasoningEffort.Max => "max",
+            CodexReasoningEffort.Ultra => "ultra",
+            CodexReasoningEffort.Persistent => "persistent",
             _ => "medium",
         };
 
     private static string MapServiceTier(CodexServiceTier serviceTier)
-        => serviceTier == CodexServiceTier.Flex ? "flex" : "priority";
+        => serviceTier switch
+        {
+            CodexServiceTier.Default => "default",
+            CodexServiceTier.Flex => "flex",
+            _ => "priority",
+        };
+
+    private static string MapThreadSource(CodexThreadSource source)
+        => source switch
+        {
+            CodexThreadSource.Subagent => "subagent",
+            CodexThreadSource.MemoryConsolidation => "memory_consolidation",
+            _ => "user",
+        };
+
+    private static string MapCyberAccessProgram(CodexCyberAccessProgram program)
+        => program switch
+        {
+            CodexCyberAccessProgram.DaybreakBlue => "daybreak_blue",
+            CodexCyberAccessProgram.DaybreakRed => "daybreak_red",
+            _ => "standard",
+        };
 
     private static string MapWebSearchMode(CodexWebSearchMode mode)
         => mode switch

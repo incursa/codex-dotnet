@@ -36,6 +36,10 @@ jobs:
       - name: Run tests
         run: dotnet test Incursa.OpenAI.Codex.slnx --no-build --configuration Release -v minimal
 
+      - name: Validate protected-branch release workflow
+        shell: pwsh
+        run: ./scripts/Test-ReleaseWorkflow.ps1
+
       - name: Pack NuGet packages
         shell: pwsh
         run: |

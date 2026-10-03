@@ -89,6 +89,14 @@ public sealed record CodexExternalMessageInput() : CodexInputItem("externalMessa
 
     /// <summary>Gets the relayed content.</summary>
     public string Content { get; init; } = "";
+
+    /// <summary>
+    /// Gets structured Responses-compatible function output content. When provided, the
+    /// app-server sends this value as <c>turn/start.toolOutput.output</c>; otherwise it sends
+    /// <see cref="Content"/> as the text output. The value may be a JSON string or an array of
+    /// <c>input_text</c>, <c>input_image</c>, <c>input_audio</c>, or encrypted content items.
+    /// </summary>
+    public JsonNode? StructuredContent { get; init; }
 }
 
 /// <summary>

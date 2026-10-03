@@ -40,10 +40,14 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     private readonly List<CodexTurnSession> _activeSessions = [];
     private readonly Dictionary<string, CodexTurnSession> _sessionsByTurnId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CodexTurnSession> _sessionsByThreadId = new(StringComparer.Ordinal);
+    private readonly Dictionary<CodexTurnSession, TurnSessionGroup> _sessionGroups = [];
+    private readonly Dictionary<string, TurnSessionGroup> _completedGroupsByTurnId = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TurnSessionGroup> _completedGroupsByThreadId = new(StringComparer.Ordinal);
     private readonly List<PendingNotification> _pendingNotifications = [];
     private readonly Dictionary<string, List<TaskCompletionSource<CodexAccountLoginCompletedEvent>>> _loginWaiters = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CodexAccountLoginCompletedEvent> _completedLogins = new(StringComparer.Ordinal);
     private int _sessionRegistrationsInFlight;
+    private Exception? _notificationFailure;
     private JsonRpcConnection? _connection;
     private ICodexProcess? _process;
     private bool _disposed;
@@ -409,7 +413,9 @@ internal sealed class CodexAppServerTransport : ICodexTransport
                         CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, activeTurnId),
                         token).ConfigureAwait(false);
                 },
-                _turnConsumerGate);
+                // An attached handle has its own event cursor and consumer lease. The
+                // transport fans out notifications to all handles for the turn.
+                new CodexTurnConsumerGate());
 
             session.BindThreadId(resolvedThreadId);
             session.BindTurnId(turn.Id);
@@ -462,7 +468,11 @@ internal sealed class CodexAppServerTransport : ICodexTransport
                         CodexProtocol.BuildTurnInterruptParams(resolvedThreadId, activeTurnId),
                         token).ConfigureAwait(false);
                 },
-                _turnConsumerGate);
+                // Each returned handle owns its consumer lease. A turn/start
+                // response may join an already active turn (for example after
+                // external tool output), and those handles must stream the
+                // same fan-out independently.
+                new CodexTurnConsumerGate());
 
             session.BindThreadId(resolvedThreadId);
             session.BindTurnId(turn.Id);
@@ -568,11 +578,21 @@ internal sealed class CodexAppServerTransport : ICodexTransport
                 _sessionRegistrationsInFlight--;
             }
 
-            if (_sessionRegistrationsInFlight == 0 && _activeSessions.Count == 0)
+            if (_sessionRegistrationsInFlight == 0)
             {
-                _pendingNotifications.RemoveAll(static pending =>
-                    string.IsNullOrWhiteSpace(pending.TurnId)
-                    && string.IsNullOrWhiteSpace(pending.ThreadId));
+                CleanupCompletedGroupsLocked();
+
+                if (_notificationFailure is not null)
+                {
+                    _pendingNotifications.Clear();
+                }
+
+                if (_activeSessions.Count == 0)
+                {
+                    _pendingNotifications.RemoveAll(static pending =>
+                        string.IsNullOrWhiteSpace(pending.TurnId)
+                        && string.IsNullOrWhiteSpace(pending.ThreadId));
+                }
             }
         }
     }
@@ -581,18 +601,48 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     {
         lock (_sessionGate)
         {
-            if (!string.IsNullOrWhiteSpace(session.Id))
+            TurnSessionGroup? group = FindSessionGroupLocked(session);
+            if (group is null)
+            {
+                group = new TurnSessionGroup();
+            }
+
+            // Replay the existing group's history into only this newly registered
+            // handle. Existing handles already consumed those events.
+            foreach (CodexThreadEvent evt in group.Events)
+            {
+                session.AppendEvent(evt);
+            }
+
+            group.Sessions.Add(session);
+            _sessionGroups[session] = group;
+            if (group.Completed)
+            {
+                // A terminal notification can race an attach/resume response. Replay
+                // the retained history to this handle, then close only this handle.
+                session.CompleteWriter();
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(session.Id) && !_sessionsByTurnId.ContainsKey(session.Id))
             {
                 _sessionsByTurnId[session.Id] = session;
             }
 
-            if (!string.IsNullOrWhiteSpace(session.ThreadId))
+            if (!string.IsNullOrWhiteSpace(session.ThreadId) && !_sessionsByThreadId.ContainsKey(session.ThreadId))
             {
                 _sessionsByThreadId[session.ThreadId] = session;
             }
 
             _activeSessions.Add(session);
             DispatchBufferedNotificationsLocked();
+            if (_notificationFailure is not null && _activeSessions.Contains(session))
+            {
+                // EOF can win the race with a successful start/resume response.
+                // Replay buffered terminal events first; otherwise close this late
+                // handle with the recorded transport failure instead of hanging.
+                FailActiveSessions(_notificationFailure);
+            }
         }
     }
 
@@ -628,8 +678,20 @@ internal sealed class CodexAppServerTransport : ICodexTransport
 
     private void DeliverNotification(CodexTurnSession session, CodexThreadEvent evt)
     {
-        session.AppendEvent(evt);
-        ReindexSessionLocked(session);
+        if (!_sessionGroups.TryGetValue(session, out TurnSessionGroup? group))
+        {
+            session.AppendEvent(evt);
+            ReindexSessionLocked(session);
+        }
+        else
+        {
+            group.Events.Add(evt);
+            foreach (CodexTurnSession handle in group.Sessions.ToArray())
+            {
+                handle.AppendEvent(evt);
+                ReindexSessionLocked(handle);
+            }
+        }
 
         if (evt is CodexTurnCompletedEvent or CodexTurnFailedEvent)
         {
@@ -642,27 +704,112 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         RemoveSessionMappingsLocked(_sessionsByTurnId, session, session.Id);
         RemoveSessionMappingsLocked(_sessionsByThreadId, session, session.ThreadId);
 
-        if (!string.IsNullOrWhiteSpace(session.Id))
+        if (!string.IsNullOrWhiteSpace(session.Id) && !_sessionsByTurnId.ContainsKey(session.Id))
         {
             _sessionsByTurnId[session.Id] = session;
         }
 
-        if (!string.IsNullOrWhiteSpace(session.ThreadId))
+        if (!string.IsNullOrWhiteSpace(session.ThreadId) && !_sessionsByThreadId.ContainsKey(session.ThreadId))
         {
             _sessionsByThreadId[session.ThreadId] = session;
         }
+    }
+
+    private TurnSessionGroup? FindSessionGroupLocked(CodexTurnSession session)
+    {
+        // Once the server has supplied an explicit turn id, it is authoritative.
+        // Falling back to the thread id can attach a new turn to an older
+        // completed group while the start response is still in flight.
+        if (!string.IsNullOrWhiteSpace(session.Id))
+        {
+            if (_sessionsByTurnId.TryGetValue(session.Id, out CodexTurnSession? byTurn)
+                && _sessionGroups.TryGetValue(byTurn, out TurnSessionGroup? turnGroup))
+            {
+                return turnGroup;
+            }
+
+            return _completedGroupsByTurnId.TryGetValue(session.Id, out TurnSessionGroup? completedTurnGroup)
+                ? completedTurnGroup
+                : null;
+        }
+
+        if (_sessionsByThreadId.TryGetValue(session.ThreadId, out CodexTurnSession? byThread)
+            && _sessionGroups.TryGetValue(byThread, out TurnSessionGroup? threadGroup))
+        {
+            return threadGroup;
+        }
+
+        return _completedGroupsByThreadId.TryGetValue(session.ThreadId, out TurnSessionGroup? completedThreadGroup)
+            ? completedThreadGroup
+            : null;
     }
 
     private void CompleteAndUnregisterSession(CodexTurnSession session)
     {
         lock (_sessionGate)
         {
-            RemoveSessionMappingsLocked(_sessionsByTurnId, session, exceptKey: null);
-            RemoveSessionMappingsLocked(_sessionsByThreadId, session, exceptKey: null);
-            _activeSessions.Remove(session);
+            if (!_sessionGroups.TryGetValue(session, out TurnSessionGroup? group))
+            {
+                RemoveSessionMappingsLocked(_sessionsByTurnId, session, exceptKey: null);
+                RemoveSessionMappingsLocked(_sessionsByThreadId, session, exceptKey: null);
+                _activeSessions.Remove(session);
+                session.CompleteWriter();
+                return;
+            }
+
+            if (_sessionRegistrationsInFlight > 0)
+            {
+                group.Completed = true;
+                if (!string.IsNullOrWhiteSpace(session.Id))
+                {
+                    _completedGroupsByTurnId[session.Id] = group;
+                }
+
+                if (!string.IsNullOrWhiteSpace(session.ThreadId))
+                {
+                    _completedGroupsByThreadId[session.ThreadId] = group;
+                }
+
+                foreach (CodexTurnSession handle in group.Sessions.ToArray())
+                {
+                    RemoveSessionMappingsLocked(_sessionsByTurnId, handle, exceptKey: null);
+                    RemoveSessionMappingsLocked(_sessionsByThreadId, handle, exceptKey: null);
+                    _activeSessions.Remove(handle);
+                    handle.CompleteWriter();
+                }
+
+                return;
+            }
+
+            foreach (CodexTurnSession handle in group.Sessions.ToArray())
+            {
+                RemoveSessionMappingsLocked(_sessionsByTurnId, handle, exceptKey: null);
+                RemoveSessionMappingsLocked(_sessionsByThreadId, handle, exceptKey: null);
+                _activeSessions.Remove(handle);
+                _sessionGroups.Remove(handle);
+                handle.CompleteWriter();
+            }
+
+            group.Sessions.Clear();
+            group.Events.Clear();
+        }
+    }
+
+    private void CleanupCompletedGroupsLocked()
+    {
+        foreach (TurnSessionGroup group in _completedGroupsByTurnId.Values.Concat(_completedGroupsByThreadId.Values).Distinct())
+        {
+            foreach (CodexTurnSession handle in group.Sessions)
+            {
+                _sessionGroups.Remove(handle);
+            }
+
+            group.Sessions.Clear();
+            group.Events.Clear();
         }
 
-        session.CompleteWriter();
+        _completedGroupsByTurnId.Clear();
+        _completedGroupsByThreadId.Clear();
     }
 
     private void CompleteLogin(CodexAccountLoginCompletedEvent evt)
@@ -722,17 +869,29 @@ internal sealed class CodexAppServerTransport : ICodexTransport
 
     private void FailActiveSessions(Exception exception)
     {
-        List<CodexTurnSession> sessions;
+        List<(CodexTurnSession Representative, IReadOnlyList<CodexTurnSession> Handles)> groups;
         lock (_sessionGate)
         {
-            sessions = _activeSessions.ToList();
+            _notificationFailure = exception;
+            groups = _activeSessions
+                .GroupBy(session => _sessionGroups.TryGetValue(session, out TurnSessionGroup? group) ? group : null)
+                .Select(group =>
+                {
+                    List<CodexTurnSession> handles = group.ToList();
+                    return (handles[0], (IReadOnlyList<CodexTurnSession>)handles);
+                })
+                .ToList();
             _activeSessions.Clear();
             _sessionsByTurnId.Clear();
             _sessionsByThreadId.Clear();
-            _pendingNotifications.Clear();
+            _sessionGroups.Clear();
+            if (_sessionRegistrationsInFlight == 0)
+            {
+                _pendingNotifications.Clear();
+            }
         }
 
-        foreach (CodexTurnSession session in sessions)
+        foreach ((CodexTurnSession session, IReadOnlyList<CodexTurnSession> handles) in groups)
         {
             CodexThreadEvent failedEvent = new CodexTurnFailedEvent
             {
@@ -750,8 +909,11 @@ internal sealed class CodexAppServerTransport : ICodexTransport
                 },
             };
             _events.Publish(failedEvent);
-            session.AppendEvent(failedEvent);
-            session.CompleteWriter();
+            foreach (CodexTurnSession handle in handles)
+            {
+                handle.AppendEvent(failedEvent);
+                handle.CompleteWriter();
+            }
         }
     }
 
@@ -840,6 +1002,15 @@ internal sealed class CodexAppServerTransport : ICodexTransport
         {
             args.Add("--config");
             args.Add(overrideValue);
+        }
+
+        if (_options.RawConfigOverrides is { Count: > 0 })
+        {
+            foreach (string overrideValue in _options.RawConfigOverrides)
+            {
+                args.Add("--config");
+                args.Add(overrideValue);
+            }
         }
 
         foreach (string overrideValue in CodexConfigSerialization.FlattenPlanModeOverrides(_options.PlanMode))
@@ -1024,4 +1195,13 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     }
 
     private sealed record PendingNotification(CodexThreadEvent Event, string? TurnId, string? ThreadId);
+
+    private sealed class TurnSessionGroup
+    {
+        public List<CodexTurnSession> Sessions { get; } = [];
+
+        public List<CodexThreadEvent> Events { get; } = [];
+
+        public bool Completed { get; set; }
+    }
 }

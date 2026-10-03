@@ -12,6 +12,7 @@ This directory contains the source-authored documentation for `Incursa.OpenAI.Co
 - [Usage guide](usage-guide.md): package boundaries, common SDK flows, backend selection, and DI registration.
 - [Sample modes](sample-modes.md): exact commands for the runnable sample app.
 - [Maintainer readiness](maintainer-readiness.md): repository layout, runtime flows, validation commands, release expectations, and known gaps.
+- [Upstream parity review](https://github.com/incursa/codex-dotnet/blob/main/quality/upstream-parity-gaps.md): pinned Python and TypeScript comparison, implemented coverage, and residual differences.
 - [Contributor agreement automation](contributor-agreement-automation.md): how the contributor agreement workflow is configured and maintained.
 
 ## Related Repository Surfaces

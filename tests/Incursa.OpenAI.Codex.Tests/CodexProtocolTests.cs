@@ -39,7 +39,7 @@ public sealed class CodexProtocolTests
     {
         JsonObject payload = CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
         {
-            ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnFailure),
+            ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnRequest),
             ApprovalsReviewer = CodexApprovalsReviewer.GuardianSubAgent,
             BaseInstructions = "Base instructions",
             DeveloperInstructions = "Developer instructions",
@@ -49,8 +49,6 @@ public sealed class CodexProtocolTests
             Personality = CodexPersonality.Pragmatic,
             Sandbox = new CodexWorkspaceWriteSandboxPolicy
             {
-                ExcludeSlashTmp = true,
-                ExcludeTmpdirEnvVar = true,
                 NetworkAccess = true,
             },
             ServiceTier = CodexServiceTier.Flex,
@@ -72,25 +70,64 @@ public sealed class CodexProtocolTests
         Assert.Equal("gpt-5", payload["model"]!.GetValue<string>());
         Assert.Equal("openai", payload["modelProvider"]!.GetValue<string>());
         Assert.Equal("pragmatic", payload["personality"]!.GetValue<string>());
-        Assert.Equal("workspaceWrite", payload["sandbox"]!["type"]!.GetValue<string>());
-        Assert.True(payload["sandbox"]!["networkAccess"]!.GetValue<bool>());
+        Assert.Equal("workspace-write", payload["sandbox"]!.GetValue<string>());
         Assert.Equal("flex", payload["serviceTier"]!.GetValue<string>());
         Assert.Equal(@"C:\work\codex", payload["cwd"]!.GetValue<string>());
         Assert.Equal("trace-service", payload["serviceName"]!.GetValue<string>());
         Assert.Equal("startup", payload["sessionStartSource"]!.GetValue<string>());
         Assert.Equal("subagent", payload["threadSource"]!.GetValue<string>());
-        Assert.Equal("high", payload["modelReasoningEffort"]!.GetValue<string>());
-        Assert.True(payload["networkAccessEnabled"]!.GetValue<bool>());
-        Assert.Equal("live", payload["webSearchMode"]!.GetValue<string>());
-        Assert.False(payload["webSearchEnabled"]!.GetValue<bool>());
-        Assert.True(payload["skipGitRepoCheck"]!.GetValue<bool>());
+        JsonObject config = payload["config"]!.AsObject();
+        Assert.Equal("high", config["model_reasoning_effort"]!.GetValue<string>());
+        Assert.True(config["sandbox_workspace_write"]!["network_access"]!.GetValue<bool>());
+        Assert.Equal("live", config["web_search"]!.GetValue<string>());
+        Assert.False(payload.ContainsKey("networkAccessEnabled"));
+        Assert.False(payload.ContainsKey("webSearchMode"));
+        Assert.False(payload.ContainsKey("webSearchEnabled"));
+        Assert.False(payload.ContainsKey("skipGitRepoCheck"));
         Assert.Equal("guardian_subagent", payload["approvalsReviewer"]!.GetValue<string>());
-        Assert.Equal("on-failure", payload["approvalPolicy"]!["value"]!.GetValue<string>());
+        Assert.Equal("on-request", payload["approvalPolicy"]!.GetValue<string>());
         Assert.False(payload.ContainsKey("includeTurns"));
 
-        JsonArray additionalDirectories = payload["additionalDirectories"]!.AsArray();
+        JsonArray additionalDirectories = config["sandbox_workspace_write"]!["writable_roots"]!.AsArray();
         Assert.Equal(@"C:\extra-one", additionalDirectories[0]!.GetValue<string>());
         Assert.Equal(@"C:\extra-two", additionalDirectories[1]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BuildThreadStartParams_RejectsSandboxShapesUnavailableInV2ModeEnum()
+    {
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
+        {
+            Sandbox = new CodexReadOnlySandboxPolicy
+            {
+                Access = new CodexRestrictedReadOnlyAccess { ReadableRoots = [@"C:\restricted"] },
+            },
+        }));
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
+        {
+            Sandbox = new CodexReadOnlySandboxPolicy { NetworkAccess = true },
+        }));
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
+        {
+            Sandbox = new CodexExternalSandboxPolicy(),
+        }));
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Negative)]
+    public void AppServerV2_RejectsRemovedOnFailureApprovalMode()
+    {
+        CodexApprovalModePolicy policy = new(CodexApprovalMode.OnFailure);
+
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
+        {
+            ApprovalPolicy = policy,
+        }));
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildTurnStartParams(
+            "thread-1",
+            [new CodexTextInput { Text = "hello" }],
+            new CodexTurnOptions { ApprovalPolicy = policy }));
     }
 
     [Fact]
@@ -109,6 +146,7 @@ public sealed class CodexProtocolTests
             SortDirection = CodexThreadSortDirection.Asc,
             SourceKinds = [CodexThreadSourceKind.Exec, CodexThreadSourceKind.SubAgentThreadSpawn],
             UseStateDbOnly = true,
+            SectionId = "section-123",
         });
 
         Assert.True(payload["archived"]!.GetValue<bool>());
@@ -121,6 +159,7 @@ public sealed class CodexProtocolTests
         Assert.Equal("updated_at", payload["sortKey"]!.GetValue<string>());
         Assert.Equal("asc", payload["sortDirection"]!.GetValue<string>());
         Assert.True(payload["useStateDbOnly"]!.GetValue<bool>());
+        Assert.Equal("section-123", payload["sectionId"]!.GetValue<string>());
 
         JsonArray providers = payload["modelProviders"]!.AsArray();
         Assert.Equal("openai", providers[0]!.GetValue<string>());
@@ -136,6 +175,12 @@ public sealed class CodexProtocolTests
     [CoverageType(RequirementCoverageType.Positive)]
     public void BuildThreadMutationParams_EmitExpectedWireNames()
     {
+        JsonObject defaultTier = CodexProtocol.BuildThreadStartParams(new CodexThreadOptions
+        {
+            ServiceTier = CodexServiceTier.Default,
+        });
+        Assert.Equal("default", defaultTier["serviceTier"]!.GetValue<string>());
+
         JsonObject resume = CodexProtocol.BuildThreadResumeParams("thread-1", new CodexThreadOptions
         {
             WorkingDirectory = "/work",
@@ -145,7 +190,7 @@ public sealed class CodexProtocolTests
         Assert.Equal("thread-1", resume["threadId"]!.GetValue<string>());
         Assert.Equal("/work", resume["cwd"]!.GetValue<string>());
         Assert.Equal("gpt-5", resume["model"]!.GetValue<string>());
-        Assert.True(resume["includeTurns"]!.GetValue<bool>());
+        Assert.False(resume["excludeTurns"]!.GetValue<bool>());
         Assert.False(resume.ContainsKey("sessionStartSource"));
         Assert.False(resume.ContainsKey("threadSource"));
 
@@ -154,13 +199,15 @@ public sealed class CodexProtocolTests
             WorkingDirectory = "/fork",
             IncludeTurns = true,
             SessionStartSource = CodexThreadStartSource.Clear,
+            Personality = CodexPersonality.Friendly,
             ThreadSource = CodexThreadSource.User,
         });
         Assert.Equal("thread-2", fork["threadId"]!.GetValue<string>());
         Assert.Equal("/fork", fork["cwd"]!.GetValue<string>());
-        Assert.Equal("clear", fork["sessionStartSource"]!.GetValue<string>());
         Assert.Equal("user", fork["threadSource"]!.GetValue<string>());
-        Assert.True(fork["includeTurns"]!.GetValue<bool>());
+        Assert.False(fork["excludeTurns"]!.GetValue<bool>());
+        Assert.False(fork.ContainsKey("sessionStartSource"));
+        Assert.False(fork.ContainsKey("personality"));
 
         JsonObject read = CodexProtocol.BuildThreadReadParams("thread-3", new CodexThreadReadOptions
         {
@@ -254,24 +301,26 @@ public sealed class CodexProtocolTests
     }
 
     [Fact]
-    public void BuildInputPayload_PreservesExternalMessageAuthorityAndProvenance()
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public void BuildTurnStartParams_EmitsExternalMessageAsToolOutput()
     {
-        JsonArray payload = CodexProtocol.BuildInputPayload(
+        JsonObject payload = CodexProtocol.BuildTurnStartParams(
+            "thread-1",
         [
-            new CodexTextInput { Text = "Direct instruction" },
             new CodexExternalMessageInput
             {
                 ToolName = "clickup",
                 Namespace = "incursa-project-manager",
                 Content = "Please inspect this issue",
             },
-        ]);
+        ],
+        null);
 
-        Assert.Equal("text", payload[0]!["type"]!.GetValue<string>());
-        Assert.Equal("externalMessage", payload[1]!["type"]!.GetValue<string>());
-        Assert.Equal("clickup", payload[1]!["toolName"]!.GetValue<string>());
-        Assert.Equal("incursa-project-manager", payload[1]!["namespace"]!.GetValue<string>());
-        Assert.Equal("Please inspect this issue", payload[1]!["content"]!.GetValue<string>());
+        Assert.Empty(payload["input"]!.AsArray());
+        Assert.Equal("clickup", payload["toolOutput"]!["name"]!.GetValue<string>());
+        Assert.Equal("incursa-project-manager", payload["toolOutput"]!["namespace"]!.GetValue<string>());
+        Assert.Equal("Please inspect this issue", payload["toolOutput"]!["output"]!.GetValue<string>());
     }
 
     [Fact]
@@ -304,9 +353,10 @@ public sealed class CodexProtocolTests
             [new CodexExternalMessageInput { ToolName = "clickup", Namespace = "incursa-project-manager", Content = "Review" }],
             new CodexTurnOptions { Source = "clickup:task-42", Effort = CodexReasoningEffort.Max });
 
-        Assert.Equal("clickup:task-42", payload["source"]!.GetValue<string>());
+        Assert.Equal("clickup:task-42", payload["turnTrigger"]!.GetValue<string>());
         Assert.Equal("max", payload["effort"]!.GetValue<string>());
-        Assert.Equal("externalMessage", payload["input"]![0]!["type"]!.GetValue<string>());
+        Assert.Empty(payload["input"]!.AsArray());
+        Assert.Equal("clickup", payload["toolOutput"]!["name"]!.GetValue<string>());
     }
 
     [Theory]
@@ -429,20 +479,24 @@ public sealed class CodexProtocolTests
                     NetworkAccess = true,
                 },
                 ServiceTier = CodexServiceTier.Fast,
+                ServiceTierForTurn = CodexServiceTier.Default,
                 Summary = CodexReasoningSummary.Concise,
+                CyberAccessProgram = CodexCyberAccessProgram.DaybreakBlue,
                 WorkingDirectory = @"/tmp/work",
             });
 
         Assert.Equal("thread-1", payload["threadId"]!.GetValue<string>());
-        Assert.Equal("on-request", payload["approvalPolicy"]!["value"]!.GetValue<string>());
+        Assert.Equal("on-request", payload["approvalPolicy"]!.GetValue<string>());
         Assert.Equal("low", payload["effort"]!.GetValue<string>());
         Assert.Equal("gpt-5-mini", payload["model"]!.GetValue<string>());
         Assert.Equal("friendly", payload["personality"]!.GetValue<string>());
         Assert.Equal("readOnly", payload["sandboxPolicy"]!["type"]!.GetValue<string>());
         Assert.True(payload["sandboxPolicy"]!["networkAccess"]!.GetValue<bool>());
         Assert.Equal("priority", payload["serviceTier"]!.GetValue<string>());
+        Assert.Equal("default", payload["serviceTierForTurn"]!.GetValue<string>());
         Assert.Equal("concise", payload["summary"]!.GetValue<string>());
-        Assert.Equal("/tmp/work", payload["workingDirectory"]!.GetValue<string>());
+        Assert.Equal("daybreakBlue", payload["cyberAccessProgram"]!.GetValue<string>());
+        Assert.Equal("/tmp/work", payload["cwd"]!.GetValue<string>());
         Assert.True(JsonNode.DeepEquals(outputSchema, payload["outputSchema"]));
 
         JsonArray input = payload["input"]!.AsArray();
@@ -458,6 +512,51 @@ public sealed class CodexProtocolTests
         Assert.Equal("mention", input[4]!["type"]!.GetValue<string>());
         Assert.Equal("mention", input[4]!["name"]!.GetValue<string>());
         Assert.Equal(@"C:\mentions\mention.md", input[4]!["path"]!.GetValue<string>());
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0244")]
+    [CoverageType(RequirementCoverageType.Edge)]
+    public void BuildTurnStartParams_PreservesWorkspaceWritableRootsAndRejectsRestrictedReadOnly()
+    {
+        JsonObject payload = CodexProtocol.BuildTurnStartParams(
+            "thread-1",
+            [new CodexTextInput { Text = "write" }],
+            new CodexTurnOptions
+            {
+                SandboxPolicy = new CodexWorkspaceWriteSandboxPolicy
+                {
+                    NetworkAccess = true,
+                    WritableRoots = [@"C:\workspace", @"C:\scratch"],
+                },
+            });
+
+        Assert.True(payload["sandboxPolicy"]!["networkAccess"]!.GetValue<bool>());
+        JsonArray writableRoots = payload["sandboxPolicy"]!["writableRoots"]!.AsArray();
+        Assert.Equal(@"C:\workspace", writableRoots[0]!.GetValue<string>());
+        Assert.Equal(@"C:\scratch", writableRoots[1]!.GetValue<string>());
+
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildTurnStartParams(
+            "thread-1",
+            [new CodexTextInput { Text = "read" }],
+            new CodexTurnOptions
+            {
+                SandboxPolicy = new CodexReadOnlySandboxPolicy
+                {
+                    Access = new CodexRestrictedReadOnlyAccess { ReadableRoots = [@"C:\read-only"] },
+                },
+            }));
+
+        Assert.Throws<NotSupportedException>(() => CodexProtocol.BuildTurnStartParams(
+            "thread-1",
+            [new CodexTextInput { Text = "workspace" }],
+            new CodexTurnOptions
+            {
+                SandboxPolicy = new CodexWorkspaceWriteSandboxPolicy
+                {
+                    ReadOnlyAccess = new CodexRestrictedReadOnlyAccess { ReadableRoots = [@"C:\read-only"] },
+                },
+            }));
     }
 
     [Fact]
@@ -945,6 +1044,34 @@ public sealed class CodexProtocolTests
         Assert.IsType<CodexUnknownThreadEvent>(unknown);
         Assert.Equal("custom.runtime-event", ((CodexUnknownThreadEvent)unknown).UnknownType);
         Assert.Equal("mystery", ((CodexUnknownThreadEvent)unknown).RawPayload!["note"]!.GetValue<string>());
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    public void ParseThreadEvent_InfersTerminalStatusForFlatCliTurnEvents()
+    {
+        CodexTurnCompletedEvent completed = Assert.IsType<CodexTurnCompletedEvent>(CodexProtocol.ParseThreadEvent(
+            TestJson.Notification(
+                "turn.completed",
+                new JsonObject
+                {
+                    ["id"] = "turn-flat-completed",
+                    ["usage"] = new JsonObject { ["input_tokens"] = 3 },
+                })));
+
+        CodexTurnFailedEvent failed = Assert.IsType<CodexTurnFailedEvent>(CodexProtocol.ParseThreadEvent(
+            TestJson.Notification(
+                "turn.failed",
+                new JsonObject
+                {
+                    ["id"] = "turn-flat-failed",
+                    ["error"] = new JsonObject { ["message"] = "failed" },
+                })));
+
+        Assert.Equal("turn-flat-completed", completed.Turn.Id);
+        Assert.Equal(CodexTurnStatus.Completed, completed.Turn.Status);
+        Assert.Equal("turn-flat-failed", failed.Turn.Id);
+        Assert.Equal(CodexTurnStatus.Failed, failed.Turn.Status);
     }
 
     [Fact]
@@ -1727,6 +1854,62 @@ public sealed class CodexProtocolTests
         Assert.IsType<CodexErrorItem>(error);
         Assert.IsType<CodexUnknownThreadItem>(unknown);
         Assert.Equal("custom-item", ((CodexUnknownThreadItem)unknown).UnknownType);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    [CoverageType(RequirementCoverageType.Positive)]
+    public void ParseUsage_ParsesCamelAndSnakeCaseCacheWriteTokens()
+    {
+        CodexUsage camel = CodexProtocol.ParseUsage(new JsonObject
+        {
+            ["modelContextWindow"] = 8192,
+            ["last"] = new JsonObject
+            {
+                ["cachedInputTokens"] = 2,
+                ["cacheWriteInputTokens"] = 3,
+                ["inputTokens"] = 5,
+                ["outputTokens"] = 7,
+                ["reasoningOutputTokens"] = 11,
+                ["totalTokens"] = 28,
+            },
+            ["total"] = new JsonObject(),
+        })!;
+
+        Assert.Equal(8192, camel.ModelContextWindow);
+        Assert.Equal(2, camel.Last.CachedInputTokens);
+        Assert.Equal(3, camel.Last.CacheWriteInputTokens);
+        Assert.Equal(5, camel.Last.InputTokens);
+        Assert.Equal(7, camel.Last.OutputTokens);
+        Assert.Equal(11, camel.Last.ReasoningOutputTokens);
+        Assert.Equal(28, camel.Last.TotalTokens);
+        Assert.Equal(0, camel.Total.CacheWriteInputTokens);
+
+        CodexUsage snake = CodexProtocol.ParseUsage(new JsonObject
+        {
+            ["model_context_window"] = 4096,
+            ["last"] = new JsonObject
+            {
+                ["cache_write_input_tokens"] = 13,
+                ["total_tokens"] = 13,
+            },
+            ["total"] = new JsonObject
+            {
+                ["cached_input_tokens"] = 17,
+                ["input_tokens"] = 19,
+                ["output_tokens"] = 23,
+                ["reasoning_output_tokens"] = 29,
+            },
+        })!;
+
+        Assert.Equal(4096, snake.ModelContextWindow);
+        Assert.Equal(13, snake.Last.CacheWriteInputTokens);
+        Assert.Equal(13, snake.Last.TotalTokens);
+        Assert.Equal(17, snake.Total.CachedInputTokens);
+        Assert.Equal(19, snake.Total.InputTokens);
+        Assert.Equal(23, snake.Total.OutputTokens);
+        Assert.Equal(29, snake.Total.ReasoningOutputTokens);
+        Assert.Equal(0, snake.Total.TotalTokens);
     }
 
     [Fact]
