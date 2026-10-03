@@ -124,7 +124,7 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-        ValidateRuntimeCompatibility(options?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
+        ValidateRuntimeCompatibility(GetReasoningEffortCompatibilityFeature(options?.ModelReasoningEffort));
         EnsureCapability(Capabilities?.SupportsStartThread == true, nameof(StartThreadAsync));
 
         if (Options.BackendSelection == CodexBackendSelection.Exec)
@@ -150,8 +150,8 @@ public sealed class CodexClient : IAsyncDisposable
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         ValidateRuntimeCompatibility(
-            options?.IncludeTurns == true ? "includeTurns" : null,
-            options?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
+            options?.IncludeTurns.HasValue == true ? "includeTurns" : null,
+            GetReasoningEffortCompatibilityFeature(options?.ModelReasoningEffort));
         EnsureCapability(Capabilities?.SupportsResumeThread == true, nameof(ResumeThreadAsync));
 
         if (Options.BackendSelection == CodexBackendSelection.Exec)
@@ -177,8 +177,8 @@ public sealed class CodexClient : IAsyncDisposable
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         ValidateRuntimeCompatibility(
-            options?.IncludeTurns == true ? "includeTurns" : null,
-            options?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
+            options?.IncludeTurns.HasValue == true ? "includeTurns" : null,
+            GetReasoningEffortCompatibilityFeature(options?.ModelReasoningEffort));
         CodexThreadHandleState handle = await ForkThreadHandleAsync(threadId, options, cancellationToken).ConfigureAwait(false);
         return new CodexThread(this, handle.Defaults ?? options, handle.Snapshot.Id, started: true);
     }
@@ -194,6 +194,7 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        ValidateRuntimeCompatibility(options?.SectionId is not null ? "thread list section filter" : null);
         EnsureCapability(Capabilities?.SupportsListThreads == true, nameof(ListThreadsAsync));
         return await _transport.ListThreadsAsync(options, cancellationToken).ConfigureAwait(false);
     }
@@ -407,7 +408,7 @@ public sealed class CodexClient : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-        ValidateRuntimeCompatibility(options?.IncludeTurns == true ? "includeTurns" : null);
+        ValidateRuntimeCompatibility(options?.IncludeTurns.HasValue == true ? "includeTurns" : null);
         EnsureCapability(Capabilities?.SupportsForkThread == true, nameof(ForkThreadAsync));
         return await _transport.ForkThreadAsync(threadId, options, cancellationToken).ConfigureAwait(false);
     }
@@ -518,8 +519,13 @@ public sealed class CodexClient : IAsyncDisposable
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         ValidateRuntimeCompatibility(
             input.Any(item => item is CodexExternalMessageInput) ? "externalMessage" : null,
-            !string.IsNullOrWhiteSpace(options?.Source) ? "turn source attribution" : null,
-            options?.Effort == CodexReasoningEffort.Max || threadOptions?.ModelReasoningEffort == CodexReasoningEffort.Max ? "max reasoning effort" : null);
+            !string.IsNullOrWhiteSpace(options?.Source) || !string.IsNullOrWhiteSpace(options?.TurnTrigger) ? "turn source attribution" : null,
+            options?.Effort is CodexReasoningEffort.Max or CodexReasoningEffort.Ultra or CodexReasoningEffort.Persistent
+                || threadOptions?.ModelReasoningEffort is CodexReasoningEffort.Max or CodexReasoningEffort.Ultra or CodexReasoningEffort.Persistent
+                ? "advanced reasoning effort"
+                : null,
+            options?.ServiceTierForTurn is not null ? "per-turn service tier" : null,
+            options?.CyberAccessProgram is not null ? "cyber access program" : null);
         EnsureCapability(Capabilities?.SupportsThreadStreaming == true, nameof(CodexThread.StartTurnAsync));
         return await _transport.StartTurnAsync(threadId, input, threadOptions, options, cancellationToken).ConfigureAwait(false);
     }
@@ -607,6 +613,15 @@ public sealed class CodexClient : IAsyncDisposable
         if (requireCompatibleRuntime) throw new InvalidOperationException(diagnostic);
         return diagnostic;
     }
+
+    private static string? GetReasoningEffortCompatibilityFeature(CodexReasoningEffort? effort)
+        => effort switch
+        {
+            CodexReasoningEffort.Max => "max reasoning effort",
+            CodexReasoningEffort.Ultra => "ultra reasoning effort",
+            CodexReasoningEffort.Persistent => "persistent reasoning effort",
+            _ => null,
+        };
 
     private void ThrowIfDisposed()
     {
@@ -1071,8 +1086,11 @@ public sealed class CodexThread
             Personality = options?.Personality ?? defaults.Personality,
             SandboxPolicy = options?.SandboxPolicy ?? defaults.Sandbox,
             ServiceTier = options?.ServiceTier ?? defaults.ServiceTier,
+            ServiceTierForTurn = options?.ServiceTierForTurn,
             Summary = options?.Summary,
             Source = options?.Source,
+            TurnTrigger = options?.TurnTrigger,
+            CyberAccessProgram = options?.CyberAccessProgram,
             WorkingDirectory = options?.WorkingDirectory ?? defaults.WorkingDirectory,
         };
     }

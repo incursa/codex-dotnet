@@ -347,6 +347,9 @@ public sealed record CodexTokenUsageBreakdown
     /// <summary>Cached input tokens reused from earlier requests.</summary>
     public int CachedInputTokens { get; init; }
 
+    /// <summary>Input tokens written to the prompt cache during the request.</summary>
+    public int CacheWriteInputTokens { get; init; }
+
     /// <summary>Prompt tokens sent to the model.</summary>
     public int InputTokens { get; init; }
 
@@ -718,6 +721,7 @@ public record CodexThreadSummary
 
     /// <summary>Git metadata captured for the thread workspace, if available.</summary>
     public CodexGitInfo? GitInfo { get; init; }
+
 }
 
 /// <summary>Thread summary that also includes the recorded turns.</summary>

@@ -154,20 +154,11 @@ public sealed class CodexRuntimeBehaviorTests
                         },
                         ["usage"] = new JsonObject
                         {
-                            ["last"] = new JsonObject
-                            {
-                                ["inputTokens"] = 10,
-                                ["outputTokens"] = 20,
-                                ["reasoningOutputTokens"] = 5,
-                                ["totalTokens"] = 35,
-                            },
-                            ["total"] = new JsonObject
-                            {
-                                ["inputTokens"] = 10,
-                                ["outputTokens"] = 20,
-                                ["reasoningOutputTokens"] = 5,
-                                ["totalTokens"] = 35,
-                            },
+                            ["input_tokens"] = 10,
+                            ["cached_input_tokens"] = 2,
+                            ["cache_write_input_tokens"] = 4,
+                            ["output_tokens"] = 20,
+                            ["reasoning_output_tokens"] = 5,
                         },
                     },
                 }));
@@ -180,6 +171,7 @@ public sealed class CodexRuntimeBehaviorTests
         {
             BackendSelection = CodexBackendSelection.Exec,
             CodexPathOverride = "codex",
+            RawConfigOverrides = ["permissions.audit.filesystem={\":root\"=\"read\"}"],
             Config = new CodexConfigObject
             {
                 Values = new Dictionary<string, CodexConfigValue>(StringComparer.Ordinal)
@@ -222,10 +214,17 @@ public sealed class CodexRuntimeBehaviorTests
                 Sandbox = new CodexDangerFullAccessSandboxPolicy(),
                 SkipGitRepoCheck = true,
                 AdditionalDirectories = [@"C:\extra-one", @"C:\extra-two"],
-                ModelReasoningEffort = CodexReasoningEffort.High,
+                ModelReasoningEffort = CodexReasoningEffort.Ultra,
+                ThreadSource = CodexThreadSource.MemoryConsolidation,
             });
 
-            CodexRunResult result = await thread.RunAsync("hello codex");
+            CodexRunResult result = await thread.RunAsync(
+                "hello codex",
+                new CodexTurnOptions
+                {
+                    CyberAccessProgram = CodexCyberAccessProgram.DaybreakBlue,
+                    ServiceTierForTurn = CodexServiceTier.Default,
+                });
 
             Assert.Equal(workDir, launcher.StartInfos.Single().WorkingDirectory);
             Assert.Contains("exec", launcher.StartInfos.Single().Arguments);
@@ -242,6 +241,19 @@ public sealed class CodexRuntimeBehaviorTests
             Assert.Contains(@"C:\extra-two", launcher.StartInfos.Single().Arguments);
             Assert.Contains("client.feature=\"enabled\"", launcher.StartInfos.Single().Arguments);
             Assert.Contains("thread.feature=\"override\"", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("permissions.audit.filesystem={\":root\"=\"read\"}", launcher.StartInfos.Single().Arguments);
+            List<string> arguments = launcher.StartInfos.Single().Arguments.ToList();
+            int clientConfigIndex = arguments.IndexOf("client.feature=\"enabled\"");
+            int rawConfigIndex = arguments.IndexOf("permissions.audit.filesystem={\":root\"=\"read\"}");
+            int threadConfigIndex = arguments.IndexOf("thread.feature=\"override\"");
+            Assert.True(clientConfigIndex < rawConfigIndex);
+            Assert.True(rawConfigIndex < threadConfigIndex);
+            Assert.Contains("--thread-source", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("memory_consolidation", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("model_reasoning_effort=\"ultra\"", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("--cyber-access-program", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("daybreak_blue", launcher.StartInfos.Single().Arguments);
+            Assert.Contains("service_tier=\"default\"", launcher.StartInfos.Single().Arguments);
 
             Assert.Equal("Echo: hello codex", result.FinalResponse);
             Assert.NotNull(result.Usage);
@@ -249,7 +261,13 @@ public sealed class CodexRuntimeBehaviorTests
             Assert.Contains(
                 result.Items,
                 item => item is CodexAgentMessageItem message && message.Phase == CodexMessagePhase.FinalAnswer);
-            Assert.Equal(35, result.Usage!.Total.TotalTokens);
+            Assert.Equal(10, result.Usage!.Total.InputTokens);
+            Assert.Equal(2, result.Usage.Total.CachedInputTokens);
+            Assert.Equal(4, result.Usage.Total.CacheWriteInputTokens);
+            Assert.Equal(20, result.Usage.Total.OutputTokens);
+            Assert.Equal(5, result.Usage.Total.ReasoningOutputTokens);
+            Assert.Equal(0, result.Usage.Total.TotalTokens);
+            Assert.Equal(4, result.Usage.Last.CacheWriteInputTokens);
         }
         finally
         {

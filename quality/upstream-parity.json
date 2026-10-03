@@ -1,20 +1,81 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-03",
-  "reviewMode": "bootstrap",
-  "bootstrapReason": "No prior parity state existed and no safe prior sync commit could be inferred from local repo history.",
+  "updatedAt": "2026-10-02",
+  "reviewMode": "pinned-upstream-review",
+  "reviewedAt": "2026-10-02",
+  "comparisonBaselineCommit": "319d03056e9b345fe9d129873c3a808c5df783df",
+  "comparisonHeadCommit": "86a54b051c08f34f373c507ae16a91915ab08700",
+  "comparisonCommitCount": 3872,
+  "sourceUrl": "https://github.com/openai/codex",
+  "verification": {
+    "verifiedAt": "2026-10-03",
+    "automatedReleasePassed": 363,
+    "liveTestsPassed": 8,
+    "liveTestsFailed": 0,
+    "liveTestsSkipped": 0,
+    "totalTestsDiscovered": 371,
+    "releaseBuildWarnings": 0,
+    "releaseBuildErrors": 0,
+    "liveRuntime": "Codex CLI 0.160 on Windows"
+  },
   "upstreams": {
     "python": {
-      "repoPath": "C:/shared/src/openai/codex/sdk/python",
-      "monorepoPath": "C:/shared/src/openai/codex",
+      "repoPath": "https://github.com/openai/codex/tree/86a54b051c08f34f373c507ae16a91915ab08700/sdk/python",
+      "monorepoPath": "https://github.com/openai/codex/tree/86a54b051c08f34f373c507ae16a91915ab08700",
       "trackedPath": "sdk/python",
-      "lastReviewedCommit": "319d03056e9b345fe9d129873c3a808c5df783df"
+      "lastReviewedCommit": "86a54b051c08f34f373c507ae16a91915ab08700",
+      "changedFileCountSinceBaseline": 40
     },
     "typescript": {
-      "repoPath": "C:/shared/src/openai/codex/sdk/typescript",
-      "monorepoPath": "C:/shared/src/openai/codex",
+      "repoPath": "https://github.com/openai/codex/tree/86a54b051c08f34f373c507ae16a91915ab08700/sdk/typescript",
+      "monorepoPath": "https://github.com/openai/codex/tree/86a54b051c08f34f373c507ae16a91915ab08700",
       "trackedPath": "sdk/typescript",
-      "lastReviewedCommit": "319d03056e9b345fe9d129873c3a808c5df783df"
+      "lastReviewedCommit": "86a54b051c08f34f373c507ae16a91915ab08700",
+      "changedFileCountSinceBaseline": 18
     }
+  },
+  "capabilityReview": {
+    "implemented": [
+      "high-level client construction and lifecycle",
+      "client metadata and account login/read/logout flows",
+      "thread start/list/resume/fork/archive/unarchive/model listing",
+      "thread run/turn/read/name/compact operations",
+      "turn stream/run/steer/interrupt operations",
+      "external-message input with tool name, namespace, and content",
+      "nested configuration values flattened to runtime config overrides",
+      "maximum reasoning effort",
+      "ultra and persistent reasoning effort values",
+      "thread history inclusion controls",
+      "per-turn service-tier override",
+      "turnTrigger source attribution",
+      "sectionId thread-list filtering",
+      "raw CLI configuration overrides",
+      "cyber-access program selection",
+      "cache-write token accounting",
+      "joined-turn event fan-out and history replay",
+      "runtime compatibility diagnostics and strict compatibility option",
+      "current app-server v2 approval and thread sandbox wire shapes"
+    ],
+    "residual": [
+      "newer generated low-level schema fields outside the public high-level SDK scope",
+      "Python-specific generated models and runtime behavior outside the .NET high-level surface",
+      "deprecated personality fields and supports_personality compatibility semantics; personality is not a model-tone selector"
+    ]
+  },
+  "evidence": {
+    "implementation": [
+      "src/Incursa.OpenAI.Codex/CodexProtocol.cs",
+      "src/Incursa.OpenAI.Codex/CodexClient.cs",
+      "src/Incursa.OpenAI.Codex/Options.cs",
+      "src/Incursa.OpenAI.Codex/ConversationTypes.cs",
+      "src/Incursa.OpenAI.Codex/CodexConfigSerialization.cs"
+    ],
+    "tests": [
+      "tests/Incursa.OpenAI.Codex.Tests/CodexProtocolTests.cs",
+      "tests/Incursa.OpenAI.Codex.Tests/CodexAppServerTransportTests.cs",
+      "tests/Incursa.OpenAI.Codex.Tests/CodexContractTypeTests.cs",
+      "tests/Incursa.OpenAI.Codex.Tests/CodexSdkParitySurfaceTests.cs",
+      "tests/Incursa.OpenAI.Codex.Tests/CodexRuntimeBehaviorTests.cs"
+    ]
   }
 }

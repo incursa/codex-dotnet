@@ -6,6 +6,16 @@ title: "Usage Guide"
 
 `Incursa.OpenAI.Codex` is an async-only .NET client for the local Codex runtime. It launches the `codex` executable as a subprocess, so the machine running your app must already have Codex installed and authenticated.
 
+The package targets .NET 10 (`net10.0`). Install it with:
+
+```powershell
+dotnet add package Incursa.OpenAI.Codex
+```
+
+Install and authenticate the Codex CLI separately. The SDK can use an explicit
+executable path through `CodexClientOptions.CodexPathOverride`; `ApiKey` and
+`BaseUrl` are forwarded to that local process. They do not replace the CLI.
+
 Use this SDK when you want a C# wrapper around the local Codex CLI and its thread or turn APIs. Use the OpenAI SDK when you want direct API calls from .NET, ChatKit when you want a hosted chat UI surface, and the Agents SDK when you want higher-level agent orchestration.
 
 It is built around three pieces:
@@ -40,6 +50,12 @@ If you want the thread to run in a specific location, set `CodexThreadOptions.Wo
 
 If you want a no-throw preflight for the local executable, call `await client.IsCodexAvailableAsync()` before `InitializeAsync()` or any turn operation.
 
+Some newer options require Codex runtime 0.151.0 or newer. Set
+`CodexClientOptions.RequireCompatibleRuntime` to make an unknown or older
+app-server fail immediately when a gated option is used. Leave it `false` to
+keep the request running and inspect `CodexClient.RuntimeCompatibilityDiagnostic`
+for the compatibility message.
+
 ## Backend Choice
 
 The [`CodexClientOptions`](../src/Incursa.OpenAI.Codex/Options.cs) type controls which runtime backend is used through its `BackendSelection` property.
@@ -59,6 +75,39 @@ At the transport level:
 - [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) maps to `codex app-server --listen stdio://`
 - [`Exec`](../src/Incursa.OpenAI.Codex/Enums.cs) maps to `codex exec --experimental-json`
 
+### Current app-server option shapes
+
+Current app-server v2 thread requests use a string approval mode and a string
+sandbox mode. For example:
+
+```csharp
+await using var client = new CodexClient();
+CodexThread thread = await client.StartThreadAsync(new CodexThreadOptions
+{
+    ApprovalPolicy = new CodexApprovalModePolicy(CodexApprovalMode.OnRequest),
+    Sandbox = new CodexWorkspaceWriteSandboxPolicy
+    {
+        NetworkAccess = true,
+    },
+});
+```
+
+The thread request serializes these values as `approvalPolicy: "on-request"`
+and `sandbox: "workspace-write"`. Workspace network access, additional
+directories, and writable roots are serialized under
+`config.sandbox_workspace_write` using the current snake_case fields. External
+sandbox policies remain turn-level only. Turn-level `SandboxPolicy` continues
+to carry the richer policy shape where the runtime supports it.
+
+Use `Never`, `OnRequest`, or `Untrusted` for new app-server integrations.
+Current app-server v2 rejects `OnFailure`; the enum remains for source
+compatibility, and the exec backend can pass it through when the installed
+Codex runtime accepts that CLI value.
+
+For the exec backend, configuration precedence is client structured config,
+client raw overrides, thread structured config, then typed options. Later
+values replace earlier values for the same setting.
+
 ## Common Use Cases
 
 - One-shot answer: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`RunAsync(string)`
@@ -73,6 +122,18 @@ At the transport level:
 - Thread goals: call [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`GetGoalAsync`, `SetGoalAsync`, `SetGoalStatusAsync`, or `ClearGoalAsync` on the [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) backend
 - Long-lived agent sessions: use [`AppServer`](../src/Incursa.OpenAI.Codex/Enums.cs) plus [`CodexThread`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`ReadAsync`, `SetNameAsync`, `CompactAsync`, [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`SteerAsync`, and [`CodexTurn`](../src/Incursa.OpenAI.Codex/CodexClient.cs).`InterruptAsync`
 - Hosted apps: register the client through [`Incursa.OpenAI.Codex.Extensions`](../src/Incursa.OpenAI.Codex.Extensions/README.md)
+
+## Upstream parity scope
+
+The public .NET surface covers the upstream Python and TypeScript high-level
+client, thread, and turn flows, including external-message input, nested config
+overrides, max/ultra/persistent reasoning effort, per-turn service tiers,
+turnTrigger attribution, section filtering, cyber-access selection, and thread
+history controls. The review at
+upstream commit [`86a54b051c08f34f373c507ae16a91915ab08700`](https://github.com/openai/codex/commit/86a54b051c08f34f373c507ae16a91915ab08700)
+still distinguishes high-level parity from exhaustive generated-schema parity.
+The complete implemented/residual matrix is in
+[`quality/upstream-parity-gaps.md`](../quality/upstream-parity-gaps.md).
 
 ## Major API Surfaces
 

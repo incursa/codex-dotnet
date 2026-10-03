@@ -2,6 +2,18 @@
 
 `Incursa.OpenAI.Codex` is an async-only .NET client for the local Codex runtime. It launches the `codex` executable as a subprocess, so the machine running your app must already have Codex installed and authenticated.
 
+The packages target .NET 10 (`net10.0`). Install the core package in an
+application that has the local Codex CLI installed and authenticated:
+
+```powershell
+dotnet add package Incursa.OpenAI.Codex
+```
+
+The SDK uses the local executable. `CodexClientOptions.ApiKey` and
+`CodexClientOptions.BaseUrl` are forwarded to that process; they do not replace
+the CLI or provide direct hosted API access. Use
+`CodexClientOptions.CodexPathOverride` when `codex` is not on `PATH`.
+
 Source documentation lives in `docs/` and is mirrored into `incursa-docs` for publication. Edit the source repository docs only; do not edit the mirrored output.
 
 The public package is young, but the code comes from day-to-day Incursa Codex automation work rather than a throwaway wrapper. Incursa has processed more than 10,000 Codex messages while hardening local subprocess orchestration, streamed events, typed results, and failure handling around this SDK family.
@@ -95,6 +107,16 @@ For UI and delivery clients, use `CodexClient.ObserveEventsAsync()` as the exhau
 
 Set `CodexThreadOptions.ServiceTier` or `CodexTurnOptions.ServiceTier` to `CodexServiceTier.Fast` to request upstream Fast mode. The SDK sends the current Codex request value, `priority`, while preserving the public `Fast` enum name.
 
+The current app-server v2 protocol represents thread approval modes as strings
+and granular approval fields in snake_case. It represents simple thread sandbox
+access as `read-only`, `workspace-write`, or `danger-full-access`. Workspace
+network access, additional directories, and writable roots are carried through
+the `config.sandbox_workspace_write` object. For new app-server integrations,
+use `Never`, `OnRequest`, or `Untrusted`; `OnFailure` remains a legacy enum
+value for source compatibility. Current app-server v2 rejects it, while the
+exec backend can pass it through when the installed Codex runtime accepts that
+CLI value.
+
 ## Samples
 
 The runnable sample in `samples/Incursa.OpenAI.Codex.Sample` demonstrates:
@@ -146,7 +168,7 @@ See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Cod
 
 - Live behavior depends on the installed `codex` executable, local Codex authentication, and upstream runtime behavior.
 - `Exec` intentionally lacks app-server-only lifecycle and control capabilities.
-- Upstream Python and TypeScript Codex SDK parity must be refreshed when upstream behavior changes.
+- Upstream Python and TypeScript Codex SDK parity was reviewed at commit [`86a54b051c08f34f373c507ae16a91915ab08700`](https://github.com/openai/codex/commit/86a54b051c08f34f373c507ae16a91915ab08700). The main high-level client, thread, turn, external-message, config, and current protocol surfaces are covered. The review retains the distinction between high-level parity and exhaustive generated-schema parity, and documents personality compatibility behavior. See [`quality/upstream-parity-gaps.md`](quality/upstream-parity-gaps.md).
 - The repo still has maintenance items called out in [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md).
 
 ## License

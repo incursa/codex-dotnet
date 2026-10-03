@@ -12,6 +12,12 @@ This guide is for maintainers and operators validating `codex-dotnet` from a loc
 
 The machine running an application that uses this SDK must have Codex installed and authenticated separately.
 
+Both packages target .NET 10 (`net10.0`). A consumer install starts with
+`dotnet add package Incursa.OpenAI.Codex`; the optional DI package is
+`Incursa.OpenAI.Codex.Extensions`. The package README is embedded in each
+NuGet package, and the Release pack includes the generated XML documentation
+alongside the `net10.0` assembly.
+
 ## Package and Service Boundaries
 
 - `src/Incursa.OpenAI.Codex`: core package. It exposes `CodexClient`, `CodexThread`, `CodexTurn`, typed options, input records, event records, result records, runtime metadata, capability models, and Codex-specific exceptions.
@@ -108,7 +114,16 @@ Run focused tests while iterating:
 dotnet test tests/Incursa.OpenAI.Codex.Tests/Incursa.OpenAI.Codex.Tests.csproj -c Release --no-build --filter FullyQualifiedName~CodexTurnOutcomeTests
 dotnet test tests/Incursa.OpenAI.Codex.Tests/Incursa.OpenAI.Codex.Tests.csproj -c Release --no-build --filter FullyQualifiedName~CodexAppServerTransportTests
 dotnet test tests/Incursa.OpenAI.Codex.Tests/Incursa.OpenAI.Codex.Tests.csproj -c Release --no-build --filter FullyQualifiedName~PublicApiSnapshotTests
+dotnet test tests/Incursa.OpenAI.Codex.Tests/Incursa.OpenAI.Codex.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~CodexSdkParitySurfaceTests|FullyQualifiedName~CodexRuntimeBehaviorTests|FullyQualifiedName~CodexProtocolTests|FullyQualifiedName~CodexAppServerTransportTests"
 ```
+
+The current automated Release evidence (2026-10-03) is 363 passing tests, with
+zero warnings and zero errors in the Release build. A separate live run passed
+all 8 opt-in tests (zero failures, zero skips) against Codex CLI 0.160 on
+Windows, covering app-server and exec flows including structured output, image
+input, steering, read/resume, and streaming. Record any later regression-fix
+run counts alongside this baseline; automated and live gates are reported
+separately.
 
 Live Codex tests are opt-in because they require the local Codex executable and local authentication:
 
@@ -128,17 +143,44 @@ dotnet run -c Release --project benchmarks/Incursa.OpenAI.Codex.Benchmarks.cspro
 
 ## Release and Versioning
 
-The package version is stored in `Directory.Build.props`. Releases should be cut with `scripts/release.ps1` instead of hand-editing the version or tag.
+The package version is stored in `Directory.Build.props`. Releases should be cut with `scripts/release.ps1` instead of hand-editing the version or tag. The current parity release is expected to be `2.5.0`, based on 34 public API additions and zero removals.
 
-The release script:
+The release script supports the protected-main workflow used by this repository:
 
 1. Finds the latest `v*.*.*` tag.
 2. Compares `PublicAPI.Shipped.txt` baselines against that tag.
 3. Requires `PublicAPI.Unshipped.txt` files to be empty.
 4. Chooses a major, minor, or patch bump from public API changes.
-5. Updates `Directory.Build.props`.
-6. Runs the Release test suite.
-7. Commits, tags, and optionally pushes.
+5. In preparation mode, updates `Directory.Build.props`, runs the Release test suite, checks the diff, commits the prepared version, and optionally pushes the branch for review.
+6. After the prepared commit is merged and `origin/main` is current, finalization verifies a clean checkout at exactly `origin/main`, reruns the Release test suite, creates the annotated tag, and optionally pushes that tag.
+
+Prepare a release branch with the version bump and test evidence:
+
+```powershell
+./scripts/release.ps1 -PrepareOnly
+```
+
+After the pull request is merged, fetch the protected main branch and finalize
+the already prepared version without bumping it again:
+
+```powershell
+git fetch origin main --tags
+git checkout --detach origin/main
+dotnet restore Incursa.OpenAI.Codex.slnx
+./scripts/release.ps1 -Finalize
+```
+
+Use `-RunLiveTests` with either phase when the local Codex executable and
+authentication are available. Add `-NoPush` when you are deliberately running
+the phase locally without publishing the prepared branch or final tag. Use
+`-DryRun` to inspect the selected release kind and next version without
+modifying files.
+
+Validate the protected-main workflow fixture with:
+
+```powershell
+./scripts/Test-ReleaseWorkflow.ps1
+```
 
 If public API changes are intentional, update the public API baselines first:
 
@@ -167,7 +209,18 @@ Required practices:
 
 Requirements live under `specs/requirements/codex-sdk`. Architecture records live under `specs/architecture/codex-sdk`. Verification records live under `specs/verification/codex-sdk`. The primary requirement-to-code-and-test map is `specs/requirements/codex-sdk/TRACEABILITY.md`.
 
-Upstream Python and TypeScript Codex SDK parity state is recorded in `quality/upstream-parity.json` and summarized in `quality/upstream-parity-gaps.md`. Rerun `scripts/Invoke-UpstreamParityReview.ps1` when upstream parity is the work item; do not treat an old parity file as proof that the current upstream head has no gaps.
+Upstream Python and TypeScript Codex SDK parity state is recorded in
+`quality/upstream-parity.json` and summarized in
+`quality/upstream-parity-gaps.md`. The current review is pinned to upstream
+commit `86a54b051c08f34f373c507ae16a91915ab08700` and compares from
+`319d03056e9b345fe9d129873c3a808c5df783df`. The review covers the high-level
+client, thread, and turn surfaces plus the implemented external-message,
+configuration, reasoning, service-tier, source-attribution, section-filter, and
+thread-history behavior. It retains the generated low-level schema breadth and
+personality compatibility semantics as explicit limitations. Rerun
+`scripts/Invoke-UpstreamParityReview.ps1` when upstream parity is the work item;
+do not treat an old parity file as proof that the current upstream head has no
+gaps.
 
 ## Readiness State
 
