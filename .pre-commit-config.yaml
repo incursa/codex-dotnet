@@ -67,7 +67,7 @@ repos:
         language: system
         entry: >
           pwsh -NoProfile -Command
-          "$ciSln = Join-Path (Get-Location) 'Incursa.OpenAI.ChatKit.slnx';
+          "$ciSln = Join-Path (Get-Location) 'Incursa.OpenAI.Codex.slnx';
           $rootSlnx = Get-ChildItem -Path . -Filter *.slnx -File | Sort-Object Name | Select-Object -First 1;
           $rootSln = Get-ChildItem -Path . -Filter *.sln -File | Sort-Object Name | Select-Object -First 1;
           $solution = if (Test-Path $ciSln) { $ciSln } elseif ($rootSlnx) { $rootSlnx.FullName } elseif ($rootSln) { $rootSln.FullName } else { throw 'No solution file found at repo root.' };
