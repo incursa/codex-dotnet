@@ -1204,7 +1204,7 @@ public sealed class CodexAppServerTransportTests
         Assert.Equal(300, rateLimits.RateLimits.Primary.WindowDurationMinutes);
         CodexTurnCompletedEvent completed = Assert.IsType<CodexTurnCompletedEvent>(events.Last(evt => evt is CodexTurnCompletedEvent));
         Assert.Equal("Done", ((CodexAgentMessageItem)completed.Turn.Items.Single()).Text);
-        Assert.Contains(process.StdIn.Lines, line => line.Contains("\"decision\":\"accept\"", StringComparison.Ordinal));
+        Assert.Contains(process.StdIn.Lines, line => line.Contains("\"decision\":\"decline\"", StringComparison.Ordinal));
 
         process.Complete();
     }
@@ -1471,11 +1471,13 @@ public sealed class CodexAppServerTransportTests
         Assert.Contains(events, evt => evt is CodexTurnCompletedEvent completed && completed.Turn.Id == "turn-active");
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("item/commandExecution/requestApproval")]
+    [InlineData("item/fileChange/requestApproval")]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
     [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
     [CoverageType(RequirementCoverageType.Positive)]
-    public async Task TurnStream_DefaultApprovalHandlerAcceptsFileChangeRequests()
+    public async Task TurnStream_DefaultApprovalHandlerDeclinesSensitiveRequests(string approvalMethod)
     {
         ScriptedCodexProcessLauncher launcher = new();
         ScriptedCodexProcess process = new();
@@ -1516,7 +1518,7 @@ public sealed class CodexAppServerTransportTests
                     break;
                 case "turn/start":
                     process.EnqueueStdout(TestJson.Message(
-                        "item/fileChange/requestApproval",
+                        approvalMethod,
                         new JsonObject
                         {
                             ["reason"] = "needs review",
@@ -1591,7 +1593,7 @@ public sealed class CodexAppServerTransportTests
             .Select(line => JsonNode.Parse(line)!.AsObject())
             .Single(message => message["id"]?.GetValue<string>() == "approval-1");
         JsonObject approvalResult = approvalResponse["result"]!.AsObject();
-        Assert.Equal("accept", approvalResult["decision"]!.GetValue<string>());
+        Assert.Equal("decline", approvalResult["decision"]!.GetValue<string>());
     }
 
     [Fact]
@@ -2929,7 +2931,7 @@ public sealed class CodexAppServerTransportTests
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
     [Trait("Requirement", "REQ-CODEX-SDK-HELPERS-0318")]
     [CoverageType(RequirementCoverageType.Edge)]
-    public async Task TurnStream_UnknownApprovalRequestsUseEmptyResponseWhenNoHandlerIsConfigured()
+    public async Task TurnStream_UnknownApprovalRequestsFailClosedWhenNoHandlerIsConfigured()
     {
         ScriptedCodexProcessLauncher launcher = new();
         ScriptedCodexProcess process = new();
@@ -3045,7 +3047,7 @@ public sealed class CodexAppServerTransportTests
         JsonObject approvalResponse = process.StdIn.Lines
             .Select(line => JsonNode.Parse(line)!.AsObject())
             .Single(message => message["id"]?.GetValue<string>() == "approval-1");
-        Assert.Empty(approvalResponse["result"]!.AsObject());
+        Assert.Equal("decline", approvalResponse["result"]!["decision"]!.GetValue<string>());
     }
 
     [Fact]
@@ -3475,6 +3477,87 @@ public sealed class CodexAppServerTransportTests
         {
             Assert.Equal("turn-eof", Assert.IsType<CodexTurnFailedEvent>(terminal).Turn.Id);
         }
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    public void Constructor_RejectsAmbiguousApprovalHandlerConfiguration()
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        CodexClientOptions options = new()
+        {
+            BackendSelection = CodexBackendSelection.AppServer,
+            CodexPathOverride = "codex",
+            ProcessLauncher = launcher,
+            ApprovalHandler = (_, _) => new JsonObject { ["decision"] = "decline" },
+            AsyncApprovalHandler = (_, _) => ValueTask.FromResult(CodexApprovalDecision.Decline),
+        };
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => new CodexClient(options));
+        Assert.Contains("either ApprovalHandler or AsyncApprovalHandler", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(launcher.StartInfos);
+    }
+
+    [Theory]
+    [InlineData(CodexApprovalDecision.Accept, "accept")]
+    [InlineData(CodexApprovalDecision.AcceptForSession, "acceptForSession")]
+    [InlineData(CodexApprovalDecision.Decline, "decline")]
+    [InlineData(CodexApprovalDecision.Cancel, "cancel")]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0241")]
+    public async Task InitializeAsync_SerializesTypedAsyncApprovalDecisions(
+        CodexApprovalDecision decision,
+        string expectedWireDecision)
+    {
+        ScriptedCodexProcessLauncher launcher = new();
+        ScriptedCodexProcess process = new();
+        TaskCompletionSource<JsonObject> approvalResponseSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        CodexApprovalRequest? capturedRequest = null;
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject message = JsonNode.Parse(line)!.AsObject();
+            if (message["id"]?.GetValue<string>() == "approval-init")
+            {
+                approvalResponseSeen.TrySetResult(message);
+                return;
+            }
+
+            if (message["method"]?.GetValue<string>() != "initialize")
+            {
+                return;
+            }
+
+            string id = message["id"]!.GetValue<string>();
+            process.EnqueueStdout(TestJson.Message(
+                "item/commandExecution/requestApproval",
+                new JsonObject { ["reason"] = "startup policy" },
+                "approval-init"));
+            process.EnqueueStdout(TestJson.Response(
+                id,
+                new JsonObject
+                {
+                    ["userAgent"] = "codex-app-server/1.2.3",
+                    ["platformFamily"] = "Unix",
+                    ["platformOs"] = "Linux",
+                }));
+        };
+        launcher.Factory = _ => process;
+
+        await using CodexClient client = CreateAppServerClient(launcher, options =>
+            options.AsyncApprovalHandler = (request, _) =>
+            {
+                capturedRequest = request;
+                return ValueTask.FromResult(decision);
+            });
+
+        await client.InitializeAsync();
+        JsonObject approvalResponse = await approvalResponseSeen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(capturedRequest);
+        Assert.Equal("approval-init", capturedRequest.RequestId);
+        Assert.Equal("item/commandExecution/requestApproval", capturedRequest.Method);
+        Assert.Equal("startup policy", capturedRequest.Parameters!["reason"]!.GetValue<string>());
+        Assert.Equal(expectedWireDecision, approvalResponse["result"]!["decision"]!.GetValue<string>());
     }
 
     private static CodexClient CreateAppServerClient(

@@ -114,6 +114,221 @@ public sealed class JsonRpcConnectionTests
     }
 
     [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0243")]
+    public async Task RequestAsync_DelayedAsyncApprovalDoesNotBlockResponsesOrNotifications()
+    {
+        ScriptedCodexProcess process = new();
+        TaskCompletionSource releaseApproval = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource approvalStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource approvalResponseSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        CodexApprovalRequest? capturedRequest = null;
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject message = JsonNode.Parse(line)!.AsObject();
+            if (message["id"]?.GetValue<string>() == "server-request-1")
+            {
+                approvalResponseSeen.TrySetResult();
+                return;
+            }
+
+            if (message["method"]?.GetValue<string>() != "turn/start")
+            {
+                return;
+            }
+
+            string id = message["id"]!.GetValue<string>();
+            process.EnqueueStdout(TestJson.Message(
+                "item/commandExecution/requestApproval",
+                new JsonObject { ["reason"] = "needs approval" },
+                "server-request-1"));
+            process.EnqueueStdout(TestJson.Notification(
+                "custom/runtime-event",
+                new JsonObject { ["value"] = 42 }));
+            process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["ok"] = true }));
+        };
+
+        await using JsonRpcConnection connection = new(
+            process,
+            (_, _) => throw new InvalidOperationException("The synchronous handler should not run."),
+            async (requestId, method, parameters, cancellationToken) =>
+            {
+                capturedRequest = new CodexApprovalRequest(requestId, method, parameters);
+                approvalStarted.TrySetResult();
+                await releaseApproval.Task.WaitAsync(cancellationToken);
+                return new JsonObject { ["decision"] = "accept" };
+            });
+
+        JsonNode? response = await connection.RequestAsync("turn/start", new JsonObject(), CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        JsonObject notification = await connection.NextNotificationAsync(CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await approvalStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(response!["ok"]!.GetValue<bool>());
+        Assert.Equal("custom/runtime-event", notification["method"]!.GetValue<string>());
+        Assert.NotNull(capturedRequest);
+        Assert.Equal("server-request-1", capturedRequest.RequestId);
+        Assert.Equal("item/commandExecution/requestApproval", capturedRequest.Method);
+        Assert.Equal("needs approval", capturedRequest.Parameters!["reason"]!.GetValue<string>());
+        Assert.False(approvalResponseSeen.Task.IsCompleted);
+
+        releaseApproval.TrySetResult();
+        await approvalResponseSeen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0247")]
+    public async Task DisposeAsync_CancelsPendingAsyncApprovalWithoutWritingLateResponse()
+    {
+        ScriptedCodexProcess process = new();
+        TaskCompletionSource approvalStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource approvalCanceled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject message = JsonNode.Parse(line)!.AsObject();
+            if (message["method"]?.GetValue<string>() != "turn/start")
+            {
+                return;
+            }
+
+            string id = message["id"]!.GetValue<string>();
+            process.EnqueueStdout(TestJson.Message(
+                "item/fileChange/requestApproval",
+                new JsonObject(),
+                "server-request-1"));
+            process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["ok"] = true }));
+        };
+
+        JsonRpcConnection connection = new(
+            process,
+            (_, _) => new JsonObject(),
+            async (_, _, _, cancellationToken) =>
+            {
+                approvalStarted.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    approvalCanceled.TrySetResult();
+                    throw;
+                }
+
+                return new JsonObject { ["decision"] = "accept" };
+            });
+
+        JsonNode? response = await connection.RequestAsync("turn/start", new JsonObject(), CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(response!["ok"]!.GetValue<bool>());
+        await approvalStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await connection.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await approvalCanceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.DoesNotContain(
+            process.StdIn.Lines,
+            line => JsonNode.Parse(line)?["id"]?.GetValue<string>() == "server-request-1");
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0247")]
+    public async Task ProcessDisconnect_CancelsPendingAsyncApproval()
+    {
+        ScriptedCodexProcess process = new();
+        TaskCompletionSource approvalStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource approvalCanceled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject message = JsonNode.Parse(line)!.AsObject();
+            if (message["method"]?.GetValue<string>() != "turn/start")
+            {
+                return;
+            }
+
+            string id = message["id"]!.GetValue<string>();
+            process.EnqueueStdout(TestJson.Message(
+                "item/commandExecution/requestApproval",
+                new JsonObject(),
+                "server-request-1"));
+            process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["ok"] = true }));
+            process.Complete();
+        };
+
+        await using JsonRpcConnection connection = new(
+            process,
+            (_, _) => new JsonObject(),
+            async (_, _, _, cancellationToken) =>
+            {
+                approvalStarted.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    approvalCanceled.TrySetResult();
+                    throw;
+                }
+
+                return new JsonObject { ["decision"] = "accept" };
+            });
+
+        JsonNode? response = await connection.RequestAsync("turn/start", new JsonObject(), CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(response!["ok"]!.GetValue<bool>());
+        await approvalStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await approvalCanceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.DoesNotContain(
+            process.StdIn.Lines,
+            line => JsonNode.Parse(line)?["id"]?.GetValue<string>() == "server-request-1");
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0243")]
+    public async Task RequestAsync_AsyncApprovalFailureDeclinesAndKeepsConnectionUsable()
+    {
+        ScriptedCodexProcess process = new();
+        TaskCompletionSource<JsonObject> approvalResponseSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.StdIn.LineWritten = line =>
+        {
+            JsonObject message = JsonNode.Parse(line)!.AsObject();
+            if (message["id"]?.GetValue<string>() == "server-request-1")
+            {
+                approvalResponseSeen.TrySetResult(message);
+                return;
+            }
+
+            if (message["method"]?.GetValue<string>() != "turn/start")
+            {
+                return;
+            }
+
+            string id = message["id"]!.GetValue<string>();
+            process.EnqueueStdout(TestJson.Message(
+                "item/commandExecution/requestApproval",
+                new JsonObject(),
+                "server-request-1"));
+            process.EnqueueStdout(TestJson.Response(id, new JsonObject { ["ok"] = true }));
+        };
+
+        await using JsonRpcConnection connection = new(
+            process,
+            (_, _) => new JsonObject(),
+            (_, _, _, _) => ValueTask.FromException<JsonObject?>(new InvalidOperationException("policy failed")));
+
+        JsonNode? response = await connection.RequestAsync("turn/start", new JsonObject(), CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        JsonObject approvalResponse = await approvalResponseSeen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(response!["ok"]!.GetValue<bool>());
+        Assert.Equal("decline", approvalResponse["result"]!["decision"]!.GetValue<string>());
+        Assert.Contains("approval handler failed", connection.GetStderrTail(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     [Trait("Requirement", "REQ-CODEX-SDK-TRANSPORT-0247")]
     public async Task PublicOperations_RejectCanceledTokensBeforeStarting()
     {
