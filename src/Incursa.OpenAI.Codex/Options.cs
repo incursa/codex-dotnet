@@ -13,6 +13,42 @@ namespace Incursa.OpenAI.Codex;
 public delegate JsonObject? CodexApprovalHandler(string action, JsonObject? request);
 
 /// <summary>
+/// Represents the decision returned for a runtime approval request.
+/// </summary>
+public enum CodexApprovalDecision
+{
+    /// <summary>Declines the requested operation.</summary>
+    Decline,
+
+    /// <summary>Approves the requested operation.</summary>
+    Accept,
+
+    /// <summary>Approves the requested operation for the current session.</summary>
+    AcceptForSession,
+
+    /// <summary>Cancels the requested operation.</summary>
+    Cancel,
+}
+
+/// <summary>
+/// Describes a server-initiated approval request from the Codex runtime.
+/// </summary>
+/// <param name="RequestId">The JSON-RPC request identifier.</param>
+/// <param name="Method">The JSON-RPC method name.</param>
+/// <param name="Parameters">The raw request parameters, when supplied.</param>
+public sealed record CodexApprovalRequest(string RequestId, string Method, JsonObject? Parameters);
+
+/// <summary>
+/// Handles a runtime approval request asynchronously.
+/// </summary>
+/// <param name="request">The approval request, including its JSON-RPC identity and parameters.</param>
+/// <param name="cancellationToken">A token that is canceled when the Codex transport shuts down.</param>
+/// <returns>The typed decision to send back to the runtime.</returns>
+public delegate ValueTask<CodexApprovalDecision> CodexAsyncApprovalHandler(
+    CodexApprovalRequest request,
+    CancellationToken cancellationToken);
+
+/// <summary>
 /// Represents a value that can be serialized into Codex configuration.
 /// </summary>
 public abstract record CodexConfigValue;
@@ -430,6 +466,12 @@ public sealed class CodexClientOptions
     /// Gets or sets the callback used to handle runtime approval requests.
     /// </summary>
     public CodexApprovalHandler? ApprovalHandler { get; set; }
+
+    /// <summary>
+    /// Gets or sets the asynchronous, typed callback used to handle runtime approval requests.
+    /// When set, <see cref="ApprovalHandler"/> must be <see langword="null"/>.
+    /// </summary>
+    public CodexAsyncApprovalHandler? AsyncApprovalHandler { get; set; }
 
     internal ICodexProcessLauncher? ProcessLauncher { get; set; }
 }

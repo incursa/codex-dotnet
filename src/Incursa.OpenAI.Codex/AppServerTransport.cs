@@ -59,6 +59,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _turnConsumerGate = turnConsumerGate ?? throw new ArgumentNullException(nameof(turnConsumerGate));
+        ValidateApprovalHandlers();
     }
 
     public CodexRuntimeCapabilities Capabilities => SupportedCapabilities;
@@ -69,6 +70,7 @@ internal sealed class CodexAppServerTransport : ICodexTransport
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
+        ValidateApprovalHandlers();
 
         if (_initialized && _metadata is not null)
         {
@@ -86,7 +88,10 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             if (_connection is null)
             {
                 _process = await StartProcessAsync(cancellationToken).ConfigureAwait(false);
-                _connection = new JsonRpcConnection(_process, HandleApprovalRequest);
+                _connection = new JsonRpcConnection(
+                    _process,
+                    HandleApprovalRequest,
+                    _options.AsyncApprovalHandler is null ? null : HandleApprovalRequestAsync);
                 await _connection.InitializeStderrDrainAsync(cancellationToken).ConfigureAwait(false);
             }
 
@@ -1033,13 +1038,47 @@ internal sealed class CodexAppServerTransport : ICodexTransport
             return handled ?? new JsonObject();
         }
 
-        return method switch
-        {
-            "item/commandExecution/requestApproval" => new JsonObject { ["decision"] = "accept" },
-            "item/fileChange/requestApproval" => new JsonObject { ["decision"] = "accept" },
-            _ => new JsonObject(),
-        };
+        return CreateApprovalResponse(CodexApprovalDecision.Decline);
     }
+
+    private async ValueTask<JsonObject?> HandleApprovalRequestAsync(
+        string requestId,
+        string method,
+        JsonObject? request,
+        CancellationToken cancellationToken)
+    {
+        if (_options.AsyncApprovalHandler is not null)
+        {
+            CodexApprovalDecision decision = await _options.AsyncApprovalHandler(
+                new CodexApprovalRequest(requestId, method, request),
+                cancellationToken).ConfigureAwait(false);
+            return CreateApprovalResponse(decision);
+        }
+
+        return HandleApprovalRequest(method, request);
+    }
+
+    private void ValidateApprovalHandlers()
+    {
+        if (_options.ApprovalHandler is not null && _options.AsyncApprovalHandler is not null)
+        {
+            throw new ArgumentException(
+                "Configure either ApprovalHandler or AsyncApprovalHandler, not both.",
+                nameof(_options));
+        }
+    }
+
+    private static JsonObject CreateApprovalResponse(CodexApprovalDecision decision)
+        => new()
+        {
+            ["decision"] = decision switch
+            {
+                CodexApprovalDecision.Accept => "accept",
+                CodexApprovalDecision.AcceptForSession => "acceptForSession",
+                CodexApprovalDecision.Cancel => "cancel",
+                _ => "decline",
+            },
+        };
 
     private async Task DisposeConnectionAsync()
     {

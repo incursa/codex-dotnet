@@ -129,6 +129,12 @@ M:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent.op_Inequality(Incursa.OpenAI.Cod
 M:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent.<Clone>$():Incursa.OpenAI.Codex.CodexAppListUpdatedEvent
 M:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexAppListUpdatedEvent.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexApprovalDecision
+F:Incursa.OpenAI.Codex.CodexApprovalDecision.Accept:Incursa.OpenAI.Codex.CodexApprovalDecision
+F:Incursa.OpenAI.Codex.CodexApprovalDecision.AcceptForSession:Incursa.OpenAI.Codex.CodexApprovalDecision
+F:Incursa.OpenAI.Codex.CodexApprovalDecision.Cancel:Incursa.OpenAI.Codex.CodexApprovalDecision
+F:Incursa.OpenAI.Codex.CodexApprovalDecision.Decline:Incursa.OpenAI.Codex.CodexApprovalDecision
+F:Incursa.OpenAI.Codex.CodexApprovalDecision.value__:System.Int32
 T:Incursa.OpenAI.Codex.CodexApprovalHandler
 C:Incursa.OpenAI.Codex.CodexApprovalHandler(System.Object object, System.IntPtr method)
 M:Incursa.OpenAI.Codex.CodexApprovalHandler.BeginInvoke(System.String action, System.Text.Json.Nodes.JsonObject request, System.AsyncCallback callback, System.Object object):System.IAsyncResult
@@ -160,10 +166,28 @@ M:Incursa.OpenAI.Codex.CodexApprovalPolicy.op_Inequality(Incursa.OpenAI.Codex.Co
 M:Incursa.OpenAI.Codex.CodexApprovalPolicy.<Clone>$():Incursa.OpenAI.Codex.CodexApprovalPolicy
 M:Incursa.OpenAI.Codex.CodexApprovalPolicy.GetHashCode():System.Int32
 M:Incursa.OpenAI.Codex.CodexApprovalPolicy.ToString():System.String
+T:Incursa.OpenAI.Codex.CodexApprovalRequest
+C:Incursa.OpenAI.Codex.CodexApprovalRequest(System.String RequestId, System.String Method, System.Text.Json.Nodes.JsonObject Parameters)
+P:Incursa.OpenAI.Codex.CodexApprovalRequest.Method:System.String get; set;
+P:Incursa.OpenAI.Codex.CodexApprovalRequest.Parameters:System.Text.Json.Nodes.JsonObject get; set;
+P:Incursa.OpenAI.Codex.CodexApprovalRequest.RequestId:System.String get; set;
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.Equals(Incursa.OpenAI.Codex.CodexApprovalRequest other):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.Equals(System.Object obj):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.op_Equality(Incursa.OpenAI.Codex.CodexApprovalRequest left, Incursa.OpenAI.Codex.CodexApprovalRequest right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.op_Inequality(Incursa.OpenAI.Codex.CodexApprovalRequest left, Incursa.OpenAI.Codex.CodexApprovalRequest right):System.Boolean
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.<Clone>$():Incursa.OpenAI.Codex.CodexApprovalRequest
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.GetHashCode():System.Int32
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.ToString():System.String
+M:Incursa.OpenAI.Codex.CodexApprovalRequest.Deconstruct(out System.String RequestId, out System.String Method, out System.Text.Json.Nodes.JsonObject Parameters):System.Void
 T:Incursa.OpenAI.Codex.CodexApprovalsReviewer
 F:Incursa.OpenAI.Codex.CodexApprovalsReviewer.GuardianSubAgent:Incursa.OpenAI.Codex.CodexApprovalsReviewer
 F:Incursa.OpenAI.Codex.CodexApprovalsReviewer.User:Incursa.OpenAI.Codex.CodexApprovalsReviewer
 F:Incursa.OpenAI.Codex.CodexApprovalsReviewer.value__:System.Int32
+T:Incursa.OpenAI.Codex.CodexAsyncApprovalHandler
+C:Incursa.OpenAI.Codex.CodexAsyncApprovalHandler(System.Object object, System.IntPtr method)
+M:Incursa.OpenAI.Codex.CodexAsyncApprovalHandler.BeginInvoke(Incursa.OpenAI.Codex.CodexApprovalRequest request, System.Threading.CancellationToken cancellationToken, System.AsyncCallback callback, System.Object object):System.IAsyncResult
+M:Incursa.OpenAI.Codex.CodexAsyncApprovalHandler.EndInvoke(System.IAsyncResult result):System.Threading.Tasks.ValueTask<Incursa.OpenAI.Codex.CodexApprovalDecision>
+M:Incursa.OpenAI.Codex.CodexAsyncApprovalHandler.Invoke(Incursa.OpenAI.Codex.CodexApprovalRequest request, System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<Incursa.OpenAI.Codex.CodexApprovalDecision>
 T:Incursa.OpenAI.Codex.CodexAuthMode
 F:Incursa.OpenAI.Codex.CodexAuthMode.AgentIdentity:Incursa.OpenAI.Codex.CodexAuthMode
 F:Incursa.OpenAI.Codex.CodexAuthMode.ApiKey:Incursa.OpenAI.Codex.CodexAuthMode
@@ -267,6 +291,7 @@ T:Incursa.OpenAI.Codex.CodexClientOptions
 C:Incursa.OpenAI.Codex.CodexClientOptions()
 P:Incursa.OpenAI.Codex.CodexClientOptions.ApiKey:System.String get; set;
 P:Incursa.OpenAI.Codex.CodexClientOptions.ApprovalHandler:Incursa.OpenAI.Codex.CodexApprovalHandler get; set;
+P:Incursa.OpenAI.Codex.CodexClientOptions.AsyncApprovalHandler:Incursa.OpenAI.Codex.CodexAsyncApprovalHandler get; set;
 P:Incursa.OpenAI.Codex.CodexClientOptions.BackendSelection:Incursa.OpenAI.Codex.CodexBackendSelection get; set;
 P:Incursa.OpenAI.Codex.CodexClientOptions.BaseUrl:System.String get; set;
 P:Incursa.OpenAI.Codex.CodexClientOptions.ClientName:System.String get; set;

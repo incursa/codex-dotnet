@@ -12,6 +12,8 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
 {
     private readonly ICodexProcess _process;
     private readonly Func<string, JsonObject?, JsonObject?> _approvalHandler;
+    private readonly Func<string, string, JsonObject?, CancellationToken, ValueTask<JsonObject?>>? _asyncApprovalHandler;
+    private readonly ConcurrentDictionary<string, TaskCompletionSource> _activeApprovalRequests = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> _pendingRequests = new(StringComparer.Ordinal);
     private readonly Channel<JsonObject> _notificationChannel = Channel.CreateUnbounded<JsonObject>(new UnboundedChannelOptions
@@ -28,10 +30,14 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
     private bool _disposed;
     private bool _started;
 
-    public JsonRpcConnection(ICodexProcess process, Func<string, JsonObject?, JsonObject?> approvalHandler)
+    public JsonRpcConnection(
+        ICodexProcess process,
+        Func<string, JsonObject?, JsonObject?> approvalHandler,
+        Func<string, string, JsonObject?, CancellationToken, ValueTask<JsonObject?>>? asyncApprovalHandler = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
         _approvalHandler = approvalHandler ?? throw new ArgumentNullException(nameof(approvalHandler));
+        _asyncApprovalHandler = asyncApprovalHandler;
     }
 
     public Task InitializeStderrDrainAsync(CancellationToken cancellationToken)
@@ -141,6 +147,7 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
         finally
         {
             await WaitForBackgroundTasksAsync().ConfigureAwait(false);
+            await WaitForApprovalTasksAsync().ConfigureAwait(false);
             _writeGate.Dispose();
             _shutdown.Dispose();
         }
@@ -189,13 +196,19 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
                 }
 
                 JsonObject message = ParseMessage(line);
-                if (TryHandleServerRequest(message, out string requestId, out JsonObject? response))
+                if (TryGetServerRequest(message, out string requestId, out string method, out JsonObject? parameters))
                 {
-                    await WriteMessageAsync(new JsonObject
+                    if (_asyncApprovalHandler is null)
                     {
-                        ["id"] = requestId,
-                        ["result"] = response ?? new JsonObject(),
-                    }, cancellationToken).ConfigureAwait(false);
+                        // Preserve the ordering contract of the source-compatible synchronous
+                        // handler. Only the new asynchronous contract is detached from stdout.
+                        await HandleServerRequestAsync(requestId, method, parameters).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        StartAsyncApprovalRequest(requestId, method, parameters);
+                    }
+
                     continue;
                 }
 
@@ -218,6 +231,7 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
         }
         finally
         {
+            _shutdown.Cancel();
             _notificationChannel.Writer.TryComplete();
         }
     }
@@ -288,6 +302,41 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
         }
     }
 
+    private async Task WaitForApprovalTasksAsync()
+    {
+        Task[] approvalTasks = _activeApprovalRequests.Values
+            .Select(static completion => completion.Task)
+            .ToArray();
+        if (approvalTasks.Length == 0)
+        {
+            return;
+        }
+
+        Task allApprovals = Task.WhenAll(approvalTasks);
+        await Task.WhenAny(allApprovals, Task.Delay(TimeSpan.FromSeconds(1))).ConfigureAwait(false);
+    }
+
+    private void StartAsyncApprovalRequest(string requestId, string method, JsonObject? parameters)
+    {
+        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_activeApprovalRequests.TryAdd(requestId, completion))
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await HandleServerRequestAsync(requestId, method, parameters).ConfigureAwait(false);
+            }
+            finally
+            {
+                completion.TrySetResult();
+            }
+        });
+    }
+
     private async Task WriteMessageAsync(JsonObject message, CancellationToken cancellationToken)
     {
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -312,10 +361,71 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
         _process.StandardInput.Flush();
     }
 
-    private bool TryHandleServerRequest(JsonObject message, out string requestId, out JsonObject? response)
+    private async Task HandleServerRequestAsync(string requestId, string method, JsonObject? parameters)
+    {
+        CancellationToken shutdownToken = _shutdown.Token;
+        try
+        {
+            JsonObject? response;
+            try
+            {
+                response = _asyncApprovalHandler is not null
+                    ? await _asyncApprovalHandler(requestId, method, parameters, shutdownToken).ConfigureAwait(false)
+                    : _approvalHandler(method, parameters);
+            }
+            catch (OperationCanceledException) when (shutdownToken.IsCancellationRequested)
+            {
+                // Shutdown must not turn an interrupted approval into an approval response.
+                return;
+            }
+            catch (Exception exception)
+            {
+                // An approval callback failure is fail-closed. The response is deliberately a
+                // decline decision instead of accepting the operation or terminating stdout
+                // processing for unrelated responses and notifications.
+                response = new JsonObject { ["decision"] = "decline" };
+                lock (_stderrLines)
+                {
+                    _stderrLines.Add($"[approval handler failed] {exception.Message}");
+                }
+            }
+
+            if (shutdownToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            try
+            {
+                await WriteMessageAsync(new JsonObject
+                {
+                    ["id"] = requestId,
+                    ["result"] = response ?? new JsonObject(),
+                }, shutdownToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (shutdownToken.IsCancellationRequested)
+            {
+                // The transport is shutting down; no late response should be emitted.
+            }
+            catch (Exception writeException)
+            {
+                lock (_stderrLines)
+                {
+                    _stderrLines.Add($"[approval response failed] {writeException.Message}");
+                }
+            }
+        }
+        finally
+        {
+            _activeApprovalRequests.TryRemove(requestId, out _);
+        }
+    }
+
+    private bool TryGetServerRequest(JsonObject message, out string requestId, out string method, out JsonObject? parameters)
     {
         requestId = string.Empty;
-        response = null;
+        method = string.Empty;
+        parameters = null;
 
         if (!message.TryGetPropertyValue("method", out JsonNode? methodNode) || methodNode is not JsonValue methodValue)
         {
@@ -328,12 +438,10 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
         }
 
         requestId = idNode.GetValue<string>();
-        string? method = methodValue.GetValue<string>();
-        JsonObject? parameters = message.TryGetPropertyValue("params", out JsonNode? paramsNode) && paramsNode is JsonObject paramsObject
+        method = methodValue.GetValue<string>() ?? string.Empty;
+        parameters = message.TryGetPropertyValue("params", out JsonNode? paramsNode) && paramsNode is JsonObject paramsObject
             ? paramsObject
             : null;
-
-        response = _approvalHandler(method ?? string.Empty, parameters);
         return true;
     }
 
