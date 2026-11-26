@@ -211,18 +211,16 @@ Requirements live under `specs/requirements/codex-sdk`. Architecture records liv
 
 Upstream Python and TypeScript Codex SDK parity state is recorded in
 `quality/upstream-parity.json` and summarized in
-`quality/upstream-parity-gaps.md`. The current review is pinned to upstream
-commit `86a54b051c08f34f373c507ae16a91915ab08700` and compares from
-`319d03056e9b345fe9d129873c3a808c5df783df`. The review covers the high-level
+`quality/upstream-parity-gaps.md`. The parity process covers the high-level
 client, thread, and turn surfaces plus the implemented external-message,
 configuration, reasoning, service-tier, source-attribution, section-filter, and
 thread-history behavior. It retains the generated low-level schema breadth and
 personality compatibility semantics as explicit limitations. Rerun
 `scripts/Invoke-UpstreamParityReview.ps1` when upstream parity is the work item;
-do not treat an old parity file as proof that the current upstream head has no
+do not treat a prior parity result as proof that a later upstream revision has no
 gaps.
 
-## Readiness State
+## Supported surfaces and operational boundaries
 
 Stable surfaces:
 
@@ -239,7 +237,5 @@ Known gaps and maintenance risks:
 - Live smoke tests are skipped unless `CODEX_LIVE_TESTS=1` is explicitly set.
 - Upstream Codex SDK parity must be refreshed when Python or TypeScript SDK behavior changes.
 - `Exec` intentionally lacks app-server-only lifecycle and control capabilities.
-- `dotnet format Incursa.OpenAI.Codex.slnx --verify-no-changes --no-restore` reports broad existing analyzer and formatting findings across source and tests; treat formatter cleanup as a separate code-maintenance change, not as part of a documentation-only pass.
-- Issue templates and a top-level `specs/README.md` are still missing from the broader open-source repository hygiene inventory.
 
 Before a release candidate, maintainers should have a clean local build, test, pack, and `git diff --check` result, plus explicit notes about any skipped live Codex checks.
