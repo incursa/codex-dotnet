@@ -168,8 +168,8 @@ See [`samples/Incursa.OpenAI.Codex.Sample/README.md`](samples/Incursa.OpenAI.Cod
 
 - Live behavior depends on the installed `codex` executable, local Codex authentication, and upstream runtime behavior.
 - `Exec` intentionally lacks app-server-only lifecycle and control capabilities.
-- Upstream Python and TypeScript Codex SDK parity was reviewed at commit [`86a54b051c08f34f373c507ae16a91915ab08700`](https://github.com/openai/codex/commit/86a54b051c08f34f373c507ae16a91915ab08700). The main high-level client, thread, turn, external-message, config, and current protocol surfaces are covered. The review retains the distinction between high-level parity and exhaustive generated-schema parity, and documents personality compatibility behavior. See [`quality/upstream-parity-gaps.md`](quality/upstream-parity-gaps.md).
-- The repo still has maintenance items called out in [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md).
+- Upstream Python and TypeScript Codex SDK behavior informs the high-level client, thread, turn, external-message, configuration, and protocol surfaces. Generated-schema parity is not a package claim. See the [`upstream parity policy`](quality/upstream-parity-gaps.md).
+- Operational boundaries and release checks are documented in [`docs/maintainer-readiness.md`](docs/maintainer-readiness.md).
 
 ## License
 
